@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "contextos": {
+      "command": "python",
+      "args": ["C:\\Users\\Rishi\\OneDrive\\Desktop\\contextOS\\contextos\\mcp-server\\server.py"],
+      "env": {
+        "CONTEXTOS_API_URL": "http://localhost:8000",
+        "CONTEXTOS_API_KEY": "ctxos_your_key_here"
+      }
+    }
+  }
+}

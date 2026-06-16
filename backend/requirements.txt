@@ -1,0 +1,43 @@
+# Web framework
+fastapi==0.111.1
+uvicorn[standard]==0.30.1
+
+# Database
+sqlalchemy==2.0.31
+asyncpg>=0.29.0           # async driver used by the FastAPI engine (postgresql+asyncpg://)
+psycopg2-binary>=2.9.9   # sync driver used by Alembic migrations (postgresql+psycopg2://)
+greenlet>=3.0.0
+
+# Auth
+PyJWT==2.8.0
+cryptography==42.0.8
+httpx==0.27.0             # for fetching Clerk JWKS
+
+# Pydantic / validation
+pydantic==2.8.2
+pydantic-settings==2.3.4
+email-validator==2.2.0
+
+# File handling
+python-multipart==0.0.9
+aiofiles==23.2.1
+pypdf==4.3.1              # PDF text extraction
+
+# Storage
+supabase==2.5.3
+
+# Billing
+razorpay==1.4.2
+setuptools>=68.0.0        # required by razorpay on Python 3.12+
+
+# Rate limiting
+slowapi==0.1.9
+
+# Config / logging
+python-dotenv==1.0.1
+structlog==24.2.0
+
+# Testing
+pytest==8.2.2
+pytest-asyncio==0.23.7
+aiosqlite>=0.20.0         # SQLite async driver for tests

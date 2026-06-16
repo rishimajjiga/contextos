@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ContextOS</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f0f1a;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      width: 360px;
+      height: 540px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Glow background ── */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -80px; left: 50%;
+      transform: translateX(-50%);
+      width: 300px; height: 200px;
+      background: radial-gradient(ellipse, rgba(99,102,241,0.18) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* ── Header ── */
+    .header { flex-shrink: 0;
+      background: linear-gradient(135deg, rgba(99,102,241,0.9) 0%, rgba(139,92,246,0.9) 100%);
+      backdrop-filter: blur(12px);
+      padding: 14px 16px 13px;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      position: relative;
+      overflow: hidden;
+    }
+    .header::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 1px;
+      background: rgba(255,255,255,0.15);
+    }
+    .header-logo {
+      width: 34px; height: 34px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .header-title  { font-size: 15px; font-weight: 800; letter-spacing: -0.3px; }
+    .header-sub    { font-size: 10px; opacity: 0.65; margin-top: 1px; letter-spacing: 0.2px; }
+    .header-pill {
+      margin-left: auto;
+      background: rgba(255,255,255,0.15);
+      border-radius: 20px;
+      padding: 3px 9px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    /* ── Tabs ── */
+    .tabs { flex-shrink: 0;
+      display: flex;
+      background: #14142a;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding: 0 4px;
+    }
+    .tab {
+      flex: 1;
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.32);
+      cursor: pointer;
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 11px 4px 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      transition: color 0.15s;
+      border-bottom: 2px solid transparent;
+      display: flex; align-items: center; justify-content: center;
+      gap: 5px;
+      margin-bottom: -1px;
+    }
+    .tab.active { color: #a5b4fc; border-bottom-color: #6366F1; }
+    .tab:hover:not(.active) { color: rgba(255,255,255,0.55); }
+
+    /* ── Panels ── */
+    .panel { display: none; padding: 14px; flex-direction: column; gap: 11px; flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.08) transparent; }
+    .panel.active { display: flex; }
+
+    /* ── Inputs ── */
+    input[type="text"], input[type="password"], textarea {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 13px;
+      outline: none;
+      padding: 9px 12px;
+      transition: border-color 0.15s, background 0.15s;
+      width: 100%;
+    }
+    input[type="text"]:focus, input[type="password"]:focus, textarea:focus {
+      border-color: rgba(99,102,241,0.6);
+      background: rgba(255,255,255,0.07);
+    }
+    input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.2); }
+
+    /* ── Field label ── */
+    .field-label {
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 0.7px; text-transform: uppercase;
+      color: rgba(255,255,255,0.32);
+      margin-bottom: 5px;
+    }
+
+    /* ── Buttons ── */
+    button {
+      background: #6366F1;
+      border: none; border-radius: 10px;
+      color: #fff; cursor: pointer;
+      font-family: inherit; font-size: 12px; font-weight: 700;
+      padding: 9px 14px;
+      white-space: nowrap;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    button:hover  { opacity: 0.88; }
+    button:active { transform: scale(0.97); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    .btn-ghost {
+      background: rgba(255,255,255,0.07);
+      color: rgba(255,255,255,0.55);
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,0.11); opacity: 1; }
+    .btn-sm { padding: 6px 11px; font-size: 11px; border-radius: 8px; }
+    .btn-danger { background: rgba(239,68,68,0.15); color: #F87171; }
+    .btn-danger:hover { background: rgba(239,68,68,0.22); opacity: 1; }
+
+    /* ── Search row ── */
+    .search-row {
+      display: flex; gap: 6px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px;
+      padding: 6px 10px;
+      align-items: center;
+    }
+    .search-row-icon { font-size: 13px; flex-shrink: 0; opacity: 0.4; }
+    .search-row input {
+      background: transparent; border: none;
+      border-radius: 0; padding: 2px 0;
+      font-size: 13px;
+    }
+    .search-row input:focus { border-color: transparent; background: transparent; }
+
+    /* ── Memory list ── */
+    .memory-list {
+      display: flex; flex-direction: column; gap: 7px;
+    }
+    .memory-item {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 11px;
+      padding: 10px 12px;
+      cursor: default;
+      transition: background 0.12s, border-color 0.12s;
+      position: relative;
+    }
+    .memory-item:hover {
+      background: rgba(255,255,255,0.07);
+      border-color: rgba(99,102,241,0.25);
+    }
+    .memory-item-top { display: flex; align-items: flex-start; gap: 8px; }
+    .memory-type-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      flex-shrink: 0; margin-top: 4px;
+    }
+    .memory-item-title { font-size: 12px; font-weight: 700; flex: 1; line-height: 1.4; }
+    .memory-item-preview {
+      color: rgba(255,255,255,0.38);
+      font-size: 11px; line-height: 1.5;
+      margin-top: 5px;
+    }
+    .memory-item-footer {
+      display: flex; align-items: center; gap: 6px;
+      margin-top: 8px;
+    }
+    .memory-type-badge {
+      font-size: 9px; font-weight: 700;
+      letter-spacing: 0.4px;
+      padding: 2px 7px; border-radius: 20px;
+      text-transform: uppercase;
+    }
+    .type-note      { background: rgba(99,102,241,0.18);  color: #a5b4fc; }
+    .type-code      { background: rgba(16,185,129,0.14);  color: #6ee7b7; }
+    .type-reference { background: rgba(245,158,11,0.14);  color: #fcd34d; }
+    .type-idea      { background: rgba(236,72,153,0.14);  color: #f9a8d4; }
+    .type-other     { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.45); }
+    .memory-item-tags { display: flex; flex-wrap: wrap; gap: 3px; }
+    .tag {
+      background: rgba(255,255,255,0.06);
+      border-radius: 4px;
+      color: rgba(255,255,255,0.35);
+      font-size: 10px; font-weight: 600;
+      padding: 1px 6px;
+    }
+    .empty-state {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 8px; padding: 28px 16px;
+      text-align: center; color: rgba(255,255,255,0.28);
+      font-size: 12px;
+    }
+    .empty-state-icon { font-size: 30px; opacity: 0.5; }
+
+    /* ── Status ── */
+    .status-msg {
+      color: rgba(255,255,255,0.3);
+      font-size: 12px; text-align: center;
+      padding: 6px 0; min-height: 24px;
+    }
+    .status-msg.error   { color: #F87171; }
+    .status-msg.success { color: #34D399; }
+
+    /* ── SAVE TAB ── */
+    .save-page-bar {
+      display: flex; align-items: center; gap: 9px;
+      background: rgba(99,102,241,0.08);
+      border: 1px solid rgba(99,102,241,0.2);
+      border-radius: 10px; padding: 9px 12px;
+      transition: background 0.15s;
+    }
+    .save-page-favicon { width: 15px; height: 15px; border-radius: 3px; flex-shrink: 0; }
+    .save-page-info { flex: 1; min-width: 0; }
+    .save-page-title {
+      font-size: 11px; font-weight: 600;
+      color: rgba(255,255,255,0.75);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .save-page-domain { font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 1px; }
+    .save-page-pill {
+      font-size: 9px; font-weight: 700;
+      background: rgba(99,102,241,0.22); color: #a5b4fc;
+      padding: 3px 8px; border-radius: 20px; flex-shrink: 0;
+    }
+
+    /* Type chips */
+    .type-chips { display: flex; gap: 6px; }
+    .type-chip {
+      flex: 1;
+      background: rgba(255,255,255,0.04);
+      border: 1.5px solid rgba(255,255,255,0.07);
+      border-radius: 9px;
+      color: rgba(255,255,255,0.38);
+      cursor: pointer; font-family: inherit;
+      font-size: 11px; font-weight: 700;
+      padding: 7px 4px; text-align: center;
+      transition: all 0.13s;
+    }
+    .type-chip:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.65); }
+    .type-chip.active-note      { background: rgba(99,102,241,0.2);  border-color: #6366F1; color: #a5b4fc; }
+    .type-chip.active-code      { background: rgba(16,185,129,0.14); border-color: #10B981; color: #6ee7b7; }
+    .type-chip.active-reference { background: rgba(245,158,11,0.14); border-color: #F59E0B; color: #fcd34d; }
+    .type-chip.active-idea      { background: rgba(236,72,153,0.14); border-color: #EC4899; color: #f9a8d4; }
+
+    .content-wrapper { position: relative; }
+    .char-bar { height: 2px; border-radius: 2px; margin-top: 5px; transition: width .2s, background .2s; background: #6366F1; width: 0%; }
+    .char-counter { font-size: 10px; color: rgba(255,255,255,0.25); text-align: right; margin-top: 3px; }
+    .char-counter.warn { color: #F59E0B; }
+    .char-counter.over { color: #EF4444; }
+    #save-content { resize: none; }
+
+    /* Tags */
+    .tags-area {
+      display: flex; flex-wrap: wrap; gap: 5px; align-items: center;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px; padding: 6px 10px; min-height: 36px; cursor: text;
+    }
+    .tags-area:focus-within { border-color: rgba(99,102,241,0.5); }
+    .tag-pill {
+      display: flex; align-items: center; gap: 4px;
+      background: rgba(99,102,241,0.2); border-radius: 20px;
+      color: #a5b4fc; font-size: 11px; font-weight: 600;
+      padding: 3px 9px;
+    }
+    .tag-pill-x { cursor: pointer; opacity: 0.5; font-size: 13px; line-height: 1; }
+    .tag-pill-x:hover { opacity: 1; }
+    #save-tags-input {
+      background: transparent; border: none; border-radius: 0;
+      color: #fff; flex: 1; font-size: 12px;
+      min-width: 80px; outline: none; padding: 2px 0;
+    }
+    #save-tags-input::placeholder { color: rgba(255,255,255,0.2); }
+
+    .save-btn-main {
+      width: 100%; padding: 12px; font-size: 13px;
+      border-radius: 11px;
+      background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+      box-shadow: 0 4px 20px rgba(99,102,241,0.4);
+      letter-spacing: 0.2px;
+    }
+    .save-btn-main:hover { opacity: 0.9; box-shadow: 0 6px 24px rgba(99,102,241,0.5); }
+
+    /* Success */
+    .save-success {
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 10px; padding: 36px 20px;
+      text-align: center; animation: popIn 0.28s ease;
+    }
+    .save-success.show { display: flex; }
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.85); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+    .success-icon  { font-size: 46px; line-height: 1; }
+    .success-title { font-size: 16px; font-weight: 800; }
+    .success-sub   { font-size: 12px; color: rgba(255,255,255,0.4); line-height: 1.6; max-width: 220px; }
+    .success-actions { display: flex; gap: 8px; margin-top: 4px; }
+
+    /* ── Settings ── */
+    .settings-section {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 11px; padding: 12px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .settings-section-title {
+      font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.7px;
+      color: rgba(255,255,255,0.3);
+    }
+    .toggle-row {
+      display: flex; align-items: center;
+      justify-content: space-between; padding: 2px 0;
+    }
+    .toggle-label { font-size: 13px; color: rgba(255,255,255,0.65); }
+    .toggle-sub   { font-size: 10px; color: rgba(255,255,255,0.28); margin-top: 2px; }
+    input[type="checkbox"] {
+      width: 38px; height: 21px; cursor: pointer; accent-color: #6366F1;
+      flex-shrink: 0;
+    }
+    .btn-row { display: flex; gap: 7px; }
+
+    /* ── Footer ── */
+    .footer { flex-shrink: 0;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      color: rgba(255,255,255,0.15);
+      font-size: 10px; padding: 9px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .footer a { color: inherit; text-decoration: none; }
+    .footer a:hover { color: rgba(255,255,255,0.35); }
+
+    /* ── Login ── */
+
+    /* Upgrade banner inside memories list */
+    .upgrade-banner {
+      background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.08));
+      border: 1px solid rgba(99,102,241,0.3);
+      border-radius: 11px; padding: 14px;
+      text-align: center; margin-top: 4px;
+    }
+    .upgrade-banner-title { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+    .upgrade-banner-sub   { font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 12px; line-height: 1.5; }
+    .upgrade-banner-btn {
+      display: inline-block; background: linear-gradient(135deg,#6366F1,#8B5CF6);
+      border: none; border-radius: 9px; color: #fff; cursor: pointer;
+      font-size: 12px; font-weight: 700; padding: 8px 20px;
+      box-shadow: 0 4px 14px rgba(99,102,241,0.4);
+      text-decoration: none;
+    }
+
+    #screen-login {
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 22px; padding: 44px 24px;
+      text-align: center; min-height: 400px;
+    }
+    .login-brand { font-size: 52px; line-height: 1; }
+    .login-glow {
+      width: 90px; height: 90px; border-radius: 28px;
+      background: linear-gradient(135deg, #6366F1, #8B5CF6);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 40px;
+      box-shadow: 0 8px 32px rgba(99,102,241,0.5);
+    }
+    .login-title { font-size: 20px; font-weight: 800; letter-spacing: -0.4px; margin-bottom: -8px; }
+    .login-sub   { font-size: 13px; color: rgba(255,255,255,0.4); line-height: 1.6; max-width: 240px; }
+    #connect-btn {
+      width: 100%; padding: 14px; font-size: 14px; border-radius: 12px;
+      background: linear-gradient(135deg, #6366F1, #8B5CF6);
+      box-shadow: 0 6px 24px rgba(99,102,241,0.45);
+    }
+
+    #screen-main  {
+      display: none;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+    #screen-main.visible  { display: flex; }
+    #screen-login { flex: 1; }
+    #screen-login.visible { display: flex; }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="screen-login">
+  <div class="login-glow">🧠</div>
+  <div>
+    <div class="login-title">ContextOS</div>
+  </div>
+  <div class="login-sub">Connect your account to save and inject memories across all your AI tools.</div>
+  <button id="connect-btn">Connect with ContextOS →</button>
+  <div id="connect-status" class="status-msg"></div>
+</div>
+
+<!-- MAIN SCREEN -->
+<div id="screen-main">
+
+  <div class="header">
+    <div class="header-logo">🧠</div>
+    <div>
+      <div class="header-title">ContextOS</div>
+      <div class="header-sub" id="header-version">AI Memory Layer</div>
+    </div>
+    <div class="header-pill">✦ Active</div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="memories">💡 Memories</button>
+    <button class="tab" data-tab="save">✨ Save</button>
+    <button class="tab" data-tab="settings">⚙️ Settings</button>
+  </div>
+
+  <!-- ── MEMORIES TAB ── -->
+  <div id="tab-memories" class="panel active">
+    <div class="search-row">
+      <span class="search-row-icon">🔍</span>
+      <input id="search-input" type="text" placeholder="Search your memories…" />
+      <button id="search-btn" class="btn-sm" style="flex-shrink:0">Search</button>
+    </div>
+    <div id="memory-list" class="memory-list">
+      <div class="status-msg">Loading…</div>
+    </div>
+  </div>
+
+  <!-- ── SAVE TAB ── -->
+  <div id="tab-save" class="panel">
+    <div id="save-form">
+
+      <!-- Current page capture -->
+      <div id="page-capture-bar" class="save-page-bar" style="display:none">
+        <img id="page-favicon" class="save-page-favicon" src="" alt="" />
+        <div class="save-page-info">
+          <div id="page-title-text" class="save-page-title"></div>
+          <div id="page-domain-text" class="save-page-domain"></div>
+        </div>
+        <span class="save-page-pill">📎 Captured</span>
+      </div>
+
+      <!-- Title -->
+      <div>
+        <div class="field-label">Title</div>
+        <input id="save-title" type="text" placeholder="Name this memory…" maxlength="120" />
+      </div>
+
+      <!-- Type chips -->
+      <div>
+        <div class="field-label">Type</div>
+        <div class="type-chips">
+          <button class="type-chip active-note" data-type="note">📝 Note</button>
+          <button class="type-chip" data-type="code">💻 Code</button>
+          <button class="type-chip" data-type="reference">🔗 Ref</button>
+          <button class="type-chip" data-type="idea">💡 Idea</button>
+        </div>
+      </div>
+
+      <!-- Content -->
+      <div>
+        <div class="field-label">Content</div>
+        <div class="content-wrapper">
+          <textarea id="save-content" rows="5" placeholder="Paste notes, code, a URL, or anything you want to remember…"></textarea>
+          <div class="char-bar-wrap" style="height:2px;background:rgba(255,255,255,0.07);border-radius:2px;margin-top:4px">
+            <div id="char-bar" class="char-bar"></div>
+          </div>
+          <div id="char-counter" class="char-counter">0 / 4000</div>
+        </div>
+      </div>
+
+      <!-- Tags -->
+      <div>
+        <div class="field-label">Tags</div>
+        <div class="tags-area" id="tags-area">
+          <input id="save-tags-input" type="text" placeholder="Add a tag and press Enter…" />
+        </div>
+      </div>
+
+      <button class="save-btn-main" id="save-btn">💾 Save Memory</button>
+      <div id="save-status" class="status-msg"></div>
+    </div>
+
+    <!-- Success overlay -->
+    <div id="save-success" class="save-success">
+      <div class="success-icon">🎉</div>
+      <div class="success-title">Saved!</div>
+      <div class="success-sub" id="success-sub">Your AI tools will now have access to this memory.</div>
+      <div class="success-actions">
+        <button id="save-another-btn" class="btn-ghost btn-sm">+ Save another</button>
+        <button id="view-memories-btn" class="btn-sm" style="background:rgba(99,102,241,0.2);color:#a5b4fc">View all</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SETTINGS TAB ── -->
+  <div id="tab-settings" class="panel">
+
+    <div class="settings-section">
+      <div class="settings-section-title">Connection</div>
+      <div>
+        <div class="field-label">API URL</div>
+        <input id="api-url" type="text" placeholder="http://localhost:8000" />
+      </div>
+      <div>
+        <div class="field-label">API Key</div>
+        <input id="api-key" type="password" placeholder="ctxos_…" />
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Behaviour</div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Auto-suggest memories</div>
+          <div class="toggle-sub">Show related memories as you type in AI tools</div>
+        </div>
+        <input id="auto-inject" type="checkbox" checked />
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button id="save-settings-btn" style="flex:1">Save Settings</button>
+      <button id="test-btn" class="btn-ghost" style="flex:1">Test Connection</button>
+    </div>
+    <div id="settings-status" class="status-msg"></div>
+  </div>
+
+  <div class="footer">
+    <span>ContextOS · AI Memory</span>
+    <a href="http://localhost:5173/settings" target="_blank">Open app ↗</a>
+  </div>
+
+</div><!-- end #screen-main -->
+
+<script src="popup.js"></script>
+</body>
+</html>

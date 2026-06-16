@@ -1,0 +1,11 @@
+2026-06-15 05:23:13,387 INFO ContextOS MCP server starting up
+2026-06-15 05:23:13,391 DEBUG Initializing server 'ContextOS'
+2026-06-15 05:23:13,391 DEBUG Registering handler for ListToolsRequest
+2026-06-15 05:23:13,391 DEBUG Registering handler for CallToolRequest
+2026-06-15 05:23:13,391 DEBUG Registering handler for ListResourcesRequest
+2026-06-15 05:23:13,391 DEBUG Registering handler for ReadResourceRequest
+2026-06-15 05:23:13,391 DEBUG Registering handler for PromptListRequest
+2026-06-15 05:23:13,392 DEBUG Registering handler for GetPromptRequest
+2026-06-15 05:23:13,392 DEBUG Registering handler for ListResourceTemplatesRequest
+2026-06-15 05:23:13,405 INFO Calling mcp.run() with stdio transport
+2026-06-15 05:23:13,411 DEBUG Using proactor: IocpProactor
