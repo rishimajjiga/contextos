@@ -13,12 +13,6 @@ function GracePeriodBanner() {
 
   if (!plan.is_in_grace_period) return null;
 
-  const daysLeft = plan.grace_period_end
-    ? Math.max(0, Math.ceil(
-        (new Date(plan.grace_period_end).getTime() - Date.now()) / 86_400_000
-      ))
-    : 0;
-
   const deleteDate = plan.grace_period_end
     ? new Date(plan.grace_period_end).toLocaleDateString("en-IN", {
         day: "numeric", month: "short", year: "numeric",
@@ -38,7 +32,7 @@ function GracePeriodBanner() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      // silently fail — user can retry
+      // silently fail
     } finally {
       setDownloading(false);
     }
@@ -112,7 +106,6 @@ export function AppLayout() {
           </main>
         </div>
       </div>
-
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
     </AuthProvider>
   );
