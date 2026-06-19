@@ -2,6 +2,7 @@
 app/config/settings.py
 Centralised settings loaded from environment variables via Pydantic Settings.
 """
+import sys
 from typing import List
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -19,15 +20,17 @@ class Settings(BaseSettings):
     app_name: str = "ContextOS"
     app_env: str = "development"
     debug: bool = False
-    secret_key: str = Field(..., min_length=32)
+    # secret_key is not used by the app (Clerk handles auth); default avoids
+    # startup failure when the env var is absent or short.
+    secret_key: str = Field(default="default-secret-key-not-used-by-app")
 
     # Database
-    database_url: str
+    database_url: str = ""
 
     # Clerk
-    clerk_secret_key: str
-    clerk_publishable_key: str
-    clerk_jwks_url: str
+    clerk_secret_key: str = ""
+    clerk_publishable_key: str = ""
+    clerk_jwks_url: str = ""
 
     # Supabase
     supabase_url: str = ""
@@ -37,7 +40,7 @@ class Settings(BaseSettings):
 
     # CORS — always include the Vercel production URL so env-var parsing issues
     # can never lock out the frontend.
-    cors_origins: str | List[str] = [
+    cors_origins: List[str] = [
         "http://localhost:5173",
         "http://localhost:3000",
         "https://contextos-eta.vercel.app",
@@ -45,7 +48,7 @@ class Settings(BaseSettings):
 
     @field_validator("cors_origins", mode="before")
     @classmethod
-    def parse_cors_origins(cls, v: str | List[str]) -> List[str]:
+    def parse_cors_origins(cls, v) -> List[str]:
         if isinstance(v, str):
             v_stripped = v.strip()
             if v_stripped.startswith("[") and v_stripped.endswith("]"):
@@ -54,8 +57,14 @@ class Settings(BaseSettings):
                     return json.loads(v_stripped)
                 except Exception:
                     pass
-            return [origin.strip() for origin in v.split(",")]
-        return v
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        if isinstance(v, list):
+            return v
+        return [
+            "http://localhost:5173",
+            "http://localhost:3000",
+            "https://contextos-eta.vercel.app",
+        ]
 
     # Razorpay
     razorpay_key_id: str = ""
@@ -88,4 +97,12 @@ class Settings(BaseSettings):
         return self.app_env == "production"
 
 
-settings = Settings()
+try:
+    settings = Settings()
+except Exception as exc:
+    print(
+        f"[ContextOS] FATAL: Settings() failed — {type(exc).__name__}: {exc}",
+        file=sys.stderr,
+        flush=True,
+    )
+    raise
