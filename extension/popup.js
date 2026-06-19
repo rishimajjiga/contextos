@@ -243,7 +243,7 @@ async function loadMemories(force = false) {
   list.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
   try {
     const data   = await sendMsg("LIST_MEMORY", { page: 1, perPage: 50 });
-    _allMemories = data.items || [];
+    _allMemories = Array.isArray(data) ? data : (data.items || []);
     _memLoaded   = true;
     renderMemList();
   } catch (err) {
@@ -305,6 +305,53 @@ function renderDocItem(d, showDelete = false) {
     </div>`;
 }
 
+
+// ── Plan usage display ────────────────────────────────────────────────────────
+
+async function loadPlanUsage() {
+  try {
+    const plan = await sendMsg("GET_PLAN");
+    const used  = plan?.usage?.memories ?? 0;
+    const limit = plan?.limits?.memories ?? -1;
+    const name  = plan?.display_name ?? "Free";
+
+    // Update header status text
+    const txt = document.getElementById("hdr-status-text");
+    if (txt) {
+      txt.textContent = limit > 0
+        ? `${name} · ${used}/${limit} memories`
+        : `${name} plan`;
+    }
+
+    // Show upgrade prompt in memories panel if at limit
+    if (limit > 0 && used >= limit) {
+      const banner = document.getElementById("mem-usage-bar");
+      if (banner) {
+        banner.innerHTML = `<div class="upgrade-banner" style="margin-bottom:8px">
+          <div class="upgrade-title">🔒 ${used}/${limit} memories used</div>
+          <div class="upgrade-sub">You've reached the ${name} limit. Upgrade for unlimited memories.</div>
+          <button id="upgrade-btn-usage" class="btn-full btn-primary-grad" style="font-size:12px;padding:8px">⚡ Upgrade Plan</button>
+        </div>`;
+        document.getElementById("upgrade-btn-usage")?.addEventListener("click", () => {
+          getAppUrl("/pricing").then(url => chrome.tabs.create({ url }));
+        });
+      }
+    } else if (limit > 0) {
+      const bar = document.getElementById("mem-usage-bar");
+      if (bar) {
+        const pct = Math.min(Math.round((used / limit) * 100), 100);
+        bar.innerHTML = `<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin-bottom:4px">
+          <span>${used}/${limit} memories used</span><span>${name} plan</span></div>
+          <div style="height:3px;border-radius:2px;background:var(--surface-hover)">
+            <div style="height:3px;border-radius:2px;background:var(--accent);width:${pct}%"></div>
+          </div>`;
+      }
+    }
+  } catch (_) {
+    // Non-critical
+  }
+}
+
 function renderUpgradeBanner() {
   return `<div class="upgrade-banner">
     <div class="upgrade-title">🔒 Memory limit reached</div>
@@ -330,7 +377,7 @@ async function loadProjects(force = false) {
   list.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
   try {
     const data = await sendMsg("LIST_PROJECTS");
-    _projects  = data.items || [];
+    _projects  = data.items || data || [];
     _projLoaded = true;
     renderProjects();
     // Also populate the project selector in Save tab
@@ -634,16 +681,22 @@ document.getElementById("open-app-btn").onclick = async () => {
 
 document.getElementById("disconnect-btn").onclick = async () => {
   if (!confirm("Disconnect from ContextOS? Your data stays safe.")) return;
-  await new Promise(r => chrome.storage.sync.remove(["apiKey"], r));
+  // Clear key AND urls so the next connect flow sets them fresh
+  await new Promise(r => chrome.storage.sync.remove(["apiKey", "apiUrl", "frontendUrl"], r));
   window.location.reload();
 };
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 
 async function getAppUrl(path = "") {
-  const { apiUrl } = await new Promise(r => chrome.storage.sync.get(["apiUrl"], r));
+  const r = await new Promise(res => chrome.storage.sync.get(["apiUrl", "frontendUrl"], res));
+  // Prefer the stored frontendUrl (set during connect flow)
+  if (r.frontendUrl) {
+    try { return new URL(r.frontendUrl).origin + path; } catch (_) {}
+  }
+  // Legacy fallback: derive frontend URL from backend URL (only works when both are on localhost)
   try {
-    const u = new URL(apiUrl || "http://localhost:8000");
+    const u = new URL(r.apiUrl || "http://localhost:8000");
     const port = u.port === "8000" ? "5173" : (u.port || "");
     return `${u.protocol}//${u.hostname}${port ? ":"+port : ""}${path}`;
   } catch (_) { return `http://localhost:5173${path}`; }
@@ -652,11 +705,8 @@ async function getAppUrl(path = "") {
 function updateFooterLink(apiUrl) {
   const link = document.getElementById("footer-app-link");
   if (!link) return;
-  try {
-    const u = new URL(apiUrl || "http://localhost:8000");
-    const port = u.port === "8000" ? "5173" : (u.port || "");
-    link.href = `${u.protocol}//${u.hostname}${port ? ":"+port : ""}`;
-  } catch (_) {}
+  // getAppUrl is async; we fire-and-forget just to update the href
+  getAppUrl("").then(url => { if (link) link.href = url; }).catch(() => {});
 }
 
 function formatDate(iso) {
@@ -685,18 +735,33 @@ function initConnectFlow() {
     btn.textContent = "Opening…";
     status.textContent = "Sign in to your ContextOS account in the new tab.";
 
-    const stored = await new Promise(r => chrome.storage.sync.get(["apiUrl"], r));
+    const stored = await new Promise(r => chrome.storage.sync.get(["apiUrl", "frontendUrl"], r));
     let frontendBase = "http://localhost:5173";
-    try {
-      const u = new URL(stored.apiUrl || "http://localhost:8000");
-      const port = u.port === "8000" ? "5173" : (u.port || "");
-      frontendBase = `${u.protocol}//${u.hostname}${port ? ":"+port : ""}`;
-    } catch (_) {}
+    // Prefer stored frontendUrl; fall back to deriving from apiUrl (localhost only)
+    if (stored.frontendUrl) {
+      try { frontendBase = new URL(stored.frontendUrl).origin; } catch (_) {}
+    } else {
+      try {
+        const u = new URL(stored.apiUrl || "http://localhost:8000");
+        const port = u.port === "8000" ? "5173" : (u.port || "");
+        frontendBase = `${u.protocol}//${u.hostname}${port ? ":"+port : ""}`;
+      } catch (_) {}
+    }
 
-    const tab = await chrome.tabs.create({
-      url: frontendBase + "/connect-extension",
-      active: true,
-    });
+    // Open a small focused popup window — much better UX than a full tab
+    let authWin;
+    try {
+      authWin = await chrome.windows.create({
+        url: frontendBase + "/connect-extension",
+        type: "popup",
+        width: 460,
+        height: 660,
+        focused: true,
+      });
+    } catch (_) {
+      // Fallback: open as a normal tab if windows.create isn't available
+      authWin = await chrome.tabs.create({ url: frontendBase + "/connect-extension", active: true });
+    }
 
     let waited = 0;
     const poll = setInterval(async () => {
@@ -704,9 +769,14 @@ function initConnectFlow() {
       const r = await new Promise(res => chrome.storage.sync.get(["apiKey"], res));
       if (r.apiKey) {
         clearInterval(poll);
-        try { await chrome.tabs.remove(tab.id); } catch (_) {}
+        // Close the auth window
+        try {
+          if (authWin.id) await chrome.windows.remove(authWin.id);
+        } catch (_) {
+          try { if (authWin.id) await chrome.tabs.remove(authWin.id); } catch (__) {}
+        }
         window.location.reload();
-      } else if (waited > 120) {
+      } else if (waited > 180) {
         clearInterval(poll);
         btn.disabled = false;
         btn.textContent = "Connect with ContextOS →";
@@ -714,42 +784,4 @@ function initConnectFlow() {
         status.style.color = "#f87171";
       }
     }, 1000);
-  };
-}
-
-// ── INIT ──────────────────────────────────────────────────────────────────────
-
-async function init() {
-  // Show version
-  try {
-    const v = chrome.runtime.getManifest().version;
-    const el = document.getElementById("ext-version");
-    if (el) el.textContent = v;
-  } catch (_) {}
-
-  const { apiUrl, apiKey } = await new Promise(r =>
-    chrome.storage.sync.get(["apiUrl","apiKey"], r)
-  );
-
-  if (!apiKey) {
-    showScreen("login");
-    initConnectFlow();
-    return;
-  }
-
-  showScreen("main");
-  updateFooterLink(apiUrl);
-
-  // Load initial data
-  refreshStatusDot();
-  loadMemories();  // pre-load memories so tab is instant
-
-  // Make footer app link work
-  document.getElementById("footer-app-link").onclick = async (e) => {
-    e.preventDefault();
-    const url = await getAppUrl("/dashboard");
-    chrome.tabs.create({ url });
-  };
-}
-
-init();
+  

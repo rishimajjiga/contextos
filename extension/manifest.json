@@ -14,6 +14,7 @@
   "host_permissions": [
     "http://localhost/*",
     "https://app.contextos.dev/*",
+    "https://contextos-eta.vercel.app/*",
     "https://*.run.app/*",
     "https://claude.ai/*",
     "https://chatgpt.com/*",
@@ -52,7 +53,8 @@
       "matches": [
         "http://localhost:5173/connect-extension*",
         "http://localhost:5174/connect-extension*",
-        "https://app.contextos.dev/connect-extension*"
+        "https://app.contextos.dev/connect-extension*",
+        "https://contextos-eta.vercel.app/connect-extension*"
       ],
       "js": ["connect.js"],
       "run_at": "document_idle"
@@ -61,7 +63,8 @@
       "matches": [
         "http://localhost:5173/*",
         "http://localhost:5174/*",
-        "https://app.contextos.dev/*"
+        "https://app.contextos.dev/*",
+        "https://contextos-eta.vercel.app/*"
       ],
       "js": ["website-bridge.js"],
       "run_at": "document_idle",

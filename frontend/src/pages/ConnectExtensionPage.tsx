@@ -2,23 +2,35 @@
  * /connect-extension
  *
  * Opened by the Chrome extension popup when the user has no API key.
- * 1. Requires Clerk login (redirects back here after sign-in).
- * 2. Auto-creates an API key named "Chrome Extension".
- * 3. Writes the key to a hidden DOM element (#ctx-api-key[data-key]).
- *    The extension's background.js polls this element every second and
- *    saves the key automatically — no manual copy-paste needed.
- * 4. Shows a success screen; the extension closes this tab after ~2 s.
+ * Shows a Clerk sign-in form if the user is not authenticated.
+ * After sign-in, auto-creates an API key and passes it back to the
+ * extension via the URL hash, which background.js reads automatically.
  */
 
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@clerk/clerk-react";
+import { useAuth, SignIn } from "@clerk/clerk-react";
 
-type Stage = "loading" | "connecting" | "success" | "error";
+type Stage = "loading" | "signing-in" | "connecting" | "success" | "error";
+
+const CLERK_APPEARANCE = {
+  variables: {
+    colorPrimary: "#6366f1",
+    colorBackground: "hsl(240 5% 7%)",
+    colorInputBackground: "hsl(240 4% 14%)",
+    colorText: "hsl(0 0% 95%)",
+    colorTextSecondary: "hsl(240 5% 55%)",
+    colorInputText: "hsl(0 0% 95%)",
+    borderRadius: "0.5rem",
+  },
+  elements: {
+    card: "shadow-none border border-border bg-card",
+    headerTitle: "hidden",
+    headerSubtitle: "hidden",
+  },
+};
 
 export function ConnectExtensionPage() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
-  const navigate = useNavigate();
 
   const [stage, setStage] = useState<Stage>("loading");
   const [errorMsg, setErrorMsg] = useState("");
@@ -26,26 +38,19 @@ export function ConnectExtensionPage() {
 
   useEffect(() => {
     if (!isLoaded) return;
-
     if (!isSignedIn) {
-      // Preserve the full path + query so Clerk brings us back here after sign-in
-      const returnTo = encodeURIComponent(
-        window.location.pathname + window.location.search
-      );
-      navigate(`/sign-in?redirect_url=${returnTo}`);
+      setStage("signing-in");
       return;
     }
-
+    // Already signed in — proceed to create API key
     if (didConnect.current) return;
     didConnect.current = true;
+    setStage("connecting");
     connectExtension();
   }, [isLoaded, isSignedIn]);
 
   async function connectExtension() {
-    setStage("connecting");
     try {
-      // Get the Clerk JWT directly — this page is outside AppLayout so the
-      // shared Axios interceptor has no token getter. Fetch directly instead.
       const token = await getToken();
       if (!token) throw new Error("Could not get auth token — please sign in again.");
 
@@ -66,12 +71,22 @@ export function ConnectExtensionPage() {
 
       const created = await res.json();
 
-      // Signal the extension by putting the key in the URL hash.
-      // chrome.tabs.onUpdated fires on every URL/hash change, waking the
-      // service worker which reads and saves the key automatically.
-      window.location.hash = "key=" + encodeURIComponent(created.key);
+      // Signal the extension via URL hash.
+      // background.js watches for hash changes on /connect-extension pages
+      // and saves the key + URLs automatically.
+      const backendUrl = base;
+      const frontendUrl = window.location.origin;
+      window.location.hash =
+        "key=" + encodeURIComponent(created.key) +
+        "&apiUrl=" + encodeURIComponent(backendUrl) +
+        "&frontendUrl=" + encodeURIComponent(frontendUrl);
 
       setStage("success");
+
+      // Auto-close the popup window after 2 s
+      setTimeout(() => {
+        try { window.close(); } catch (_) {}
+      }, 2000);
     } catch (err: any) {
       setStage("error");
       setErrorMsg(err?.message ?? "Something went wrong. Please try again.");
@@ -79,50 +94,57 @@ export function ConnectExtensionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-surface-0 flex items-center justify-center p-6">
-      <div className="bg-surface-1 border border-border rounded-2xl p-10 max-w-md w-full text-center shadow-xl">
-        <div className="text-5xl mb-5">🧠</div>
-        <h1 className="text-2xl font-bold text-text-primary mb-2">ContextOS</h1>
-        <p className="text-text-secondary text-sm mb-8">Chrome Extension Setup</p>
+    <div className="min-h-screen flex items-center justify-center p-6"
+      style={{ background: "hsl(240 5% 4%)" }}>
+      <div style={{
+        background: "hsl(240 5% 7%)",
+        border: "1px solid hsl(240 5% 16%)",
+        borderRadius: "1rem",
+        padding: "2.5rem 2rem",
+        maxWidth: "420px",
+        width: "100%",
+        textAlign: "center",
+      }}>
+        <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>🧠</div>
+        <h1 style={{
+          fontSize: "1.25rem", fontWeight: 800,
+          color: "hsl(0 0% 95%)", marginBottom: "0.25rem",
+        }}>ContextOS</h1>
+        <p style={{
+          fontSize: "0.8rem", color: "hsl(240 5% 55%)",
+          marginBottom: stage === "signing-in" ? "1.5rem" : "2rem",
+        }}>Chrome Extension Setup</p>
 
+        {/* ── Not signed in: show Clerk sign-in form ── */}
+        {stage === "signing-in" && (
+          <SignIn
+            routing="hash"
+            afterSignInUrl="/connect-extension"
+            appearance={CLERK_APPEARANCE}
+          />
+        )}
+
+        {/* ── Loading ── */}
         {stage === "loading" && (
-          <p className="text-text-secondary">Checking your account…</p>
+          <p style={{ color: "hsl(240 5% 55%)", fontSize: "0.875rem" }}>
+            Checking your account…
+          </p>
         )}
 
+        {/* ── Creating API key ── */}
         {stage === "connecting" && (
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-text-secondary">Creating your API key…</p>
-          </div>
-        )}
-
-        {stage === "success" && (
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-14 h-14 bg-green-500/10 rounded-full flex items-center justify-center text-3xl">
-              ✓
-            </div>
-            <p className="text-green-400 font-semibold text-lg">Connected!</p>
-            <p className="text-text-secondary text-sm">
-              Your ContextOS memory is now available in ChatGPT, Claude, Gemini,
-              and all supported AI tools. This tab will close automatically.
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem" }}>
+            <div style={{
+              width: "2rem", height: "2rem",
+              border: "2px solid hsl(240 5% 20%)",
+              borderTop: "2px solid #6366f1",
+              borderRadius: "50%",
+              animation: "spin 0.7s linear infinite",
+            }} />
+            <p style={{ color: "hsl(240 5% 55%)", fontSize: "0.875rem" }}>
+              Connecting your extension…
             </p>
           </div>
         )}
 
-        {stage === "error" && (
-          <div className="flex flex-col items-center gap-4">
-            <div className="text-3xl">⚠️</div>
-            <p className="text-red-400 font-semibold">Connection failed</p>
-            <p className="text-text-secondary text-sm">{errorMsg}</p>
-            <button
-              onClick={() => { didConnect.current = false; connectExtension(); }}
-              className="mt-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-semibold transition-colors"
-            >
-              Try Again
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+        {/* ── Success ──

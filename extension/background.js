@@ -52,21 +52,38 @@ chrome.tabs.onUpdated.addListener((_tabId, changeInfo, _tab) => {
   const apiKey = decodeURIComponent(match[1]);
   if (!apiKey.startsWith("ctxos_")) return;
 
-  // Derive the backend API URL from the frontend URL
+  // Prefer the explicit apiUrl passed in the hash (set by ConnectExtensionPage).
+  // Fall back to deriving it from the frontend origin for older deployments.
   let apiUrl = DEFAULT_API_URL;
-  try {
-    const u = new URL(parsed.origin);
-    if (u.port === "5173" || u.port === "5174") {
-      // Local dev: frontend is on 5173/5174, backend is on 8000
-      apiUrl = `${u.protocol}//${u.hostname}:8000`;
-    } else {
-      // Production: backend is co-hosted at same origin (or user sets it in settings)
-      apiUrl = u.origin;
-    }
-  } catch (_) {}
+  const apiUrlMatch = parsed.hash.match(/[#&]apiUrl=([^&]+)/);
+  if (apiUrlMatch) {
+    try {
+      apiUrl = new URL(decodeURIComponent(apiUrlMatch[1])).origin;
+    } catch (_) {}
+  } else {
+    // Legacy fallback: guess backend URL from frontend origin
+    try {
+      const u = new URL(parsed.origin);
+      if (u.port === "5173" || u.port === "5174") {
+        apiUrl = `${u.protocol}//${u.hostname}:8000`;
+      } else {
+        apiUrl = u.origin;
+      }
+    } catch (_) {}
+  }
 
-  chrome.storage.sync.set({ apiKey, apiUrl }, () => {
-    console.log("[ContextOS] API key + URL saved via tabs.onUpdated.");
+  // Also read frontendUrl from the hash if provided
+  let frontendUrl = "";
+  const frontendUrlMatch = parsed.hash.match(/[#&]frontendUrl=([^&]+)/);
+  if (frontendUrlMatch) {
+    try { frontendUrl = new URL(decodeURIComponent(frontendUrlMatch[1])).origin; } catch (_) {}
+  }
+
+  const toSave = { apiKey, apiUrl };
+  if (frontendUrl) toSave.frontendUrl = frontendUrl;
+
+  chrome.storage.sync.set(toSave, () => {
+    console.log("[ContextOS] API key + URLs saved via tabs.onUpdated.", { apiUrl, frontendUrl });
   });
 });
 
@@ -99,12 +116,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     const title = (info.selectionText.slice(0, 60) + (info.selectionText.length > 60 ? "…" : ""))
       .replace(/\n/g, " ").trim();
     try {
-      await apiRequest("/api/v1/documents", "POST", {
+      await apiRequest("/api/v1/memories", "POST", {
         title,
         content: info.selectionText,
-        doc_type: "note",
         tags: ["quick-save"],
-        visibility: "private",
       });
       cacheInvalidate("list:", "search:", "context:");
       chrome.action.setBadgeText({ text: "✓", tabId: tab?.id });
@@ -120,12 +135,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "save-page" && tab?.url) {
     const title = (tab.title || tab.url).slice(0, 120);
     try {
-      await apiRequest("/api/v1/documents", "POST", {
+      await apiRequest("/api/v1/memories", "POST", {
         title,
         content: `Source: ${tab.url}\n\nSaved from: ${tab.title || tab.url}`,
-        doc_type: "other",
         tags: ["webpage"],
-        visibility: "private",
       });
       cacheInvalidate("list:", "search:", "context:");
       chrome.action.setBadgeText({ text: "✓", tabId: tab.id });
@@ -217,11 +230,11 @@ async function handleMessage(msg) {
     // ── Documents (memories) ─────────────────────────────────────────────────
 
     case "LIST_MEMORY": {
-      const page    = msg.page    || 1;
       const perPage = msg.perPage || 20;
-      const key = `list:${page}:${perPage}`;
+      const key = `list:${perPage}`;
       return deduped(key, async () => {
-        const data = await apiRequest(`/api/v1/documents?page=${page}&per_page=${perPage}`);
+        // API returns an array directly
+        const data = await apiRequest(`/api/v1/memories?limit=${perPage}`);
         cacheSet(key, data, CACHE_TTL.list);
         return data;
       });
@@ -229,30 +242,30 @@ async function handleMessage(msg) {
 
     case "SEARCH_MEMORY": {
       const q     = (msg.query || "").trim();
-      const limit = msg.limit || 10;
-      const key   = `search:${q.toLowerCase()}:${limit}`;
+      const limit = msg.limit || 20;
+      const key   = `search:${q.toLowerCase()}`;
       return deduped(key, async () => {
-        const data = await apiRequest("/api/v1/search", "POST", { query: q, limit });
+        // GET with ?q= for server-side title/content search
+        const enc  = encodeURIComponent(q);
+        const data = await apiRequest(`/api/v1/memories?q=${enc}&limit=${limit}`);
         cacheSet(key, data, CACHE_TTL.search);
         return data;
       });
     }
 
     case "SAVE_MEMORY": {
-      const result = await apiRequest("/api/v1/documents", "POST", {
+      const result = await apiRequest("/api/v1/memories", "POST", {
         title:      msg.title,
         content:    msg.content,
-        doc_type:   msg.doc_type   || "note",
         tags:       msg.tags       || [],
         project_id: msg.project_id || null,
-        visibility: "private",
       });
       cacheInvalidate("list:", "search:", "context:");
       return result;
     }
 
     case "DELETE_MEMORY": {
-      await apiRequest(`/api/v1/documents/${msg.id}`, "DELETE");
+      await apiRequest(`/api/v1/memories/${msg.id}`, "DELETE");
       cacheInvalidate("list:", "search:", "context:");
       return { deleted: true };
     }
@@ -297,8 +310,9 @@ async function handleMessage(msg) {
     case "GET_CONTEXT": {
       const key = "context:merged";
       return deduped(key, async () => {
-        const data = await apiRequest("/api/v1/documents?page=1&per_page=50");
-        const items = data.items || [];
+        // API returns an array directly
+        const data = await apiRequest("/api/v1/memories?limit=50");
+        const items = Array.isArray(data) ? data : (data.items || []);
         const context = items
           .slice(0, 10)
           .map((d) => `[${d.title}]\n${(d.content || "").slice(0, 300)}`)
@@ -353,13 +367,4 @@ async function handleMessage(msg) {
       if (!res.ok) return { saved: false, reason: `http_${res.status}` };
 
       const created = await res.json();
-      await chrome.storage.sync.set({ apiKey: created.key, apiUrl: base });
-      cacheInvalidate("list:", "search:", "context:", "projects:");
-      console.log("[ContextOS] Auto-connected via Clerk JWT.");
-      return { saved: true };
-    }
-
-    default:
-      throw new Error(`Unknown message type: ${msg.type}`);
-  }
-}
+      await chrome.storage.sync.s
