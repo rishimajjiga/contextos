@@ -15,13 +15,13 @@ const PLANS = (billing: Billing) => [
     priceUSD: "$0",
     priceNote: "forever",
     annualNote: null,
-    description: "Try ContextOS with no commitment.",
+    description: "Capture ideas, save notes, and organize your first projects — free forever.",
     cta: "Get started free",
     featured: false,
     badge: null,
     features: [
-      "10 memories",
-      "1 project",
+      "20 memories",
+      "2 projects",
       "3 auto-injections / day",
       "1 API key",
       "Chrome extension",
@@ -40,8 +40,8 @@ const PLANS = (billing: Billing) => [
     featured: false,
     badge: "1 month free",
     features: [
-      "100 memories",
-      "3 projects",
+      "200 memories",
+      "5 projects",
       "Unlimited auto-inject",
       "3 API keys",
       "Chrome extension (all features)",
@@ -56,12 +56,12 @@ const PLANS = (billing: Billing) => [
     priceUSD: billing === "annual" ? "$3.95" : "$5.25",
     priceNote: "/ month",
     annualNote: billing === "annual" ? "billed ₹4,499 / year (~$47)" : "or ₹4,499 / year (save ₹1,500)",
-    description: "Unlimited memory. The full ContextOS experience.",
+    description: "Unlimited memories and projects. The full second brain experience.",
     cta: billing === "annual" ? "Get Pro — Annual" : "Upgrade to Pro",
     featured: true,
     badge: billing === "annual" ? "Save ₹1,500" : null,
     features: [
-      "500 memories",
+      "Unlimited memories",
       "Unlimited projects",
       "Unlimited auto-inject",
       "5 API keys",
@@ -77,7 +77,7 @@ const PLANS = (billing: Billing) => [
     priceUSD: billing === "annual" ? "$14.90" : "$15.80",
     priceNote: "/ month",
     annualNote: billing === "annual" ? "billed ₹16,999 / year (~$179)" : "or ₹16,999 / year (save ₹980)",
-    description: "Shared memory for up to 5 teammates.",
+    description: "A shared second brain for your whole team.",
     cta: billing === "annual" ? "Get Team — Annual" : "Upgrade to Team",
     featured: false,
     badge: billing === "annual" ? "Save ₹980" : null,
@@ -344,7 +344,7 @@ export function PricingPage() {
           <p className="text-indigo-400 text-sm font-medium mb-3 tracking-wide uppercase">Pricing</p>
           <h1 className="text-4xl font-bold text-text-primary mb-4">Simple, honest pricing</h1>
           <p className="text-text-secondary text-lg max-w-xl mx-auto">
-            Start free. Upgrade when you need more memory.
+            Start free. Upgrade when your knowledge grows.
           </p>
         </div>
 
@@ -488,7 +488,7 @@ export function PricingPage() {
               },
               {
                 q: "What counts as a memory?",
-                a: "Every chat you save from ChatGPT, Claude, Gemini, or any supported AI tool is one memory. Uploaded documents also count.",
+                a: "Any note, idea, document, prompt, or file you save counts as one memory. Capture from anywhere — the web, AI tools, or directly in the app.",
               },
               {
                 q: "Will my memories be deleted if I downgrade?",

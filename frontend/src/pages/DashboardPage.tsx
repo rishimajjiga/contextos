@@ -51,10 +51,10 @@ function OnboardingChecklist({
   hasKey: boolean;
 }) {
   const steps = [
-    { done: hasProfile, label: "Fill out your profile", href: "/profile", hint: "Tell AI tools who you are and how you work.", icon: User },
-    { done: hasProject, label: "Create a project", href: "/projects", hint: "Organise your work so AI understands the context.", icon: FolderKanban },
-    { done: hasKey, label: "Generate an API key", href: "/api-keys", hint: "Connect Claude Desktop, Cursor, or the browser extension.", icon: FileText },
-    { done: hasKey, label: "Install Chrome extension", href: "/api-keys", hint: "Save memories and get AI suggestions directly in ChatGPT, Claude, and Gemini.", icon: Chrome },
+    { done: hasProfile, label: "Complete your profile", href: "/profile", hint: "Tell ContextOS who you are so your knowledge stays organized.", icon: User },
+    { done: hasProject, label: "Create your first project", href: "/projects", hint: "Organize your work into dedicated project workspaces.", icon: FolderKanban },
+    { done: hasKey, label: "Generate an API key", href: "/api-keys", hint: "Connect ContextOS to your tools and the browser extension.", icon: FileText },
+    { done: hasKey, label: "Install Chrome extension", href: "/api-keys", hint: "Save memories and capture knowledge from anywhere on the web.", icon: Chrome },
   ];
   const allDone = steps.every(s => s.done);
   if (allDone) return null;
@@ -65,7 +65,7 @@ function OnboardingChecklist({
     <Card className="mb-6 border-brand-500/20 bg-brand-500/5">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-semibold">Get started with ContextOS</CardTitle>
+          <CardTitle className="text-sm font-semibold">Set up your second brain</CardTitle>
           <span className="text-xs text-muted-foreground">{completed}/{steps.length} done</span>
         </div>
         <div className="mt-2 h-1 w-full rounded-full bg-surface-3">
@@ -77,7 +77,7 @@ function OnboardingChecklist({
       </CardHeader>
       <CardContent className="pt-0 space-y-2">
         {steps.map(({ done, label, href, hint }) => (
-          <Link key={href} to={href} className="flex items-start gap-3 rounded-lg px-3 py-2.5 hover:bg-accent transition-colors group">
+          <Link key={href + label} to={href} className="flex items-start gap-3 rounded-lg px-3 py-2.5 hover:bg-accent transition-colors group">
             {done
               ? <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
               : <Circle className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
@@ -126,7 +126,7 @@ export function DashboardPage() {
     <div>
       <PageHeader
         title={`${greeting()}, ${user?.firstName || "there"}`}
-        description="Your AI context at a glance."
+        description="Your knowledge, organized."
         action={
           <Link to="/projects">
             <Button size="sm" className="gap-2">
@@ -136,7 +136,6 @@ export function DashboardPage() {
         }
       />
 
-      {/* Onboarding checklist — shown until all 3 setup steps are done */}
       {!profileLoading && keysLoaded && (
         <OnboardingChecklist
           hasProfile={!!profile}
@@ -178,8 +177,9 @@ export function DashboardPage() {
               <div className="py-8 text-center">
                 <FolderKanban className="mx-auto h-8 w-8 text-muted-foreground mb-3 opacity-40" />
                 <p className="text-sm text-muted-foreground">No projects yet</p>
+                <p className="text-xs text-muted-foreground mt-1 mb-4">Create a workspace for your first project</p>
                 <Link to="/projects">
-                  <Button variant="outline" size="sm" className="mt-4">Create a project</Button>
+                  <Button variant="outline" size="sm">Create a project</Button>
                 </Link>
               </div>
             ) : (
@@ -210,7 +210,7 @@ export function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Recent Documents */}
+        {/* Recent Memories */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -227,10 +227,11 @@ export function DashboardPage() {
               <SkeletonCard />
             ) : documents.length === 0 ? (
               <div className="py-8 text-center">
-                <FileText className="mx-auto h-8 w-8 text-muted-foreground mb-3 opacity-40" />
+                <Brain className="mx-auto h-8 w-8 text-muted-foreground mb-3 opacity-40" />
                 <p className="text-sm text-muted-foreground">No memories saved yet</p>
+                <p className="text-xs text-muted-foreground mt-1 mb-4">Capture ideas, notes, and knowledge here</p>
                 <Link to="/documents">
-                  <Button variant="outline" size="sm" className="mt-4">Save your first memory</Button>
+                  <Button variant="outline" size="sm">Save your first memory</Button>
                 </Link>
               </div>
             ) : (

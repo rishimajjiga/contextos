@@ -6,9 +6,14 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import DeclarativeBase
 from app.config import settings
 
-# asyncpg needs statement_cache_size=0 when routed through PgBouncer (Supabase production).
-# psycopg3 (local dev) doesn't support that option — only apply it for asyncpg URLs.
-_connect_args = {"statement_cache_size": 0} if "asyncpg" in settings.database_url else {}
+# PgBouncer (Supabase pooler) requires prepared statements to be disabled.
+# asyncpg: statement_cache_size=0  |  psycopg3: prepare_threshold=0
+if "asyncpg" in settings.database_url:
+    _connect_args = {"statement_cache_size": 0}
+elif "pooler.supabase.com" in settings.database_url:
+    _connect_args = {"prepare_threshold": 0}
+else:
+    _connect_args = {}
 
 engine = create_async_engine(
     settings.database_url,

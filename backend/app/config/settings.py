@@ -73,10 +73,15 @@ class Settings(BaseSettings):
 
     @property
     def sync_database_url(self) -> str:
-        """Synchronous database URL for Alembic migrations."""
-        return self.database_url.replace(
-            "postgresql+asyncpg://", "postgresql+psycopg2://"
-        )
+        """Synchronous database URL for Alembic migrations.
+        Converts any async driver prefix (asyncpg or psycopg3) to psycopg2.
+        """
+        url = self.database_url
+        # psycopg3 async driver: postgresql+psycopg://
+        url = url.replace("postgresql+psycopg://", "postgresql+psycopg2://")
+        # asyncpg async driver: postgresql+asyncpg://
+        url = url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
+        return url
 
 
 # Module-level singleton — import this everywhere

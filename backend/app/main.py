@@ -29,34 +29,42 @@ async def lifespan(app: FastAPI):
     # Create tables if they don't exist (dev convenience).
     # In production, use Alembic migrations instead.
     if not settings.is_production:
-        async with engine.begin() as conn:
-            # Idempotent column additions introduced after initial table creation.
-            await conn.execute(sa.text(
-                "ALTER TABLE IF EXISTS documents "
-                "ADD COLUMN IF NOT EXISTS visibility VARCHAR(16) NOT NULL DEFAULT 'private'"
-            ))
-            await conn.run_sync(Base.metadata.create_all)
-            # thread_events table (added 2026-06-18)
-            await conn.execute(sa.text(
-                "CREATE TABLE IF NOT EXISTS thread_events ("
-                "    id VARCHAR(36) PRIMARY KEY,"
-                "    project_id VARCHAR(36) NOT NULL REFERENCES projects(id) ON DELETE CASCADE,"
-                "    user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,"
-                "    event_type VARCHAR(64) NOT NULL,"
-                "    title VARCHAR(255) NOT NULL,"
-                "    detail TEXT NOT NULL DEFAULT '',"
-                "    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),"
-                "    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
-                ")"
-            ))
-            await conn.execute(sa.text(
-                "CREATE INDEX IF NOT EXISTS ix_thread_events_project_id "
-                "ON thread_events (project_id)"
-            ))
-            await conn.execute(sa.text(
-                "CREATE INDEX IF NOT EXISTS ix_thread_events_user_id "
-                "ON thread_events (user_id)"
-            ))
+        try:
+            async with engine.begin() as conn:
+                # Idempotent column additions introduced after initial table creation.
+                await conn.execute(sa.text(
+                    "ALTER TABLE IF EXISTS documents "
+                    "ADD COLUMN IF NOT EXISTS visibility VARCHAR(16) NOT NULL DEFAULT 'private'"
+                ))
+                await conn.run_sync(Base.metadata.create_all)
+                # thread_events table (added 2026-06-18)
+                await conn.execute(sa.text(
+                    "CREATE TABLE IF NOT EXISTS thread_events ("
+                    "    id VARCHAR(36) PRIMARY KEY,"
+                    "    project_id VARCHAR(36) NOT NULL REFERENCES projects(id) ON DELETE CASCADE,"
+                    "    user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,"
+                    "    event_type VARCHAR(64) NOT NULL,"
+                    "    title VARCHAR(255) NOT NULL,"
+                    "    detail TEXT NOT NULL DEFAULT '',"
+                    "    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),"
+                    "    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
+                    ")"
+                ))
+                await conn.execute(sa.text(
+                    "CREATE INDEX IF NOT EXISTS ix_thread_events_project_id "
+                    "ON thread_events (project_id)"
+                ))
+                await conn.execute(sa.text(
+                    "CREATE INDEX IF NOT EXISTS ix_thread_events_user_id "
+                    "ON thread_events (user_id)"
+                ))
+            log.info("Database tables ready")
+        except Exception as exc:
+            log.warning(
+                "DB startup check failed — server will start anyway. "
+                "Check your DATABASE_URL and that Supabase is not paused.",
+                error=str(exc),
+            )
 
     yield
 
@@ -72,7 +80,7 @@ limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(
     title="ContextOS API",
-    description="The memory layer for AI -- store identity, projects, and knowledge once.",
+    description="Remember everything. Your second brain for creators and developers.",
     version="0.1.0",
     docs_url="/docs" if not settings.is_production else None,
     redoc_url="/redoc" if not settings.is_production else None,

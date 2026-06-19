@@ -77,14 +77,14 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
         </div>
         <div>
           <p className="text-sm font-semibold text-foreground">ContextOS</p>
-          <p className="text-[10px] text-muted-foreground">Memory layer for AI</p>
+          <p className="text-[10px] text-muted-foreground">Your second brain</p>
         </div>
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
         <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-          Navigation
+          Workspace
         </p>
         {navItems.map(({ href, label, icon: Icon }) => (
           <Link
@@ -130,7 +130,6 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
           </Link>
         ))}
 
-        {/* Plan badge for paid users */}
         {plan && plan.plan !== "free" && (
           <Link
             to="/pricing"
@@ -144,7 +143,6 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
           </Link>
         )}
 
-        {/* User */}
         {user && (
           <div className="mt-2 flex items-center gap-2.5 rounded-md px-3 py-2">
             {user.imageUrl ? (

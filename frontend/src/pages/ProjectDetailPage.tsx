@@ -531,78 +531,72 @@ export function ProjectDetailPage() {
             ) : threadEvents.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground gap-2">
                 <GitCommit className="h-8 w-8 opacity-30" />
-                <p className="text-sm">No events yet.</p>
-                <p className="text-xs">Create a document or update the project to start the thread.</p>
+                <p className="text-sm">No events yet</p>
+                <p className="text-xs opacity-60">Events are logged automatically as you add documents and update the project.</p>
               </div>
             ) : (
-              <ol className="relative border-l border-border ml-3 space-y-0">
-                {threadEvents.map((event) => {
+              <div className="space-y-3">
+                {threadEvents.map((ev) => {
                   const Icon =
-                    event.event_type === "project_created" ? FolderOpen
-                    : event.event_type === "file_uploaded" ? File
-                    : event.event_type === "project_updated" ? Save
-                    : StickyNote;
-
-                  const iconColor =
-                    event.event_type === "project_created" ? "text-brand-400"
-                    : event.event_type === "file_uploaded" ? "text-purple-400"
-                    : event.event_type === "project_updated" ? "text-yellow-400"
-                    : "text-emerald-400";
-
+                    ev.event_type === "document_added" ? StickyNote
+                    : ev.event_type === "file_uploaded" ? FileText
+                    : ev.event_type === "project_updated" ? FolderOpen
+                    : GitCommit;
                   return (
-                    <li key={event.id} className="ml-6 pb-8">
-                      <span className={`absolute -left-3 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-surface-2 ${iconColor}`}>
-                        <Icon className="h-3 w-3" />
-                      </span>
-                      <p className="text-sm font-medium text-foreground leading-tight">{event.title}</p>
-                      {event.detail && (
-                        <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{event.detail}</p>
-                      )}
-                      <time className="mt-1 block text-[10px] text-muted-foreground/60">
-                        {new Date(event.created_at).toLocaleString(undefined, {
-                          month: "short", day: "numeric",
-                          hour: "2-digit", minute: "2-digit",
-                        })}
-                      </time>
-                    </li>
+                    <div key={ev.id} className="flex gap-3 items-start">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-surface-2 mt-0.5">
+                        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-foreground">{ev.title}</p>
+                        {ev.detail && (
+                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{ev.detail}</p>
+                        )}
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {formatRelativeTime(ev.created_at)}
+                        </p>
+                      </div>
+                    </div>
                   );
                 })}
-              </ol>
+              </div>
             )}
           </TabsContent>
         </Tabs>
       </form>
 
-      {limitError && (
-        <UpgradeModal
-          resource={limitError.resource as "documents" | "projects"}
-          limit={limitError.limit}
-          plan={limitError.plan}
-          onClose={() => setLimitError(null)}
-        />
-      )}
-
-      {/* Delete project confirmation */}
+      {/* Delete confirmation */}
       <Dialog open={showDelete} onOpenChange={setShowDelete}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete "{selectedProject.name}"?</DialogTitle>
+            <DialogTitle>Delete project?</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            This will permanently delete the project and all its documents. This action cannot be undone.
+          <p className="text-sm text-muted-foreground mt-2">
+            This will permanently delete <strong>{selectedProject.name}</strong> and all its documents. This cannot be undone.
           </p>
-          <DialogFooter className="pt-2">
+          <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setShowDelete(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete}>Delete project</Button>
+            <Button variant="destructive" onClick={handleDelete}>Delete</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Add document dialog */}
       <AddDocDialog
         open={showAddDoc}
         onClose={() => setShowAddDoc(false)}
         onAdd={handleAddDoc}
       />
+
+      {/* Plan limit upgrade modal */}
+      {limitError && (
+        <UpgradeModal
+          onClose={() => setLimitError(null)}
+          resource={limitError.resource as "documents" | "projects"}
+          limit={limitError.limit}
+          plan={limitError.plan}
+        />
+      )}
     </div>
   );
 }
