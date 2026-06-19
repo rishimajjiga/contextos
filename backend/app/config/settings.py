@@ -15,27 +15,27 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # ── App ────────────────────────────────────────────────────────────────
+    # App
     app_name: str = "ContextOS"
     app_env: str = "development"
     debug: bool = False
     secret_key: str = Field(..., min_length=32)
 
-    # ── Database ──────────────────────────────────────────────────────────
+    # Database
     database_url: str
 
-    # ── Clerk ─────────────────────────────────────────────────────────────
+    # Clerk
     clerk_secret_key: str
     clerk_publishable_key: str
     clerk_jwks_url: str
 
-    # ── Supabase (file storage — removed from MVP; kept as optional for migrations) ──
+    # Supabase
     supabase_url: str = ""
     supabase_anon_key: str = ""
     supabase_service_key: str = ""
     supabase_bucket: str = "contextos-documents"
 
-    # ── CORS ──────────────────────────────────────────────────────────────
+    # CORS
     cors_origins: str | List[str] = ["http://localhost:5173"]
 
     @field_validator("cors_origins", mode="before")
@@ -43,7 +43,6 @@ class Settings(BaseSettings):
     def parse_cors_origins(cls, v: str | List[str]) -> List[str]:
         if isinstance(v, str):
             v_stripped = v.strip()
-            # If it looks like a JSON array, parse it as JSON
             if v_stripped.startswith("[") and v_stripped.endswith("]"):
                 import json
                 try:
@@ -53,30 +52,35 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in v.split(",")]
         return v
 
-    # ── Razorpay ──────────────────────────────────────────────────────────
-    razorpay_key_id: str = ""              # rzp_test_xxx / rzp_live_xxx
+    # Razorpay
+    razorpay_key_id: str = ""
     razorpay_key_secret: str = ""
     razorpay_webhook_secret: str = ""
-    razorpay_pro_plan_id: str = ""         # Pro monthly plan_xxx
-    razorpay_pro_annual_plan_id: str = ""  # Pro annual plan_xxx
-    razorpay_team_plan_id: str = ""        # Team monthly plan_yyy
-    razorpay_team_annual_plan_id: str = "" # Team annual plan_yyy
-    razorpay_student_plan_id: str = ""     # Student plan_zzz
+    razorpay_pro_plan_id: str = ""
+    razorpay_pro_annual_plan_id: str = ""
+    razorpay_team_plan_id: str = ""
+    razorpay_team_annual_plan_id: str = ""
+    razorpay_student_plan_id: str = ""
 
-    # ── Frontend ──────────────────────────────────────────────────────────
+    # Frontend
     frontend_url: str = "https://contextos-eta.vercel.app"
 
-    # ── Email (SMTP) ──────────────────────────────────────────────────────
+    # Email (SMTP)
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_user: str = ""
     smtp_pass: str = ""
     email_from: str = "noreply@contextos.app"
 
-    # ── Cron ──────────────────────────────────────────────────────────────
-    cron_secret: str = ""   # Set this in Railway env vars; required by /api/v1/cron/daily
+    # Cron
+    cron_secret: str = ""
 
-    # ── Rate limiting ─────────────────────────────────────────────────────
+    # Rate limiting
     rate_limit_per_minute: int = 60
 
-    # ─�
+    @property
+    def is_production(self) -> bool:
+        return self.app_env == "production"
+
+
+settings = Settings()
