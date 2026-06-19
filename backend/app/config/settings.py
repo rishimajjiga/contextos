@@ -35,8 +35,13 @@ class Settings(BaseSettings):
     supabase_service_key: str = ""
     supabase_bucket: str = "contextos-documents"
 
-    # CORS
-    cors_origins: str | List[str] = ["http://localhost:5173"]
+    # CORS — always include the Vercel production URL so env-var parsing issues
+    # can never lock out the frontend.
+    cors_origins: str | List[str] = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://contextos-eta.vercel.app",
+    ]
 
     @field_validator("cors_origins", mode="before")
     @classmethod
