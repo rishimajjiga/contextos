@@ -3,6 +3,8 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
+    { "source": "/api/v1/:path*", "destination": "https://contextos-production-d82a.up.railway.app/api/v1/:path*" },
+    { "source": "/health", "destination": "https://contextos-production-d82a.up.railway.app/health" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [

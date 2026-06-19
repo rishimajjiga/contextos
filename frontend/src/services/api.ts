@@ -1,6 +1,6 @@
 import axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig } from "axios";
 
-const BASE_URL = import.meta.env.VITE_API_URL || "https://contextos-production-d82a.up.railway.app";
+const BASE_URL = import.meta.env.VITE_API_URL || "";  // empty = relative URL, proxied via Vercel to Railway
 
 export const apiClient: AxiosInstance = axios.create({
   baseURL: `${BASE_URL}/api/v1`,
