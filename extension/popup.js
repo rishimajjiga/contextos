@@ -737,14 +737,17 @@ function initConnectFlow() {
 
     const stored = await new Promise(r => chrome.storage.sync.get(["apiUrl", "frontendUrl"], r));
     let frontendBase = "https://contextos-eta.vercel.app";
-    // Prefer stored frontendUrl; fall back to deriving from apiUrl (localhost only)
+    // Prefer stored frontendUrl; only derive from apiUrl when on localhost
     if (stored.frontendUrl) {
       try { frontendBase = new URL(stored.frontendUrl).origin; } catch (_) {}
-    } else {
+    } else if (stored.apiUrl) {
       try {
-        const u = new URL(stored.apiUrl || "https://contextos-production-d82a.up.railway.app");
-        const port = u.port === "8000" ? "5173" : (u.port || "");
-        frontendBase = `${u.protocol}//${u.hostname}${port ? ":"+port : ""}`;
+        const u = new URL(stored.apiUrl);
+        if (u.hostname === "localhost" || u.hostname === "127.0.0.1") {
+          const port = u.port === "8000" ? "5173" : (u.port || "5173");
+          frontendBase = `${u.protocol}//${u.hostname}:${port}`;
+        }
+        // Production API URL -> keep Vercel as frontendBase
       } catch (_) {}
     }
 
