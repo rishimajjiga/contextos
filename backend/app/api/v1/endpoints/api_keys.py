@@ -103,4 +103,12 @@ async def revoke_api_key(
     user = await get_or_provision_user(db, clerk_id)
     result = await db.execute(
         select(ApiKey).where(ApiKey.id == key_id, ApiKey.user_id == user.id)
-    
+    )
+    api_key = result.scalar_one_or_none()
+    if not api_key:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API key not found")
+
+    await db.execute(
+        delete(ApiKey).where(ApiKey.id == key_id)
+    )
+    await db.commit()

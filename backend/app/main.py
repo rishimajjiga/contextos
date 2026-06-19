@@ -55,8 +55,6 @@ async def lifespan(app: FastAPI):
                 ))
 
                 # Backfill missing columns on the documents table.
-                # These were added in migration 0002; installs that used
-                # create_all only (skipping migrations) won't have them.
                 await conn.execute(sa.text(
                     "ALTER TABLE documents "
                     "ADD COLUMN IF NOT EXISTS visibility VARCHAR(20) "
@@ -68,10 +66,7 @@ async def lifespan(app: FastAPI):
                     "NOT NULL DEFAULT 'note'"
                 ))
 
-                # user_subscriptions — also from migration 0002.
-                # create_all covers this via the UserSubscription model, but
-                # this explicit check ensures it exists even if create_all was
-                # run before the model was added.
+                # user_subscriptions
                 await conn.execute(sa.text("""
                     CREATE TABLE IF NOT EXISTS user_subscriptions (
                         id VARCHAR(36) PRIMARY KEY,
@@ -135,4 +130,25 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-_cors_origins = ["*"] if not setting
+_cors_origins = ["*"] if not settings.is_production else settings.cors_origins
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=not ("*" in _cors_origins),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.add_middleware(LoggingMiddleware)
+
+# Routers
+
+app.include_router(v1_router, prefix="/api/v1")
+
+
+# Health
+
+@app.get("/health", tags=["health"])
+async def health_check():
+    return {"status": "ok", "version": "0.1.0", "env": settings.app_env}
