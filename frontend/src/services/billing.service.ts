@@ -4,17 +4,19 @@ export interface PlanInfo {
   plan: "free" | "student" | "pro" | "team";
   display_name: string;
   limits: {
-    documents: number;
     projects: number;
+    memories: number;
     api_keys: number;
     daily_inject: number;
   };
   usage: {
-    documents: number;
     projects: number;
+    memories: number;
   };
   current_period_end: string | null;
   is_trialing: boolean;
+  is_in_grace_period: boolean;
+  grace_period_end: string | null;
 }
 
 export interface StudentCheckResult {
@@ -64,12 +66,8 @@ export const billingService = {
   },
 };
 
-// ── Razorpay JS modal helper ─────────────────────────────────────────────────
-
 declare global {
-  interface Window {
-    Razorpay: any;
-  }
+  interface Window { Razorpay: any; }
 }
 
 function loadRazorpayScript(): Promise<void> {
@@ -89,15 +87,14 @@ export async function openRazorpayCheckout(
   onFailure: (err: string) => void,
 ): Promise<void> {
   const { subscription_id, key_id } = await billingService.createSubscription(plan);
-
   await loadRazorpayScript();
 
   const PLAN_NAMES: Record<string, string> = {
-    pro:         "Pro Plan — ₹499/month",
-    pro_annual:  "Pro Plan — ₹4,499/year",
-    team:        "Team Plan — ₹1,499/month",
-    team_annual: "Team Plan — ₹16,999/year",
-    student:     "Student Plan — ₹199/month",
+    pro:         "Pro Plan - Rs.499/month",
+    pro_annual:  "Pro Plan - Rs.4,499/year",
+    team:        "Team Plan - Rs.1,499/month",
+    team_annual: "Team Plan - Rs.16,999/year",
+    student:     "Student Plan - Rs.199/month",
   };
 
   const rzp = new window.Razorpay({

@@ -1,19 +1,12 @@
 import axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig } from "axios";
 
-// Base Axios Instance
-
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export const apiClient: AxiosInstance = axios.create({
   baseURL: `${BASE_URL}/api/v1`,
-  headers: {
-    "Content-Type": "application/json",
-  },
+  headers: { "Content-Type": "application/json" },
   timeout: 30_000,
 });
-
-// Auth Token Injection
-// Called once from AuthContext after Clerk loads to attach token on every request.
 
 let getTokenFn: (() => Promise<string | null>) | null = null;
 
@@ -24,16 +17,10 @@ export function setTokenGetter(fn: () => Promise<string | null>) {
 apiClient.interceptors.request.use(async (config) => {
   if (getTokenFn) {
     const token = await getTokenFn();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    if (token) config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
-
-// Error Normalization
-// 402 responses carry a structured {code, resource, limit, plan, message} detail.
-// Re-throw them as LimitError so the UI can detect them and show UpgradeModal.
 
 export class LimitError extends Error {
   code = "LIMIT_REACHED";
@@ -52,16 +39,23 @@ export class LimitError extends Error {
 apiClient.interceptors.response.use(
   (res) => res,
   (error: AxiosError<any>) => {
-    // No response at all → backend unreachable
     if (!error.response) {
       return Promise.reject(
-        new Error("Can't reach the server. Make sure the backend is running on port 8000.")
+        new Error("Can't reach the server. Please try again in a moment.")
       );
     }
     if (error.response.status === 402) {
       const detail = error.response.data?.detail;
       if (detail?.code === "LIMIT_REACHED") {
         return Promise.reject(new LimitError(detail));
+      }
+      if (detail?.code === "GRACE_PERIOD") {
+        const e: any = new Error(
+          detail.message || "Subscription expired - data is read-only."
+        );
+        e.code = "GRACE_PERIOD";
+        e.days_left = detail.days_left;
+        return Promise.reject(e);
       }
       if (detail?.code === "TEAM_PLAN_REQUIRED") {
         const e: any = new Error(detail.message || "Team plan required.");
@@ -79,8 +73,6 @@ apiClient.interceptors.response.use(
     return Promise.reject(new Error(message));
   }
 );
-
-// Generic Request Helper
 
 export async function request<T>(config: AxiosRequestConfig): Promise<T> {
   const response = await apiClient.request<T>(config);

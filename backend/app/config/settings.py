@@ -29,10 +29,10 @@ class Settings(BaseSettings):
     clerk_publishable_key: str
     clerk_jwks_url: str
 
-    # ── Supabase ──────────────────────────────────────────────────────────
-    supabase_url: str
-    supabase_anon_key: str
-    supabase_service_key: str
+    # ── Supabase (file storage — removed from MVP; kept as optional for migrations) ──
+    supabase_url: str = ""
+    supabase_anon_key: str = ""
+    supabase_service_key: str = ""
     supabase_bucket: str = "contextos-documents"
 
     # ── CORS ──────────────────────────────────────────────────────────────
@@ -63,26 +63,20 @@ class Settings(BaseSettings):
     razorpay_team_annual_plan_id: str = "" # Team annual plan_yyy
     razorpay_student_plan_id: str = ""     # Student plan_zzz
 
+    # ── Frontend ──────────────────────────────────────────────────────────
+    frontend_url: str = "https://contextos-eta.vercel.app"
+
+    # ── Email (SMTP) ──────────────────────────────────────────────────────
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_pass: str = ""
+    email_from: str = "noreply@contextos.app"
+
+    # ── Cron ──────────────────────────────────────────────────────────────
+    cron_secret: str = ""   # Set this in Railway env vars; required by /api/v1/cron/daily
+
     # ── Rate limiting ─────────────────────────────────────────────────────
     rate_limit_per_minute: int = 60
 
-    # ── Derived helpers ───────────────────────────────────────────────────
-    @property
-    def is_production(self) -> bool:
-        return self.app_env == "production"
-
-    @property
-    def sync_database_url(self) -> str:
-        """Synchronous database URL for Alembic migrations.
-        Converts any async driver prefix (asyncpg or psycopg3) to psycopg2.
-        """
-        url = self.database_url
-        # psycopg3 async driver: postgresql+psycopg://
-        url = url.replace("postgresql+psycopg://", "postgresql+psycopg2://")
-        # asyncpg async driver: postgresql+asyncpg://
-        url = url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
-        return url
-
-
-# Module-level singleton — import this everywhere
-settings = Settings()  # type: ignore[call-arg]
+    # ─�

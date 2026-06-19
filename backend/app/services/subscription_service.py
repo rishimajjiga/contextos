@@ -1,8 +1,8 @@
 """
 app/services/subscription_service.py
-Plan limits enforcement and subscription helpers.
+Plan limits enforcement, subscription helpers, grace period logic.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import HTTPException, status
@@ -10,35 +10,35 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import UserSubscription
-from app.models.document import Document
 from app.models.project import Project
+from app.models.document import Document
 
 # ── Plan limits ───────────────────────────────────────────────────────────────
 # -1 = unlimited
 
 PLAN_LIMITS = {
     "free": {
-        "documents": 10,
-        "projects":  1,
-        "api_keys":  1,
+        "projects":     1,
+        "memories":     20,
+        "api_keys":     1,
         "daily_inject": 3,
     },
     "student": {
-        "documents": 100,
-        "projects":  3,
-        "api_keys":  3,
+        "projects":     3,
+        "memories":     -1,
+        "api_keys":     3,
         "daily_inject": -1,
     },
     "pro": {
-        "documents": 500,
-        "projects":  -1,
-        "api_keys":  5,
+        "projects":     -1,
+        "memories":     -1,
+        "api_keys":     5,
         "daily_inject": -1,
     },
     "team": {
-        "documents": -1,
-        "projects":  -1,
-        "api_keys":  -1,
+        "projects":     -1,
+        "memories":     -1,
+        "api_keys":     -1,
         "daily_inject": -1,
     },
 }
@@ -49,6 +49,9 @@ PLAN_DISPLAY = {
     "pro":     "Pro",
     "team":    "Team",
 }
+
+# Grace period after subscription ends before data is deleted
+GRACE_PERIOD_DAYS = 30
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -68,7 +71,7 @@ async def get_or_create_subscription(db: AsyncSession, user_id: str) -> UserSubs
 
 
 async def get_user_plan(db: AsyncSession, user_id: str) -> str:
-    """Return the user's current plan name."""
+    """Return the user's current effective plan name."""
     sub = await get_or_create_subscription(db, user_id)
     now = datetime.now(timezone.utc)
 
@@ -80,14 +83,25 @@ async def get_user_plan(db: AsyncSession, user_id: str) -> str:
         await db.commit()
         return "free"
 
-    # Canceled / past_due and period ended — downgrade to free
+    # Canceled / past_due and billing period ended — enter/continue grace period
     if sub.plan != "free" and sub.status in ("canceled", "past_due"):
         if sub.current_period_end and sub.current_period_end < now:
-            sub.plan = "free"
-            sub.status = "active"
-            await db.commit()
+            # Start grace period if not already set
+            if not sub.grace_period_end:
+                sub.grace_period_end = now + timedelta(days=GRACE_PERIOD_DAYS)
+                await db.commit()
+            # During grace period the plan is effectively free
+            return "free"
 
     return sub.plan
+
+
+async def is_in_grace_period(db: AsyncSession, user_id: str) -> bool:
+    """Return True if user is in their 30-day grace period after subscription ended."""
+    sub = await get_or_create_subscription(db, user_id)
+    if sub.grace_period_end is None:
+        return False
+    return datetime.now(timezone.utc) < sub.grace_period_end
 
 
 async def get_plan_info(db: AsyncSession, user_id: str) -> dict:
@@ -95,16 +109,18 @@ async def get_plan_info(db: AsyncSession, user_id: str) -> dict:
     sub = await get_or_create_subscription(db, user_id)
     plan = await get_user_plan(db, user_id)
     limits = PLAN_LIMITS[plan]
-
-    doc_count_result = await db.execute(
-        select(func.count()).where(Document.user_id == user_id)
-    )
-    doc_count = doc_count_result.scalar_one()
+    now = datetime.now(timezone.utc)
+    in_grace = sub.grace_period_end is not None and now < sub.grace_period_end
 
     proj_count_result = await db.execute(
         select(func.count()).where(Project.user_id == user_id)
     )
     proj_count = proj_count_result.scalar_one()
+
+    mem_count_result = await db.execute(
+        select(func.count()).where(Document.user_id == user_id, Document.doc_type == "note")
+    )
+    mem_count = mem_count_result.scalar_one()
 
     return {
         "plan": plan,
@@ -112,52 +128,49 @@ async def get_plan_info(db: AsyncSession, user_id: str) -> dict:
         "limits": limits,
         "current_period_end": sub.current_period_end.isoformat() if sub.current_period_end else None,
         "is_trialing": sub.status == "trialing",
+        "is_in_grace_period": in_grace,
+        "grace_period_end": sub.grace_period_end.isoformat() if sub.grace_period_end else None,
         "usage": {
-            "documents": doc_count,
-            "projects":  proj_count,
+            "projects": proj_count,
+            "memories": mem_count,
         },
     }
 
 
-# ── Limit checks ──────────────────────────────────────────────────────────────
+# ── Limit / grace period checks ───────────────────────────────────────────────
 
-async def check_document_limit(db: AsyncSession, user_id: str) -> None:
-    """Raise 402 if the user is at their document limit."""
-    plan = await get_user_plan(db, user_id)
-    limit = PLAN_LIMITS[plan]["documents"]
-    if limit == -1:
-        return  # unlimited
-
-    result = await db.execute(
-        select(func.count()).where(Document.user_id == user_id)
-    )
-    count = result.scalar_one()
-    if count >= limit:
+async def _check_grace_period_write(db: AsyncSession, user_id: str) -> None:
+    """Raise 402 if user is in grace period (data is read-only)."""
+    in_grace = await is_in_grace_period(db, user_id)
+    if in_grace:
+        sub = await get_or_create_subscription(db, user_id)
+        days_left = 0
+        if sub.grace_period_end:
+            delta = sub.grace_period_end - datetime.now(timezone.utc)
+            days_left = max(0, delta.days)
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail={
-                "code": "LIMIT_REACHED",
-                "resource": "documents",
-                "limit": limit,
-                "plan": plan,
+                "code": "GRACE_PERIOD",
+                "resource": "subscription",
+                "days_left": days_left,
                 "message": (
-                    f"You've reached the {limit}-memory limit on the {PLAN_DISPLAY[plan]} plan. "
-                    "Upgrade to Pro to store up to 500 memories."
+                    f"Your subscription has expired. Your data is read-only. "
+                    f"Renew within {days_left} day(s) to restore full access, "
+                    "or your data will be backed up and deleted."
                 ),
             },
         )
 
 
 async def check_project_limit(db: AsyncSession, user_id: str) -> None:
-    """Raise 402 if the user is at their project limit."""
+    """Raise 402 if the user is at their project limit or in grace period."""
+    await _check_grace_period_write(db, user_id)
     plan = await get_user_plan(db, user_id)
     limit = PLAN_LIMITS[plan]["projects"]
     if limit == -1:
-        return  # unlimited
-
-    result = await db.execute(
-        select(func.count()).where(Project.user_id == user_id)
-    )
+        return
+    result = await db.execute(select(func.count()).where(Project.user_id == user_id))
     count = result.scalar_one()
     if count >= limit:
         raise HTTPException(
@@ -175,10 +188,62 @@ async def check_project_limit(db: AsyncSession, user_id: str) -> None:
         )
 
 
+async def check_memory_limit(db: AsyncSession, user_id: str) -> None:
+    """Raise 402 if the user is at their memory limit or in grace period."""
+    await _check_grace_period_write(db, user_id)
+    plan = await get_user_plan(db, user_id)
+    limit = PLAN_LIMITS[plan]["memories"]
+    if limit == -1:
+        return
+    result = await db.execute(
+        select(func.count()).where(Document.user_id == user_id, Document.doc_type == "note")
+    )
+    count = result.scalar_one()
+    if count >= limit:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail={
+                "code": "LIMIT_REACHED",
+                "resource": "memories",
+                "limit": limit,
+                "plan": plan,
+                "message": (
+                    f"You've reached the {limit}-memory limit on the {PLAN_DISPLAY[plan]} plan. "
+                    "Upgrade to Pro for unlimited memories."
+                ),
+            },
+        )
+
+
+async def check_api_key_limit(db: AsyncSession, user_id: str) -> None:
+    """Raise 402 if the user is at their API key limit."""
+    from app.models.api_key import ApiKey
+    plan = await get_user_plan(db, user_id)
+    limit = PLAN_LIMITS[plan]["api_keys"]
+    if limit == -1:
+        return
+    result = await db.execute(select(func.count()).where(ApiKey.user_id == user_id))
+    count = result.scalar_one()
+    if count >= limit:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail={
+                "code": "LIMIT_REACHED",
+                "resource": "api_keys",
+                "limit": limit,
+                "plan": plan,
+                "message": (
+                    f"You've reached the {limit} API key limit on the {PLAN_DISPLAY[plan]} plan. "
+                    "Upgrade to Pro for more API keys."
+                ),
+            },
+        )
+
+
 # ── Razorpay webhook helpers ──────────────────────────────────────────────────
 
 async def handle_razorpay_subscription_activated(db: AsyncSession, payload: dict) -> None:
-    """subscription.activated — user's first payment succeeded."""
+    """subscription.activated — first payment succeeded; clear grace period."""
     rzp_sub = payload.get("subscription", {}).get("entity", {})
     rzp_sub_id = rzp_sub.get("id")
     plan_id = rzp_sub.get("plan_id")
@@ -189,7 +254,6 @@ async def handle_razorpay_subscription_activated(db: AsyncSession, payload: dict
     if not user_id:
         return
 
-    # Prefer the plan stored in notes (set by billing endpoint), fall back to plan_id lookup
     plan = notes.get("plan", "free")
     if plan not in PLAN_LIMITS:
         from app.config import settings
@@ -203,9 +267,11 @@ async def handle_razorpay_subscription_activated(db: AsyncSession, payload: dict
             plan = "free"
 
     sub = await get_or_create_subscription(db, user_id)
-    sub.stripe_subscription_id = rzp_sub_id   # reuse column for Razorpay sub ID
+    sub.stripe_subscription_id = rzp_sub_id
     sub.plan = plan
     sub.status = "active"
+    sub.grace_period_end = None   # clear grace period on renewal
+    sub.backup_sent = False
     if current_end_ts:
         sub.current_period_end = datetime.fromtimestamp(current_end_ts, tz=timezone.utc)
     await db.commit()
@@ -227,13 +293,15 @@ async def handle_razorpay_subscription_charged(db: AsyncSession, payload: dict) 
         return
 
     sub.status = "active"
+    sub.grace_period_end = None
+    sub.backup_sent = False
     if current_end_ts:
         sub.current_period_end = datetime.fromtimestamp(current_end_ts, tz=timezone.utc)
     await db.commit()
 
 
 async def handle_razorpay_subscription_cancelled(db: AsyncSession, payload: dict) -> None:
-    """subscription.cancelled / completed — downgrade to free."""
+    """subscription.cancelled / completed — start grace period."""
     rzp_sub = payload.get("subscription", {}).get("entity", {})
     rzp_sub_id = rzp_sub.get("id")
 
@@ -246,8 +314,8 @@ async def handle_razorpay_subscription_cancelled(db: AsyncSession, payload: dict
     if sub is None:
         return
 
-    sub.plan = "free"
-    sub.status = "active"
-    sub.stripe_subscription_id = None
-    sub.current_period_end = None
+    now = datetime.now(timezone.utc)
+    sub.status = "canceled"
+    if not sub.grace_period_end:
+        sub.grace_period_end = now + timedelta(days=GRACE_PERIOD_DAYS)
     await db.commit()

@@ -26,18 +26,13 @@ async def lifespan(app: FastAPI):
     """Startup / shutdown lifecycle hook."""
     log.info("ContextOS starting", env=settings.app_env)
 
-    # Create tables if they don't exist (dev convenience).
-    # In production, use Alembic migrations instead.
     if not settings.is_production:
         try:
             async with engine.begin() as conn:
-                # Idempotent column additions introduced after initial table creation.
-                await conn.execute(sa.text(
-                    "ALTER TABLE IF EXISTS documents "
-                    "ADD COLUMN IF NOT EXISTS visibility VARCHAR(16) NOT NULL DEFAULT 'private'"
-                ))
+                # Create all ORM-mapped tables that don't exist yet
                 await conn.run_sync(Base.metadata.create_all)
-                # thread_events table (added 2026-06-18)
+
+                # thread_events table (not in Base metadata — created manually)
                 await conn.execute(sa.text(
                     "CREATE TABLE IF NOT EXISTS thread_events ("
                     "    id VARCHAR(36) PRIMARY KEY,"
@@ -58,6 +53,54 @@ async def lifespan(app: FastAPI):
                     "CREATE INDEX IF NOT EXISTS ix_thread_events_user_id "
                     "ON thread_events (user_id)"
                 ))
+
+                # Backfill missing columns on the documents table.
+                # These were added in migration 0002; installs that used
+                # create_all only (skipping migrations) won't have them.
+                await conn.execute(sa.text(
+                    "ALTER TABLE documents "
+                    "ADD COLUMN IF NOT EXISTS visibility VARCHAR(20) "
+                    "NOT NULL DEFAULT 'private'"
+                ))
+                await conn.execute(sa.text(
+                    "ALTER TABLE documents "
+                    "ADD COLUMN IF NOT EXISTS doc_type VARCHAR(50) "
+                    "NOT NULL DEFAULT 'note'"
+                ))
+
+                # user_subscriptions — also from migration 0002.
+                # create_all covers this via the UserSubscription model, but
+                # this explicit check ensures it exists even if create_all was
+                # run before the model was added.
+                await conn.execute(sa.text("""
+                    CREATE TABLE IF NOT EXISTS user_subscriptions (
+                        id VARCHAR(36) PRIMARY KEY,
+                        user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        plan VARCHAR(32) NOT NULL DEFAULT 'free',
+                        stripe_customer_id VARCHAR(255),
+                        stripe_subscription_id VARCHAR(255),
+                        status VARCHAR(32) NOT NULL DEFAULT 'active',
+                        current_period_end TIMESTAMPTZ,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        CONSTRAINT uq_user_subscriptions_user_id UNIQUE (user_id)
+                    )
+                """))
+                await conn.execute(sa.text(
+                    "CREATE INDEX IF NOT EXISTS ix_user_subscriptions_user_id "
+                    "ON user_subscriptions (user_id)"
+                ))
+
+                # Backfill grace period columns (migration 0004)
+                await conn.execute(sa.text(
+                    "ALTER TABLE user_subscriptions "
+                    "ADD COLUMN IF NOT EXISTS grace_period_end TIMESTAMPTZ"
+                ))
+                await conn.execute(sa.text(
+                    "ALTER TABLE user_subscriptions "
+                    "ADD COLUMN IF NOT EXISTS backup_sent BOOLEAN NOT NULL DEFAULT FALSE"
+                ))
+
             log.info("Database tables ready")
         except Exception as exc:
             log.warning(
@@ -92,25 +135,4 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-_cors_origins = ["*"] if not settings.is_production else settings.cors_origins
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_cors_origins,
-    allow_credentials=not ("*" in _cors_origins),
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-app.add_middleware(LoggingMiddleware)
-
-# Routers
-
-app.include_router(v1_router, prefix="/api/v1")
-
-
-# Health
-
-@app.get("/health", tags=["health"])
-async def health_check():
-    return {"status": "ok", "version": "0.1.0", "env": settings.app_env}
+_cors_origins = ["*"] if not setting

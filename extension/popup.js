@@ -699,7 +699,7 @@ async function getAppUrl(path = "") {
     const u = new URL(r.apiUrl || "http://localhost:8000");
     const port = u.port === "8000" ? "5173" : (u.port || "");
     return `${u.protocol}//${u.hostname}${port ? ":"+port : ""}${path}`;
-  } catch (_) { return `http://localhost:5173${path}`; }
+  } catch (_) { return `https://contextos-eta.vercel.app${path}`; }
 }
 
 function updateFooterLink(apiUrl) {
@@ -736,7 +736,7 @@ function initConnectFlow() {
     status.textContent = "Sign in to your ContextOS account in the new tab.";
 
     const stored = await new Promise(r => chrome.storage.sync.get(["apiUrl", "frontendUrl"], r));
-    let frontendBase = "http://localhost:5173";
+    let frontendBase = "https://contextos-eta.vercel.app";
     // Prefer stored frontendUrl; fall back to deriving from apiUrl (localhost only)
     if (stored.frontendUrl) {
       try { frontendBase = new URL(stored.frontendUrl).origin; } catch (_) {}
@@ -784,4 +784,43 @@ function initConnectFlow() {
         status.style.color = "#f87171";
       }
     }, 1000);
-  
+  };
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+
+async function init() {
+  // Show version
+  try {
+    const v = chrome.runtime.getManifest().version;
+    const el = document.getElementById("ext-version");
+    if (el) el.textContent = v;
+  } catch (_) {}
+
+  const { apiUrl, apiKey } = await new Promise(r =>
+    chrome.storage.sync.get(["apiUrl","apiKey"], r)
+  );
+
+  if (!apiKey) {
+    showScreen("login");
+    initConnectFlow();
+    return;
+  }
+
+  showScreen("main");
+  updateFooterLink(apiUrl);
+
+  // Load initial data
+  refreshStatusDot();
+  loadMemories();  // pre-load memories so tab is instant
+  loadPlanUsage(); // show plan usage in header + memories tab
+
+  // Make footer app link work
+  document.getElementById("footer-app-link").onclick = async (e) => {
+    e.preventDefault();
+    const url = await getAppUrl("/dashboard");
+    chrome.tabs.create({ url });
+  };
+}
+
+init();

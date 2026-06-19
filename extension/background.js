@@ -157,8 +157,8 @@ async function getConfig() {
   );
 }
 
-// ── Core fetch — THE fix for "Failed to fetch" ────────────────────────────────
-async function apiRequest(path, method = "GET", body = null) {
+// ── Core fetch with retry ─────────────────────────────────────────────────────
+async function apiRequest(path, method = "GET", body = null, retries = 2) {
   const { apiUrl, apiKey } = await getConfig();
 
   if (!apiKey) {
@@ -180,18 +180,30 @@ async function apiRequest(path, method = "GET", body = null) {
   if (body !== null) opts.body = JSON.stringify(body);
 
   let res;
-  try {
-    res = await fetch(`${base}${path}`, opts);
-  } catch (networkErr) {
-    // TypeError: Failed to fetch = server not running / unreachable
-    const msg = (networkErr && networkErr.message) || "";
+  let lastNetworkErr = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      res = await fetch(`${base}${path}`, opts);
+      lastNetworkErr = null;
+      break; // success
+    } catch (networkErr) {
+      lastNetworkErr = networkErr;
+      if (attempt < retries) {
+        // Exponential backoff: 500ms, 1000ms
+        await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
+        continue;
+      }
+    }
+  }
+  if (lastNetworkErr) {
+    const msg = (lastNetworkErr && lastNetworkErr.message) || "";
     if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("fetch")) {
       throw new Error(
         `NETWORK_ERROR: Cannot reach ContextOS at ${base}. ` +
-        `Check that the backend is running and your API URL in Settings is correct.`
+        `Check your API URL in Settings is correct (should be your Railway backend URL).`
       );
     }
-    throw networkErr;
+    throw lastNetworkErr;
   }
 
   if (res.status === 401 || res.status === 403) {
@@ -367,4 +379,11 @@ async function handleMessage(msg) {
       if (!res.ok) return { saved: false, reason: `http_${res.status}` };
 
       const created = await res.json();
-      await chrome.storage.sync.s
+      await chrome.storage.sync.set({ apiKey: created.key, apiUrl: base });
+      cacheInvalidate("list:", "search:", "context:", "projects:");
+      console.log("[ContextOS] Auto-connected via Clerk JWT.");
+      return { saved: true };
+    }
+
+
+    

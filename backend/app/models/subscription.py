@@ -35,8 +35,9 @@ class UserSubscription(Base, UUIDMixin, TimestampMixin):
         DateTime(timezone=True), nullable=True
     )
 
-    # Relationship back to User
-    user: Mapped["User"] = relationship("User", back_populates="subscription")  # noqa: F821
+    # Grace period: 30 days after subscription ends — data is read-only
+    grace_period_end: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
-    def __repr__(self) -> str:
-        return f"<UserSubscription user={self.user_id} plan={self.plan} status={self.status}>"
+    # True once the backup PDF has been emailed (prevents 

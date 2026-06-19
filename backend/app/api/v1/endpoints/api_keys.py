@@ -15,6 +15,8 @@ from app.database import get_db
 from app.middleware import get_current_user_id
 from app.models.api_key import ApiKey
 from app.services import get_or_provision_user
+from app.services.subscription_service import check_api_key_limit
+from app.api.v1.dependencies import get_user_id
 
 router = APIRouter()
 
@@ -44,9 +46,11 @@ class ApiKeyCreated(ApiKeyOut):
 async def create_api_key(
     data: ApiKeyCreate,
     clerk_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_user_id),
     db: AsyncSession = Depends(get_db),
 ):
     """Generate a new API key. Returns the full key once — store it securely."""
+    await check_api_key_limit(db, user_id)
     user = await get_or_provision_user(db, clerk_id)
 
     raw_key = "ctxos_" + secrets.token_hex(32)  # e.g. ctxos_<64 hex chars>
@@ -99,9 +103,4 @@ async def revoke_api_key(
     user = await get_or_provision_user(db, clerk_id)
     result = await db.execute(
         select(ApiKey).where(ApiKey.id == key_id, ApiKey.user_id == user.id)
-    )
-    key = result.scalar_one_or_none()
-    if not key:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API key not found")
-    await db.delete(key)
-    await db.commit()
+    
