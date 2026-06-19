@@ -1,9 +1,6 @@
 """
 app/api/v1/__init__.py
 Assembles all v1 endpoint routers under a single APIRouter.
-
-Billing router is imported optionally — if razorpay is not installed (or
-billing.py has any other import error) the rest of the API still works.
 """
 import structlog
 from fastapi import APIRouter
@@ -18,11 +15,9 @@ from .endpoints.organizations import router as organizations_router
 from .endpoints.threads import router as threads_router
 from .endpoints.memories import router as memories_router
 from .endpoints.search import router as search_router
-from .endpoints.cron import router as cron_router
 
 log = structlog.get_logger()
 
-# Billing depends on razorpay which may not be installed in all environments.
 try:
     from .endpoints.billing import router as billing_router
     _has_billing = True
@@ -46,13 +41,10 @@ router.include_router(tools_router,         prefix="/tools",         tags=["tool
 router.include_router(organizations_router, prefix="/organizations", tags=["organizations"])
 router.include_router(memories_router,      prefix="/memories",      tags=["memories"])
 router.include_router(search_router,        prefix="/search",        tags=["search"])
-router.include_router(cron_router,          prefix="/cron",           tags=["cron"])
 
 if _has_billing and billing_router is not None:
     router.include_router(billing_router, prefix="/billing", tags=["billing"])
 else:
-    # Stub router so /billing/plan returns a safe fallback (free plan)
-    # instead of 404, keeping the frontend plan-usage UI working.
     from fastapi import APIRouter as _AR
     _stub = _AR()
 
@@ -65,6 +57,8 @@ else:
             "usage": {"projects": 0, "memories": 0},
             "current_period_end": None,
             "is_trialing": False,
+            "is_in_grace_period": False,
+            "grace_period_end": None,
         }
 
     router.include_router(_stub, prefix="/billing", tags=["billing"])
