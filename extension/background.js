@@ -1,7 +1,7 @@
 // ContextOS Extension — Background Service Worker v2
 // All API calls go through here. Popup and content scripts message this worker.
 
-const DEFAULT_API_URL = "http://localhost:8000";
+const DEFAULT_API_URL = "https://contextos-production-d82a.up.railway.app";
 const CACHE_TTL = { list: 30_000, search: 15_000, context: 60_000, projects: 45_000 };
 
 // ── Keep-alive (MV3 service worker) ──────────────────────────────────────────

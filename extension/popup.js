@@ -696,7 +696,7 @@ async function getAppUrl(path = "") {
   }
   // Legacy fallback: derive frontend URL from backend URL (only works when both are on localhost)
   try {
-    const u = new URL(r.apiUrl || "http://localhost:8000");
+    const u = new URL(r.apiUrl || "https://contextos-production-d82a.up.railway.app");
     const port = u.port === "8000" ? "5173" : (u.port || "");
     return `${u.protocol}//${u.hostname}${port ? ":"+port : ""}${path}`;
   } catch (_) { return `https://contextos-eta.vercel.app${path}`; }
@@ -742,7 +742,7 @@ function initConnectFlow() {
       try { frontendBase = new URL(stored.frontendUrl).origin; } catch (_) {}
     } else {
       try {
-        const u = new URL(stored.apiUrl || "http://localhost:8000");
+        const u = new URL(stored.apiUrl || "https://contextos-production-d82a.up.railway.app");
         const port = u.port === "8000" ? "5173" : (u.port || "");
         frontendBase = `${u.protocol}//${u.hostname}${port ? ":"+port : ""}`;
       } catch (_) {}
