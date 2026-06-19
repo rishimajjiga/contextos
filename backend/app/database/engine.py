@@ -6,22 +6,25 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import DeclarativeBase
 from app.config import settings
 
-# PgBouncer (Supabase pooler) requires prepared statements to be disabled.
-# asyncpg: statement_cache_size=0  |  psycopg3: prepare_threshold=0
+# Disable prepared statement caching for all psycopg3 connections.
+# PgBouncer (Supabase pooler, Railway) runs in transaction mode — prepared
+# statements created in one transaction are invisible in the next, causing
+# DuplicatePreparedStatement errors if we try to reuse them.
+# asyncpg uses a different parameter name (statement_cache_size).
 if "asyncpg" in settings.database_url:
     _connect_args = {"statement_cache_size": 0}
-elif "pooler.supabase.com" in settings.database_url:
-    _connect_args = {"prepare_threshold": 0}
 else:
-    _connect_args = {}
+    # psycopg3 (sync or async): prepare_threshold=0 disables prepared stmts
+    _connect_args = {"prepare_threshold": 0}
 
 engine = create_async_engine(
     settings.database_url,
     echo=settings.debug,
     pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
-    pool_recycle=3600,
+    pool_size=5,
+    max_overflow=10,
+    pool_recycle=300,
+    pool_timeout=30,
     connect_args=_connect_args,
 )
 

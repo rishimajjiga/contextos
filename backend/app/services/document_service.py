@@ -44,10 +44,7 @@ async def list_documents(
     repo = DocumentRepository(db)
     docs, total = await repo.list_by_user(user_id, page, per_page, project_id)
 
-    # If the plan caps how many memories are visible, slice to the most recent N.
-    # Data is never deleted — upgrading restores full access automatically.
     if view_limit != -1 and total > view_limit:
-        # Only return docs within the view_limit window (most recent first)
         all_docs_result = await repo.list_by_user(user_id, 1, view_limit, project_id)
         capped_docs, _ = all_docs_result
         visible_ids = {d.id for d in capped_docs}
@@ -117,17 +114,32 @@ async def upload_file_document(
         doc_type = "note"
 
     # Upload to Supabase Storage
+    file_url = ""
     storage_path = f"{user_id}/{filename}"
-    supabase = _get_supabase()
-    supabase.storage.from_(settings.supabase_bucket).upload(
-        storage_path,
-        content_bytes,
-        file_options={"content-type": content_type},
-    )
-    file_url = (
-        f"{settings.supabase_url}/storage/v1/object/public/"
-        f"{settings.supabase_bucket}/{storage_path}"
-    )
+    try:
+        supabase = _get_supabase()
+        supabase.storage.from_(settings.supabase_bucket).upload(
+            storage_path,
+            content_bytes,
+            file_options={"content-type": content_type},
+        )
+        file_url = (
+            f"{settings.supabase_url}/storage/v1/object/public/"
+            f"{settings.supabase_bucket}/{storage_path}"
+        )
+    except Exception as exc:
+        err_str = str(exc)
+        # If file already exists in storage, that's fine — reuse the URL
+        if "already exists" in err_str or "Duplicate" in err_str or "409" in err_str:
+            file_url = (
+                f"{settings.supabase_url}/storage/v1/object/public/"
+                f"{settings.supabase_bucket}/{storage_path}"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"File storage unavailable: {err_str}",
+            )
 
     text_content = await _extract_text(content_bytes, content_type)
 
