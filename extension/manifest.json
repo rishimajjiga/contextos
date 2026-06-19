@@ -15,6 +15,7 @@
     "http://localhost/*",
     "https://app.contextos.dev/*",
     "https://contextos-eta.vercel.app/*",
+    "https://contextos-production-d82a.up.railway.app/*",
     "https://*.run.app/*",
     "https://claude.ai/*",
     "https://chatgpt.com/*",
