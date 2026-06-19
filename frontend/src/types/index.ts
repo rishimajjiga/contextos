@@ -38,34 +38,6 @@ export interface Project {
   updated_at: string;
 }
 
-export interface Document {
-  id: string;
-  project_id: string | null;
-  user_id: string;
-  title: string;
-  content: string;
-  doc_type: DocumentType;
-  file_url: string | null;
-  tags: string[];
-  visibility: "private" | "team";
-  created_at: string;
-  updated_at: string;
-}
-
-export type DocumentType = "note" | "pdf" | "code" | "research" | "other";
-
-export interface SearchResult {
-  id: string;
-  type: "document" | "project" | "profile";
-  title: string;
-  content: string;
-  similarity: number | null;
-  project_id?: string;
-  project_name?: string;
-  doc_type?: string;
-  created_at: string;
-}
-
 export interface Session {
   id: string;
   user_id: string;
@@ -133,22 +105,3 @@ export interface CreateProjectPayload {
 }
 
 export interface UpdateProjectPayload extends Partial<CreateProjectPayload> {}
-
-export interface CreateDocumentPayload {
-  title: string;
-  content: string;
-  doc_type: DocumentType;
-  project_id?: string;
-  tags: string[];
-}
-
-export interface UpdateDocumentPayload extends Partial<CreateDocumentPayload> {
-  visibility?: "private" | "team";
-}
-
-export interface SearchPayload {
-  query: string;
-  limit?: number;
-  project_id?: string;
-  doc_types?: DocumentType[];
-}

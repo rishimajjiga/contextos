@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { SkeletonList } from "@/components/common/SkeletonCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -64,7 +65,12 @@ function CreateProjectDialog({
           </div>
           <div>
             <Label htmlFor="desc" className="mb-1.5 block">Description</Label>
-            <Input id="desc" placeholder="What are you building?" {...register("description")} />
+            <Textarea
+              id="desc"
+              placeholder="What are you building?"
+              rows={3}
+              {...register("description")}
+            />
           </div>
           <div>
             <Label htmlFor="stack" className="mb-1.5 block">Tech stack</Label>
@@ -92,7 +98,7 @@ export function ProjectsPage() {
 
   const handleCreate = async (values: FormValues) => {
     const stackArr = values.stack
-      ? values.stack.split(",").map(s => s.trim()).filter(Boolean)
+      ? values.stack.split(",").map((s) => s.trim()).filter(Boolean)
       : [];
     await createProject({
       name: values.name,
@@ -133,7 +139,7 @@ export function ProjectsPage() {
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map(project => (
+          {projects.map((project) => (
             <Link key={project.id} to={`/projects/${project.id}`}>
               <Card className="h-full hover:border-brand-500/40 transition-colors cursor-pointer">
                 <CardContent className="p-5 flex flex-col h-full">
@@ -151,7 +157,7 @@ export function ProjectsPage() {
 
                   {project.stack.length > 0 && (
                     <div className="flex flex-wrap gap-1 mb-3">
-                      {project.stack.slice(0, 4).map(s => (
+                      {project.stack.slice(0, 4).map((s) => (
                         <Badge key={s} variant="outline" className="text-[10px]">{s}</Badge>
                       ))}
                       {project.stack.length > 4 && (

@@ -1,55 +1,55 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Brain, FolderKanban, FileText, Search, Users, BookOpen, Cpu } from "lucide-react";
+import { ArrowRight, Brain, FolderKanban, Users, Cpu, Zap, Key } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const FEATURES = [
   {
+    icon: Brain,
+    title: "Identity",
+    desc: "Your role, skills, languages, and preferences — captured once, injected everywhere.",
+  },
+  {
     icon: FolderKanban,
     title: "Projects",
-    desc: "Dedicated workspaces for every project. Store goals, notes, stack details, and progress — all in one place.",
+    desc: "Dedicated workspaces with goals, stack, architecture, and active tasks. Full context in seconds.",
   },
   {
-    icon: Brain,
-    title: "Memories",
-    desc: "Capture ideas, decisions, and insights permanently. Never lose an important thought again.",
+    icon: Zap,
+    title: "Context Injection",
+    desc: "Your profile and projects auto-inject into ChatGPT, Claude, Gemini, Cursor, and more.",
   },
   {
-    icon: BookOpen,
-    title: "Knowledge Base",
-    desc: "Organize everything you know. Prompts, notes, research, and references — structured and searchable.",
+    icon: Key,
+    title: "API Keys",
+    desc: "Secure API keys for integrating ContextOS into any tool or workflow.",
   },
   {
-    icon: FileText,
-    title: "Documents",
-    desc: "Upload PDFs, notes, and files. Your knowledge stays with your projects, ready when you need it.",
-  },
-  {
-    icon: Search,
-    title: "Search",
-    desc: "Find any memory, document, prompt, or note instantly. Everything you've saved, always at your fingertips.",
+    icon: Cpu,
+    title: "MCP Server",
+    desc: "Native Model Context Protocol support. Drop into Claude Desktop and any MCP-compatible client.",
   },
   {
     icon: Users,
     title: "Teams",
-    desc: "Share knowledge and collaborate. Give your team a shared second brain with roles and permissions.",
+    desc: "Share context across your team. Onboard faster and keep everyone aligned.",
   },
 ];
 
 const STEPS = [
   {
     n: "01",
-    title: "Save everything",
-    desc: "Add projects, capture memories, upload documents, and save prompts. Highlight text on any page and save it with one click.",
+    title: "Create your profile",
+    desc: "Add your role, skills, preferred stack, and communication style. Takes under two minutes.",
   },
   {
     n: "02",
-    title: "Organize your knowledge",
-    desc: "Structure your ideas into projects and knowledge bases. Tag, search, and connect information the way your brain works.",
+    title: "Add your projects",
+    desc: "Create a project for each thing you're building. Add goals, architecture notes, and active tasks.",
   },
   {
     n: "03",
-    title: "Continue anywhere",
-    desc: "Pick up where you left off — on any device, in any tool. No re-explaining. No starting over. Just continue.",
+    title: "Use any AI tool",
+    desc: "Install the extension or MCP server. Your full context is injected automatically — no copy-pasting.",
   },
 ];
 
@@ -97,8 +97,8 @@ export function LandingPage() {
           </h1>
 
           <p className="mt-4 text-base text-muted-foreground max-w-xl mx-auto leading-relaxed sm:text-lg sm:mt-6">
-            Store projects, documents, prompts, memories, and knowledge in one place.
-            Continue your work anywhere without losing context.
+            Build your profile once. Your identity and projects inject automatically
+            into every AI tool you use.
           </p>
 
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
@@ -127,8 +127,8 @@ export function LandingPage() {
             Everything you know. Organized.
           </h2>
           <p className="text-center text-muted-foreground mb-16 max-w-xl mx-auto">
-            One workspace for your projects, memories, documents, and knowledge.
-            Built for creators and developers who can't afford to lose context.
+            Everything you need to give any AI tool instant context about who you are
+            and what you're building.
           </p>
 
           <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">

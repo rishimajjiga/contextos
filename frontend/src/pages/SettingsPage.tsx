@@ -157,12 +157,12 @@ export function SettingsPage() {
             )}
 
             {/* Usage bars */}
-            {(["documents", "projects"] as const).map((resource) => {
+            {(["projects"] as const).map((resource) => {
               const used = plan.usage[resource];
               const limit = plan.limits[resource];
               const unlimited = limit === -1;
               const pct = unlimited ? 0 : Math.min(100, Math.round((used / limit) * 100));
-              const label = resource === "documents" ? "Memories" : "Projects";
+              const label = "Projects";
               return (
                 <div key={resource}>
                   <div className="flex items-center justify-between mb-1.5">

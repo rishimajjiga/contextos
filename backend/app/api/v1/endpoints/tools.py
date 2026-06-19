@@ -35,10 +35,9 @@ OPENAI_TOOLS = [
         "function": {
             "name": "get_my_context",
             "description": (
-                "Get the user's full memory context in one call: profile, all projects, "
-                "and recent knowledge. Use this instead of calling get_my_profile + "
-                "list_my_projects + search_my_memory separately when you need a broad "
-                "understanding of the user's world."
+                "Get the user's full context in one call: profile and all projects. "
+                "Use this instead of calling get_my_profile + list_my_projects separately "
+                "when you need a broad understanding of the user's world."
             ),
             "parameters": {
                 "type": "object",
@@ -48,11 +47,6 @@ OPENAI_TOOLS = [
                         "enum": ["markdown", "text", "json"],
                         "description": "Output format. Use 'text' for smaller context windows.",
                         "default": "markdown",
-                    },
-                    "max_docs": {
-                        "type": "integer",
-                        "description": "Maximum number of knowledge items to include (1-50).",
-                        "default": 10,
                     },
                 },
                 "required": [],
@@ -101,70 +95,6 @@ OPENAI_TOOLS = [
             },
         },
     },
-    {
-        "type": "function",
-        "function": {
-            "name": "search_my_memory",
-            "description": (
-                "Search the user's knowledge base for documents, notes, code snippets, "
-                "and research relevant to a query. Call this when the user references "
-                "something they might have stored, or when extra context would improve "
-                "your answer."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "What to search for. Use natural language.",
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "description": "Maximum results to return (default: 5).",
-                        "default": 5,
-                    },
-                },
-                "required": ["query"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "save_to_my_memory",
-            "description": (
-                "Save a note, code snippet, research finding, or any piece of knowledge "
-                "to the user's memory. Use when the user says 'remember this', 'save this', "
-                "or produces something worth keeping for future conversations."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "title": {
-                        "type": "string",
-                        "description": "Short descriptive title for this item.",
-                    },
-                    "content": {
-                        "type": "string",
-                        "description": "The full content to save.",
-                    },
-                    "doc_type": {
-                        "type": "string",
-                        "enum": ["note", "code", "research", "pdf", "other"],
-                        "description": "Type of content.",
-                        "default": "note",
-                    },
-                    "tags": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Optional tags for organisation.",
-                        "default": [],
-                    },
-                },
-                "required": ["title", "content"],
-            },
-        },
-    },
 ]
 
 # How to wire these tools to the ContextOS API
@@ -180,8 +110,6 @@ INTEGRATION_GUIDE = {
         "get_my_context":  {"method": "GET",  "path": "/context"},
         "list_my_projects":{"method": "GET",  "path": "/projects"},
         "get_my_project":  {"method": "GET",  "path": "/projects/{project_id}"},
-        "search_my_memory":{"method": "POST", "path": "/search", "body_key": "query"},
-        "save_to_my_memory":{"method": "POST","path": "/documents"},
     },
 }
 

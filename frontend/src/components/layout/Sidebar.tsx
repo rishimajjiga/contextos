@@ -1,178 +1,83 @@
 import { Link, useLocation } from "react-router-dom";
-import { useUser } from "@clerk/clerk-react";
-import { useEffect, useState } from "react";
-import {
-  LayoutDashboard,
-  User,
-  FolderKanban,
-  BookOpen,
-  FileText,
-  Search,
-  Settings,
-  Cpu,
-  Key,
-  Users,
-  Zap,
-  CreditCard,
-} from "lucide-react";
-import { cn, getInitials } from "@/lib/utils";
-import { billingService, type PlanInfo } from "@/services/billing.service";
+import { LayoutDashboard, User, Brain, FolderKanban, Users, Key, Settings, X, Search } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/profile", label: "Profile", icon: User },
-  { href: "/projects", label: "Projects", icon: FolderKanban },
-  { href: "/knowledge", label: "Knowledge", icon: BookOpen },
-  { href: "/documents", label: "Documents", icon: FileText },
-  { href: "/search", label: "Search", icon: Search },
-  { href: "/team", label: "Team", icon: Users },
+  { href: "/profile",   label: "Profile",   icon: User },
+  { href: "/memories",  label: "Memories",  icon: Brain },
+  { href: "/search",    label: "Search",    icon: Search },
+  { href: "/projects",  label: "Projects",  icon: FolderKanban },
+  { href: "/team",      label: "Team",      icon: Users },
+  { href: "/api-keys",  label: "API Keys",  icon: Key },
+  { href: "/settings",  label: "Settings",  icon: Settings },
 ];
-
-const bottomItems = [
-  { href: "/api-keys", label: "API Keys", icon: Key },
-  { href: "/pricing", label: "Pricing & Upgrade", icon: CreditCard },
-  { href: "/settings", label: "Settings", icon: Settings },
-];
-
-const PLAN_COLORS = {
-  free: "bg-surface-3 text-muted-foreground",
-  pro: "bg-brand-500/15 text-brand-400",
-  student: "bg-blue-500/15 text-blue-400",
-  team: "bg-purple-500/15 text-purple-400",
-};
 
 interface SidebarProps {
   mobileOpen?: boolean;
   onMobileClose?: () => void;
+  onClose?: () => void;
 }
 
-export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
-  const location = useLocation();
-  const { user } = useUser();
-  const [plan, setPlan] = useState<PlanInfo | null>(null);
-
-  useEffect(() => {
-    billingService.getPlan().then(setPlan).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    onMobileClose?.();
-  }, [location.pathname, onMobileClose]);
-
-  const isActive = (href: string) =>
-    href === "/dashboard"
-      ? location.pathname === href
-      : location.pathname.startsWith(href);
+export function Sidebar({ mobileOpen, onMobileClose, onClose }: SidebarProps) {
+  const { pathname } = useLocation();
+  const close = onMobileClose ?? onClose;
 
   return (
-    <aside
-      className={cn(
-        "flex h-full w-60 shrink-0 flex-col border-r border-border bg-surface-1",
-        "fixed inset-y-0 left-0 z-50 transition-transform duration-200 ease-out md:relative md:translate-x-0",
-        mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-      )}
-    >
-      {/* Logo */}
-      <div className="flex items-center gap-2.5 border-b border-border px-4 py-4">
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-500">
-          <Cpu className="h-4 w-4 text-white" strokeWidth={2.5} />
-        </div>
-        <div>
-          <p className="text-sm font-semibold text-foreground">ContextOS</p>
-          <p className="text-[10px] text-muted-foreground">Your second brain</p>
-        </div>
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
-        <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-          Workspace
-        </p>
-        {navItems.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            to={href}
-            className={cn("nav-item", isActive(href) && "active")}
-          >
-            <Icon className="h-4 w-4 shrink-0" />
-            {label}
-          </Link>
-        ))}
+    <>
+      <nav className="hidden md:flex h-full w-56 shrink-0 flex-col bg-surface-1 border-r border-border">
+        <SidebarContent pathname={pathname} onClose={close} />
       </nav>
-
-      {/* Upgrade banner — free plan only */}
-      {plan && plan.plan === "free" && (
-        <div className="mx-3 mb-2 rounded-lg border border-brand-500/20 bg-brand-500/5 p-3">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-xs font-medium text-foreground">Free plan</p>
-            <span className="text-[10px] text-muted-foreground">
-              {plan.usage.documents}/{plan.limits.documents} memories
-            </span>
-          </div>
-          <div className="h-1 w-full rounded-full bg-surface-3 mb-2">
-            <div
-              className="h-1 rounded-full bg-brand-500 transition-all"
-              style={{ width: `${Math.min((plan.usage.documents / plan.limits.documents) * 100, 100)}%` }}
-            />
-          </div>
-          <Link
-            to="/pricing"
-            className="flex w-full items-center justify-center gap-1.5 rounded-md bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-400 transition-colors"
-          >
-            <Zap className="h-3 w-3" /> Upgrade plan
-          </Link>
-        </div>
+      {mobileOpen && (
+        <nav className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-surface-1 border-r border-border shadow-2xl md:hidden">
+          <SidebarContent pathname={pathname} onClose={close} />
+        </nav>
       )}
+    </>
+  );
+}
 
-      {/* Bottom */}
-      <div className="border-t border-border p-3 space-y-0.5">
-        {bottomItems.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            to={href}
-            className={cn(
-              "nav-item",
-              isActive(href) && "active",
-              href === "/pricing" && !isActive(href) && "text-brand-400 hover:text-brand-300"
-            )}
-          >
-            <Icon className="h-4 w-4 shrink-0" />
-            {label}
-            {href === "/pricing" && plan && plan.plan !== "free" && (
-              <span className={cn(
-                "ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full",
-                PLAN_COLORS[plan.plan]
-              )}>
-                {plan.display_name}
-              </span>
-            )}
-          </Link>
-        ))}
-
-        {user && (
-          <div className="mt-2 flex items-center gap-2.5 rounded-md px-3 py-2">
-            {user.imageUrl ? (
-              <img
-                src={user.imageUrl}
-                alt={user.fullName || ""}
-                className="h-6 w-6 rounded-full object-cover"
-              />
-            ) : (
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-[10px] font-semibold text-white">
-                {getInitials(user.fullName || user.primaryEmailAddress?.emailAddress || "U")}
-              </div>
-            )}
-            <div className="min-w-0">
-              <p className="truncate text-xs font-medium text-foreground">
-                {user.fullName || "User"}
-              </p>
-              <p className="truncate text-[10px] text-muted-foreground">
-                {user.primaryEmailAddress?.emailAddress}
-              </p>
-            </div>
-          </div>
+function SidebarContent({ pathname, onClose }: { pathname: string; onClose?: () => void }) {
+  return (
+    <>
+      <div className="flex h-14 items-center justify-between px-4 border-b border-border shrink-0">
+        <Link to="/dashboard" className="flex items-center gap-2.5" onClick={onClose}>
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-500 text-white text-sm font-bold">C</div>
+          <span className="font-semibold text-sm text-foreground">ContextOS</span>
+        </Link>
+        {onClose && (
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1 md:hidden">
+            <X className="h-4 w-4" />
+          </button>
         )}
       </div>
-    </aside>
+
+      <ul className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+        {navItems.map(({ href, label, icon: Icon }) => {
+          const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"));
+          return (
+            <li key={href}>
+              <Link
+                to={href}
+                onClick={onClose}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  active
+                    ? "bg-brand-500/15 text-brand-400"
+                    : "text-muted-foreground hover:bg-surface-2 hover:text-foreground"
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="shrink-0 border-t border-border px-4 py-3">
+        <p className="text-[10px] text-muted-foreground">ContextOS — Universal Memory Layer</p>
+      </div>
+    </>
   );
 }

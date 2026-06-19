@@ -24,9 +24,6 @@ class User(Base, UUIDMixin, TimestampMixin):
     projects: Mapped[list["Project"]] = relationship(  # noqa: F821
         "Project", back_populates="user", cascade="all, delete-orphan"
     )
-    documents: Mapped[list["Document"]] = relationship(  # noqa: F821
-        "Document", back_populates="user", cascade="all, delete-orphan"
-    )
     sessions: Mapped[list["AISession"]] = relationship(  # noqa: F821
         "AISession", back_populates="user", cascade="all, delete-orphan"
     )

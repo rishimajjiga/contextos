@@ -1,152 +1,188 @@
-import { useState, useCallback, useRef } from "react";
-import { Search, FileText, BookOpen, Code2, File, Loader2, Sparkles } from "lucide-react";
-import { useSearch } from "@/hooks/useSearch";
+import { useState, useEffect, useRef } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { Search, FolderKanban, Brain, Tag, ArrowRight, Loader2 } from "lucide-react";
+import { apiClient } from "@/services/api";
 import { PageHeader } from "@/components/common/PageHeader";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { formatRelativeTime, truncate } from "@/lib/utils";
+import { useDebounce } from "@/hooks/useDebounce";
 
-const TYPE_ICONS: Record<string, React.ElementType> = {
-  note: BookOpen,
-  code: Code2,
-  pdf: File,
-  research: FileText,
-  other: FileText,
-};
+interface SearchProject {
+  id: string;
+  name: string;
+  description: string | null;
+  stack: string[];
+  kind: "project";
+}
 
-function ResultCard({ result }: { result: ReturnType<typeof useSearch>["results"][0] }) {
-  const isTeam = result.title.startsWith("[Team] ");
-  const displayTitle = isTeam ? result.title.slice(7) : result.title;
-  const Icon = TYPE_ICONS[result.doc_type || "other"] || FileText;
+interface SearchMemory {
+  id: string;
+  title: string;
+  content: string;
+  tags: string[];
+  kind: "memory";
+}
 
-  return (
-    <div className="rounded-xl border border-border bg-card p-4 hover:border-brand-500/30 transition-colors">
-      <div className="flex items-start gap-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-surface-3 mt-0.5">
-          <Icon className="h-4 w-4 text-muted-foreground" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-foreground truncate mb-1">{displayTitle}</p>
-          <p className="text-xs text-muted-foreground leading-relaxed mb-2">
-            {truncate(result.content, 180)}
-          </p>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-[10px] capitalize">
-              {result.doc_type || result.type}
-            </Badge>
-            {isTeam && (
-              <Badge className="text-[10px] bg-purple-500/15 text-purple-400 border-purple-500/30 border">
-                Team
-              </Badge>
-            )}
-            {result.project_name && (
-              <Badge variant="secondary" className="text-[10px]">{result.project_name}</Badge>
-            )}
-            <span className="text-[10px] text-muted-foreground ml-auto">
-              {formatRelativeTime(result.created_at)}
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+interface SearchResults {
+  projects: SearchProject[];
+  memories: SearchMemory[];
+  total: number;
 }
 
 export function SearchPage() {
-  const { results, isSearching, hasSearched, search, clearResults } = useSearch();
-  const [inputValue, setInputValue] = useState("");
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialQ = searchParams.get("q") || "";
+  const [query, setQuery] = useState(initialQ);
+  const debouncedQ = useDebounce(query, 350);
+  const [results, setResults] = useState<SearchResults | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setInputValue(val);
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    if (!val.trim()) {
-      clearResults();
+  useEffect(() => {
+    if (!debouncedQ.trim()) {
+      setResults(null);
+      setSearchParams({}, { replace: true });
       return;
     }
+    setSearchParams({ q: debouncedQ.trim() }, { replace: true });
 
-    debounceRef.current = setTimeout(() => {
-      search(val.trim());
-    }, 400);
-  }, [search, clearResults]);
+    let cancelled = false;
+    setIsLoading(true);
+    setError(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (inputValue.trim()) search(inputValue.trim());
-  };
+    apiClient
+      .get<SearchResults>(`/search?q=${encodeURIComponent(debouncedQ.trim())}&limit=30`)
+      .then((res) => {
+        if (!cancelled) setResults(res.data);
+      })
+      .catch((err: any) => {
+        if (!cancelled) setError(err?.message || "Search failed.");
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [debouncedQ, setSearchParams]);
+
+  const hasResults = results && (results.projects.length > 0 || results.memories.length > 0);
 
   return (
     <div>
       <PageHeader
         title="Search"
-        description="Search your entire knowledge base."
+        description="Search across your projects and memories."
       />
 
       {/* Search input */}
-      <form onSubmit={handleSubmit} className="relative mb-8">
+      <div className="relative mb-6">
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-        <Input
-          value={inputValue}
-          onChange={handleChange}
-          placeholder='Try "React hooks performance" or "database schema design"…'
-          className="pl-10 pr-4 h-11 text-sm"
-          autoFocus
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search projects and memories…"
+          className="w-full rounded-xl border border-border bg-surface-1 py-3 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition"
         />
-        {isSearching && (
+        {isLoading && (
           <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground animate-spin" />
         )}
-      </form>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <p className="mb-4 text-sm text-red-600 rounded-lg border border-red-200 bg-red-50 px-4 py-3">{error}</p>
+      )}
+
+      {/* Empty prompt */}
+      {!query && !results && (
+        <div className="flex flex-col items-center justify-center h-48 text-center gap-3">
+          <Search className="h-10 w-10 text-muted-foreground opacity-30" />
+          <p className="text-sm text-muted-foreground">Type to search projects and memories</p>
+        </div>
+      )}
+
+      {/* No results */}
+      {debouncedQ && results && !hasResults && !isLoading && (
+        <div className="flex flex-col items-center justify-center h-40 text-center gap-2">
+          <p className="text-sm font-medium text-foreground">No results for "{debouncedQ}"</p>
+          <p className="text-xs text-muted-foreground">Try a different keyword</p>
+        </div>
+      )}
 
       {/* Results */}
-      {!hasSearched && !inputValue && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-500/15 mb-4">
-            <Sparkles className="h-6 w-6 text-brand-400" />
-          </div>
-          <h3 className="text-sm font-semibold text-foreground mb-2">Search your memory</h3>
-          <p className="text-sm text-muted-foreground max-w-xs">
-            Find anything you've saved — notes, code snippets, PDFs, and research.
-            Results match on title and content.
-          </p>
-          <div className="mt-6 flex flex-wrap justify-center gap-2">
-            {["React state management", "database indexing", "API authentication", "TypeScript generics"].map(q => (
-              <button
-                key={q}
-                type="button"
-                onClick={() => { setInputValue(q); search(q); }}
-                className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground hover:border-brand-500/40 hover:text-foreground transition-colors"
-              >
-                {q}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {hasResults && (
+        <div className="space-y-6">
+          {/* Projects */}
+          {results.projects.length > 0 && (
+            <section>
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                <FolderKanban className="h-3.5 w-3.5" /> Projects ({results.projects.length})
+              </h2>
+              <div className="space-y-2">
+                {results.projects.map((p) => (
+                  <Link
+                    key={p.id}
+                    to={`/projects/${p.id}`}
+                    className="flex items-center gap-3 rounded-lg border border-border bg-surface-1 px-4 py-3 hover:border-brand-500/40 hover:bg-brand-500/5 transition-colors group"
+                  >
+                    <FolderKanban className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{p.name}</p>
+                      {p.description && (
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">{p.description}</p>
+                      )}
+                    </div>
+                    {p.stack.slice(0, 2).map((s) => (
+                      <Badge key={s} variant="outline" className="text-[10px] shrink-0">{s}</Badge>
+                    ))}
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
 
-      {hasSearched && !isSearching && results.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <p className="text-sm font-medium text-foreground mb-1">No results found</p>
-          <p className="text-sm text-muted-foreground">
-            Try different keywords, or{" "}
-            <a href="/documents" className="text-brand-400 hover:underline">add more documents</a>{" "}
-            to your knowledge base.
-          </p>
-        </div>
-      )}
-
-      {results.length > 0 && (
-        <div>
-          <p className="text-xs text-muted-foreground mb-4">
-            {results.length} result{results.length !== 1 ? "s" : ""} found
-          </p>
-          <div className="space-y-3">
-            {results.map(r => (
-              <ResultCard key={r.id} result={r} />
-            ))}
-          </div>
+          {/* Memories */}
+          {results.memories.length > 0 && (
+            <section>
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                <Brain className="h-3.5 w-3.5" /> Memories ({results.memories.length})
+              </h2>
+              <div className="space-y-2">
+                {results.memories.map((m) => (
+                  <Link
+                    key={m.id}
+                    to="/memories"
+                    state={{ highlight: m.id }}
+                    className="block rounded-lg border border-border bg-surface-1 px-4 py-3 hover:border-brand-500/40 hover:bg-brand-500/5 transition-colors"
+                  >
+                    <div className="flex items-start gap-3">
+                      <Brain className="h-4 w-4 text-brand-400 shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground">{m.title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{m.content}</p>
+                        {m.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {m.tags.map((tag) => (
+                              <Badge key={tag} variant="secondary" className="text-[10px] gap-1">
+                                <Tag className="h-2.5 w-2.5" />{tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       )}
     </div>

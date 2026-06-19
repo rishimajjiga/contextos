@@ -30,9 +30,6 @@ class Project(Base, UUIDMixin, TimestampMixin):
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="projects")  # noqa: F821
-    documents: Mapped[list["Document"]] = relationship(  # noqa: F821
-        "Document", back_populates="project", cascade="all, delete-orphan"
-    )
 
     def __repr__(self) -> str:
         return f"<Project id={self.id} name={self.name}>"

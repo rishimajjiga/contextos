@@ -5,81 +5,48 @@ Builds a user's full memory context in multiple formats so ANY AI model
 can consume it -- not just MCP-compatible ones.
 
 Formats:
-  markdown   -- rich, for models with a decent context window (default)
-  text       -- compact single-block, for small / limited-context models
-  json       -- raw structured data, for programmatic consumption
+  markdown      -- rich, for models with a decent context window (default)
+  text          -- compact single-block, for small / limited-context models
+  json          -- raw structured data, for programmatic consumption
   system-prompt -- opinionated paste-ready system prompt
 """
 from __future__ import annotations
 
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, Literal
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.document import Document
-from app.repositories import ProfileRepository, ProjectRepository, DocumentRepository
+from app.repositories import ProfileRepository, ProjectRepository
 
 ContextFormat = Literal["markdown", "text", "json", "system-prompt"]
-
-
-async def _get_team_docs(db: AsyncSession, user_id: str, max_docs: int) -> list:
-    """
-    If the user is in an org, fetch documents with visibility='team' from all org members.
-    Returns [] if user has no org or team has no shared docs.
-    """
-    try:
-        from app.services.org_service import get_org_for_user, get_org_member_user_ids
-        org = await get_org_for_user(db, user_id)
-        if not org:
-            return []
-        member_ids = await get_org_member_user_ids(db, org.id)
-        other_ids = [uid for uid in member_ids if uid != user_id]
-        if not other_ids:
-            return []
-        result = await db.execute(
-            select(Document)
-            .where(
-                Document.user_id.in_(other_ids),
-                Document.visibility == "team",
-            )
-            .order_by(Document.updated_at.desc())
-            .limit(max_docs)
-        )
-        return list(result.scalars().all())
-    except Exception:
-        return []
 
 
 async def build_context(
     db: AsyncSession,
     user_id: str,
     format: ContextFormat = "markdown",
-    max_docs: int = 10,
+    max_docs: int = 10,       # kept for API compatibility, ignored
     max_projects: int = 10,
 ) -> str | Dict[str, Any]:
     """
-    Fetch profile + projects + recent documents and render as the requested format.
+    Fetch profile + projects and render as the requested format.
     Never raises 404 -- missing data is omitted gracefully.
-    Team members' shared docs (visibility='team') are merged in when user is in an org.
     """
     profile = await ProfileRepository(db).get_by_user_id(user_id)
     projects, _ = await ProjectRepository(db).list_by_user(user_id=user_id, page=1, per_page=max_projects)
-    docs, _ = await DocumentRepository(db).list_by_user(user_id=user_id, page=1, per_page=max_docs)
-    team_docs = await _get_team_docs(db, user_id, max_docs)
 
     if format == "json":
-        return _as_json(profile, projects, docs, team_docs)
+        return _as_json(profile, projects)
     if format == "text":
-        return _as_text(profile, projects, docs, team_docs)
+        return _as_text(profile, projects)
     if format == "system-prompt":
-        return _as_system_prompt(profile, projects, docs, team_docs)
-    return _as_markdown(profile, projects, docs, team_docs)
+        return _as_system_prompt(profile, projects)
+    return _as_markdown(profile, projects)
 
 
 # -- Renderers -----------------------------------------------------------------
 
-def _as_markdown(profile, projects, docs, team_docs=None) -> str:
+def _as_markdown(profile, projects) -> str:
     parts: list[str] = ["# ContextOS Memory\n"]
 
     if profile:
@@ -119,28 +86,10 @@ def _as_markdown(profile, projects, docs, team_docs=None) -> str:
                 section += f"Current problems:\n{problems}\n"
             parts.append(section)
 
-    if docs:
-        parts.append(f"## Knowledge ({len(docs)} items)\n")
-        for i, d in enumerate(docs, 1):
-            snippet = (d.content or "").strip()[:300]
-            if len(d.content or "") > 300:
-                snippet += "..."
-            tags = f" [{', '.join(d.tags)}]" if d.tags else ""
-            parts.append(f"{i}. [{d.doc_type}]{tags} **{d.title}**\n   {snippet}\n")
-
-    if team_docs:
-        parts.append(f"## Team Knowledge ({len(team_docs)} shared items)\n")
-        for i, d in enumerate(team_docs, 1):
-            snippet = (d.content or "").strip()[:300]
-            if len(d.content or "") > 300:
-                snippet += "..."
-            tags = f" [{', '.join(d.tags)}]" if d.tags else ""
-            parts.append(f"{i}. [{d.doc_type}]{tags} **{d.title}** *(shared)*\n   {snippet}\n")
-
     return "\n".join(parts)
 
 
-def _as_text(profile, projects, docs, team_docs=None) -> str:
+def _as_text(profile, projects) -> str:
     """Ultra-compact single block for small-context models."""
     lines: list[str] = []
 
@@ -166,22 +115,10 @@ def _as_text(profile, projects, docs, team_docs=None) -> str:
             if tasks: line += f". Tasks: {tasks}"
             lines.append(line)
 
-    if docs:
-        lines.append(f"\nKNOWLEDGE ({len(docs)}):")
-        for d in docs:
-            snippet = (d.content or "").strip()[:120].replace("\n", " ")
-            lines.append(f"[{d.doc_type}] {d.title}: {snippet}")
-
-    if team_docs:
-        lines.append(f"\nTEAM KNOWLEDGE ({len(team_docs)}):")
-        for d in team_docs:
-            snippet = (d.content or "").strip()[:120].replace("\n", " ")
-            lines.append(f"[{d.doc_type}][shared] {d.title}: {snippet}")
-
     return "\n".join(lines)
 
 
-def _as_system_prompt(profile, projects, docs, team_docs=None) -> str:
+def _as_system_prompt(profile, projects) -> str:
     """
     Ready to paste into any AI tool system prompt field:
     ChatGPT Custom Instructions, Gemini Gems, Claude Projects, Mistral, etc.
@@ -219,22 +156,6 @@ def _as_system_prompt(profile, projects, docs, team_docs=None) -> str:
             parts.append(block)
         parts.append("")
 
-    if docs:
-        parts.append(f"[MY KNOWLEDGE -- {len(docs)} items]\n" + "\n".join(
-            f"- [{d.doc_type}] {d.title}"
-            + (f": {d.content[:100].replace(chr(10), ' ')}..." if d.content else "")
-            for d in docs
-        ))
-        parts.append("")
-
-    if team_docs:
-        parts.append(f"[TEAM KNOWLEDGE -- {len(team_docs)} shared items]\n" + "\n".join(
-            f"- [{d.doc_type}] {d.title}"
-            + (f": {d.content[:100].replace(chr(10), ' ')}..." if d.content else "")
-            for d in team_docs
-        ))
-        parts.append("")
-
     parts.append(
         "[INSTRUCTIONS]\n"
         "- Match my preferred tone and response style\n"
@@ -247,7 +168,7 @@ def _as_system_prompt(profile, projects, docs, team_docs=None) -> str:
     return "\n\n".join(parts)
 
 
-def _as_json(profile, projects, docs, team_docs=None) -> Dict[str, Any]:
+def _as_json(profile, projects) -> Dict[str, Any]:
     return {
         "profile": {
             "role": profile.role,
@@ -270,25 +191,5 @@ def _as_json(profile, projects, docs, team_docs=None) -> Dict[str, Any]:
                 "current_problems": p.current_problems,
             }
             for p in projects
-        ],
-        "documents": [
-            {
-                "id": str(d.id),
-                "title": d.title,
-                "doc_type": d.doc_type,
-                "tags": d.tags,
-                "content_preview": (d.content or "")[:500],
-            }
-            for d in docs
-        ],
-        "team_documents": [
-            {
-                "id": str(d.id),
-                "title": d.title,
-                "doc_type": d.doc_type,
-                "tags": d.tags,
-                "content_preview": (d.content or "")[:500],
-            }
-            for d in (team_docs or [])
         ],
     }

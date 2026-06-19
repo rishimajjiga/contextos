@@ -59,7 +59,7 @@ export function JoinPage() {
           <>
             <h1 className="mb-2 text-lg font-semibold text-text-primary">You're in! 🎉</h1>
             <p className="mb-6 text-sm text-text-secondary">
-              You've joined the team. Shared documents will now appear in your AI context.
+              You've joined the team. Shared project context will now appear in your AI tools.
             </p>
             <Button onClick={() => navigate("/team")} className="w-full">
               Go to Team page

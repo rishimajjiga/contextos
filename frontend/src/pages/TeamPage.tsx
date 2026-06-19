@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Users, Copy, Check, Trash2, Crown, UserPlus, Mail, X } from "lucide-react";
+import { Users, Copy, Check, Trash2, Crown, UserPlus, Mail, X, AlertCircle } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { teamService, type Organization, type InviteResult } from "@/services/te
 import { useNavigate } from "react-router-dom";
 
 export function TeamPage() {
-  const [org, setOrg] = useState<Organization | null | undefined>(undefined); // undefined = loading
+  const [org, setOrg] = useState<Organization | null | undefined>(undefined);
   const [orgName, setOrgName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [lastInvite, setLastInvite] = useState<InviteResult | null>(null);
@@ -20,6 +20,7 @@ export function TeamPage() {
   const [inviting, setInviting] = useState(false);
   const [revokingToken, setRevokingToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [serverDown, setServerDown] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const navigate = useNavigate();
 
@@ -27,8 +28,15 @@ export function TeamPage() {
     try {
       const data = await teamService.getMyOrg();
       setOrg(data);
-    } catch {
-      setOrg(null);
+      setServerDown(false);
+    } catch (err: any) {
+      // Distinguish network/server errors from "no org yet"
+      if (err?.code === "NETWORK_ERROR" || err?.status === 0 || err?.message?.includes("Network") || err?.message?.includes("fetch") || err?.message?.includes("ECONNREFUSED")) {
+        setServerDown(true);
+        setOrg(null);
+      } else {
+        setOrg(null);
+      }
     }
   }, []);
 
@@ -119,7 +127,7 @@ export function TeamPage() {
     if (isMe) return "You";
     if (m.name) return m.name;
     if (m.email) return m.email;
-    return m.user_id.slice(0, 12) + "…";
+    return m.user_id.slice(0, 12) + "...";
   }
 
   function memberSub(m: { name: string; email: string; role: string }, isMe: boolean) {
@@ -140,8 +148,28 @@ export function TeamPage() {
     <div className="space-y-6">
       <PageHeader
         title="Team"
-        description="Share knowledge across your team. Documents marked as 'shared' are visible to all members."
+        description="Invite teammates and share project context across your organization."
       />
+
+      {/* Server down notice */}
+      {serverDown && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-3">
+          <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-amber-800">Backend not reachable</p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              Make sure the backend server is running on port 8000, then{" "}
+              <button
+                className="underline font-medium"
+                onClick={() => { setServerDown(false); loadOrg(); }}
+              >
+                retry
+              </button>
+              .
+            </p>
+          </div>
+        </div>
+      )}
 
       {showUpgrade && (
         <div className="rounded-2xl border border-purple-500/30 bg-purple-500/5 p-6 text-center space-y-4">
@@ -149,14 +177,14 @@ export function TeamPage() {
           <h3 className="text-lg font-semibold text-foreground">Team plan required</h3>
           <p className="text-sm text-muted-foreground max-w-sm mx-auto">
             Creating a team and inviting members requires the <strong>Team plan</strong>.
-            Upgrade to share knowledge with up to 5 teammates.
+            Upgrade to share context with up to 5 teammates.
           </p>
           <div className="flex gap-3 justify-center">
             <button
               onClick={() => navigate("/pricing")}
               className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold rounded-xl transition-colors"
             >
-              ⚡ Upgrade to Team
+              Upgrade to Team
             </button>
             <button
               onClick={() => setShowUpgrade(false)}
@@ -177,13 +205,13 @@ export function TeamPage() {
         </div>
       )}
 
-      {/* No org yet — create one */}
-      {!org && !showUpgrade && (
+      {/* No org yet */}
+      {!org && !showUpgrade && !serverDown && (
         <Card>
           <CardHeader>
             <CardTitle>Create your team</CardTitle>
             <CardDescription>
-              Give your team a name to get started. You can invite up to 4 members.
+              Give your team a name to get started. You can invite up to 5 members.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -211,9 +239,7 @@ export function TeamPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>{org.name}</CardTitle>
-                  <CardDescription>
-                    {org.members.length} / 5 seats used
-                  </CardDescription>
+                  <CardDescription>{org.members.length} / 5 seats used</CardDescription>
                 </div>
                 <Badge variant="secondary" className="text-xs">Team</Badge>
               </div>
@@ -238,9 +264,7 @@ export function TeamPage() {
                         <p className="text-sm font-medium text-text-primary">
                           {memberDisplay(m, isMe)}
                         </p>
-                        <p className="text-xs text-text-secondary">
-                          {memberSub(m, isMe)}
-                        </p>
+                        <p className="text-xs text-text-secondary">{memberSub(m, isMe)}</p>
                       </div>
                     </div>
                     {m.role !== "owner" && (
@@ -263,9 +287,7 @@ export function TeamPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Pending invites</CardTitle>
-                <CardDescription>
-                  These links are active and waiting for acceptance.
-                </CardDescription>
+                <CardDescription>These links are active and waiting for acceptance.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {pendingInvites.map((inv) => (
@@ -298,8 +320,7 @@ export function TeamPage() {
                       >
                         {revokingToken === inv.token
                           ? <LoadingSpinner size="sm" />
-                          : <X className="h-4 w-4" />
-                        }
+                          : <X className="h-4 w-4" />}
                       </button>
                     </div>
                   </div>
@@ -328,10 +349,7 @@ export function TeamPage() {
                   />
                   <Button type="submit" disabled={inviting || !inviteEmail.trim()}>
                     {inviting ? <LoadingSpinner size="sm" /> : (
-                      <>
-                        <UserPlus className="mr-2 h-4 w-4" />
-                        Generate link
-                      </>
+                      <><UserPlus className="mr-2 h-4 w-4" /> Generate link</>
                     )}
                   </Button>
                 </form>
@@ -354,17 +372,6 @@ export function TeamPage() {
               </CardContent>
             </Card>
           )}
-
-          {/* Shared knowledge hint */}
-          <Card className="bg-brand-50 border-brand-200">
-            <CardContent className="pt-4 pb-4">
-              <p className="text-sm text-brand-700">
-                <strong>Sharing knowledge:</strong> Go to{" "}
-                <a href="/documents" className="underline">Documents</a> and toggle any document to{" "}
-                <strong>Shared</strong> — it will appear in all your teammates\' AI context automatically.
-              </p>
-            </CardContent>
-          </Card>
         </>
       )}
     </div>

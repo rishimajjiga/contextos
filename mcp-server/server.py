@@ -5,12 +5,7 @@ Gives any MCP-compatible AI tool (Claude, Cursor, Cline, etc.)
 the ability to read and write memory in ContextOS.
 
 Tools exposed:
-  - get_full_context  Full profile + projects + knowledge in one call (start here)
-  - save_memory       Save a note or document
-  - search_memory     Keyword search across all saved memory
-  - list_memory       List recent documents (optionally filtered by project)
-  - get_document      Fetch a single document by ID
-  - delete_document   Delete a document by ID
+  - get_full_context  Full profile + projects in one call (start here)
   - get_profile       Fetch the user's ContextOS profile
   - list_projects     List the user's projects
   - get_project       Fetch a single project by ID
@@ -23,7 +18,7 @@ Config (set in .env or environment):
 
 import os
 import logging
-from typing import Any, Optional
+from typing import Optional
 
 import httpx
 from dotenv import load_dotenv
@@ -60,44 +55,30 @@ def _headers() -> dict:
     }
 
 
-def _fmt(doc: dict) -> str:
-    """Format a document dict as readable text for the AI."""
-    tags = ", ".join(doc.get("tags", [])) or "none"
-    return (
-        f"ID: {doc['id']}\n"
-        f"Title: {doc['title']}\n"
-        f"Type: {doc.get('doc_type', 'note')}\n"
-        f"Tags: {tags}\n"
-        f"Updated: {doc.get('updated_at', '')}\n"
-        f"Content:\n{doc.get('content', '')}"
-    )
-
-
 # ── Tools ─────────────────────────────────────────────────────────────────────
 
 @mcp.tool()
 async def get_full_context(
     format: Optional[str] = "markdown",
-    max_docs: Optional[int] = 10,
 ) -> str:
     """
     Get the user's complete ContextOS context in a single call:
-    their profile, all projects, and recent knowledge.
+    their profile and all projects.
 
     Call this at the start of a session or whenever you need a broad
     understanding of who the user is and what they are working on.
-    Use search_memory for targeted lookups afterward.
 
     Args:
-        format:   Output format — "markdown" (default, rich),
-                  "text" (compact, for smaller context windows).
-        max_docs: Max knowledge items to include (default 10).
+        format: Output format — "markdown" (default, rich),
+                "text" (compact, for smaller context windows),
+                "json" (structured data),
+                "system-prompt" (paste-ready system prompt).
     """
     async with httpx.AsyncClient() as client:
         r = await client.get(
             f"{API_URL}/api/v1/context",
             headers=_headers(),
-            params={"format": format or "markdown", "max_docs": max_docs or 10},
+            params={"format": format or "markdown"},
             timeout=20,
         )
         r.raise_for_status()
@@ -105,171 +86,9 @@ async def get_full_context(
 
 
 @mcp.tool()
-async def save_memory(
-    title: str,
-    content: str,
-    tags: Optional[str] = None,
-    doc_type: Optional[str] = "note",
-    project_id: Optional[str] = None,
-) -> str:
-    """
-    Save a note or piece of information to ContextOS memory.
-
-    Args:
-        title:      Short title for the memory (e.g. "User prefers dark mode")
-        content:    The full content to store
-        tags:       Comma-separated tags (e.g. "preference,ui,rishi")
-        doc_type:   Type of document: note, code, pdf, url (default: note)
-        project_id: Optional project UUID to associate this memory with
-    """
-    tag_list = [t.strip() for t in tags.split(",")] if tags else []
-
-    payload: dict[str, Any] = {
-        "title": title,
-        "content": content,
-        "doc_type": doc_type or "note",
-        "tags": tag_list,
-    }
-    if project_id:
-        payload["project_id"] = project_id
-
-    async with httpx.AsyncClient() as client:
-        r = await client.post(
-            f"{API_URL}/api/v1/documents",
-            headers=_headers(),
-            json=payload,
-            timeout=15,
-        )
-        r.raise_for_status()
-        doc = r.json()
-
-    return f"Saved successfully.\n\n{_fmt(doc)}"
-
-
-@mcp.tool()
-async def search_memory(
-    query: str,
-    limit: Optional[int] = 10,
-    project_id: Optional[str] = None,
-) -> str:
-    """
-    Search ContextOS memory for documents matching a keyword query.
-
-    Args:
-        query:      Keywords to search for
-        limit:      Max results to return (default 10)
-        project_id: Restrict search to a specific project UUID
-    """
-    payload: dict[str, Any] = {"query": query, "limit": limit or 10}
-    if project_id:
-        payload["project_id"] = project_id
-
-    async with httpx.AsyncClient() as client:
-        r = await client.post(
-            f"{API_URL}/api/v1/search",
-            headers=_headers(),
-            json=payload,
-            timeout=15,
-        )
-        r.raise_for_status()
-        results = r.json()
-
-    items = results.get("results", results) if isinstance(results, dict) else results
-    if not items:
-        return f"No results found for: {query}"
-
-    parts = [f"Found {len(items)} result(s) for '{query}':\n"]
-    for i, item in enumerate(items, 1):
-        parts.append(f"--- Result {i} ---")
-        parts.append(_fmt(item))
-        parts.append("")
-    return "\n".join(parts)
-
-
-@mcp.tool()
-async def list_memory(
-    limit: Optional[int] = 20,
-    project_id: Optional[str] = None,
-) -> str:
-    """
-    List recent documents from ContextOS memory.
-
-    Args:
-        limit:      Max number of documents to return (default 20)
-        project_id: Filter by project UUID
-    """
-    params: dict[str, Any] = {"per_page": limit or 20, "page": 1}
-    if project_id:
-        params["project_id"] = project_id
-
-    async with httpx.AsyncClient() as client:
-        r = await client.get(
-            f"{API_URL}/api/v1/documents",
-            headers=_headers(),
-            params=params,
-            timeout=15,
-        )
-        r.raise_for_status()
-        data = r.json()
-
-    docs = data.get("items", data) if isinstance(data, dict) else data
-    if not docs:
-        return "No documents found."
-
-    parts = [f"Found {len(docs)} document(s):\n"]
-    for doc in docs:
-        tags = ", ".join(doc.get("tags", [])) or "none"
-        parts.append(f"• [{doc['id'][:8]}...] {doc['title']} (tags: {tags})")
-    return "\n".join(parts)
-
-
-@mcp.tool()
-async def get_document(document_id: str) -> str:
-    """
-    Retrieve the full content of a specific document from ContextOS.
-
-    Args:
-        document_id: The UUID of the document to retrieve
-    """
-    async with httpx.AsyncClient() as client:
-        r = await client.get(
-            f"{API_URL}/api/v1/documents/{document_id}",
-            headers=_headers(),
-            timeout=15,
-        )
-        if r.status_code == 404:
-            return f"Document not found: {document_id}"
-        r.raise_for_status()
-        doc = r.json()
-
-    return _fmt(doc)
-
-
-@mcp.tool()
-async def delete_document(document_id: str) -> str:
-    """
-    Delete a document from ContextOS memory.
-
-    Args:
-        document_id: The UUID of the document to delete
-    """
-    async with httpx.AsyncClient() as client:
-        r = await client.delete(
-            f"{API_URL}/api/v1/documents/{document_id}",
-            headers=_headers(),
-            timeout=15,
-        )
-        if r.status_code == 404:
-            return f"Document not found: {document_id}"
-        r.raise_for_status()
-
-    return f"Document {document_id} deleted successfully."
-
-
-@mcp.tool()
 async def get_profile() -> str:
     """
-    Fetch the user's ContextOS profile (name, role, skills, bio).
+    Fetch the user's ContextOS profile (role, skills, tone, tech stack).
     Useful for personalizing responses based on who you're talking to.
     """
     async with httpx.AsyncClient() as client:
@@ -284,18 +103,18 @@ async def get_profile() -> str:
         p = r.json()
 
     parts = [
-        f"Name: {p.get('full_name') or 'Not set'}",
         f"Role: {p.get('role') or 'Not set'}",
-        f"Bio: {p.get('bio') or 'Not set'}",
     ]
     if p.get("skills"):
         parts.append(f"Skills: {', '.join(p['skills'])}")
-    if p.get("stack"):
-        parts.append(f"Tech stack: {', '.join(p['stack'])}")
-    if p.get("location"):
-        parts.append(f"Location: {p['location']}")
-    if p.get("timezone"):
-        parts.append(f"Timezone: {p['timezone']}")
+    if p.get("programming_languages"):
+        parts.append(f"Languages: {', '.join(p['programming_languages'])}")
+    if p.get("frameworks"):
+        parts.append(f"Frameworks: {', '.join(p['frameworks'])}")
+    if p.get("tone"):
+        parts.append(f"Tone: {p['tone']}")
+    if p.get("response_style"):
+        parts.append(f"Response style: {p['response_style']}")
     return "\n".join(parts)
 
 
@@ -335,7 +154,7 @@ async def list_projects(limit: Optional[int] = 20) -> str:
 @mcp.tool()
 async def get_project(project_id: str) -> str:
     """
-    Fetch a single project by ID, including its description and tech stack.
+    Fetch a single project by ID, including its full description, stack, goals, and tasks.
 
     Args:
         project_id: The UUID of the project to retrieve
@@ -356,9 +175,15 @@ async def get_project(project_id: str) -> str:
         f"Name: {p['name']}",
         f"Description: {p.get('description') or 'None'}",
         f"Stack: {', '.join(p.get('stack', [])) or 'none'}",
-        f"Tags: {', '.join(p.get('tags', [])) or 'none'}",
+        f"Goals: {p.get('goals') or 'None'}",
+        f"Architecture: {p.get('architecture') or 'None'}",
+        f"Coding style: {p.get('coding_style') or 'None'}",
         f"Updated: {p.get('updated_at', '')}",
     ]
+    if p.get("active_tasks"):
+        parts.append("Active tasks:\n" + "\n".join(f"  - {t}" for t in p["active_tasks"]))
+    if p.get("current_problems"):
+        parts.append("Current problems:\n" + "\n".join(f"  - {pr}" for pr in p["current_problems"]))
     if p.get("repo_url"):
         parts.append(f"Repo: {p['repo_url']}")
     if p.get("live_url"):
