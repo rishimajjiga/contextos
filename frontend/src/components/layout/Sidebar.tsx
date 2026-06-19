@@ -13,6 +13,7 @@ import {
   Key,
   Users,
   Zap,
+  CreditCard,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { billingService, type PlanInfo } from "@/services/billing.service";
@@ -29,6 +30,7 @@ const navItems = [
 
 const bottomItems = [
   { href: "/api-keys", label: "API Keys", icon: Key },
+  { href: "/pricing", label: "Pricing & Upgrade", icon: CreditCard },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -90,10 +92,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
           <Link
             key={href}
             to={href}
-            className={cn(
-              "nav-item",
-              isActive(href) && "active"
-            )}
+            className={cn("nav-item", isActive(href) && "active")}
           >
             <Icon className="h-4 w-4 shrink-0" />
             {label}
@@ -101,18 +100,26 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
         ))}
       </nav>
 
-      {/* Upgrade banner (free plan only) */}
+      {/* Upgrade banner — free plan only */}
       {plan && plan.plan === "free" && (
         <div className="mx-3 mb-2 rounded-lg border border-brand-500/20 bg-brand-500/5 p-3">
-          <p className="text-xs font-medium text-foreground mb-0.5">Free plan</p>
-          <p className="text-[10px] text-muted-foreground mb-2">
-            {plan.usage.documents}/{plan.limits.documents} memories used
-          </p>
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs font-medium text-foreground">Free plan</p>
+            <span className="text-[10px] text-muted-foreground">
+              {plan.usage.documents}/{plan.limits.documents} memories
+            </span>
+          </div>
+          <div className="h-1 w-full rounded-full bg-surface-3 mb-2">
+            <div
+              className="h-1 rounded-full bg-brand-500 transition-all"
+              style={{ width: `${Math.min((plan.usage.documents / plan.limits.documents) * 100, 100)}%` }}
+            />
+          </div>
           <Link
             to="/pricing"
             className="flex w-full items-center justify-center gap-1.5 rounded-md bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-400 transition-colors"
           >
-            <Zap className="h-3 w-3" /> Upgrade
+            <Zap className="h-3 w-3" /> Upgrade plan
           </Link>
         </div>
       )}
@@ -123,25 +130,24 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
           <Link
             key={href}
             to={href}
-            className={cn("nav-item", isActive(href) && "active")}
+            className={cn(
+              "nav-item",
+              isActive(href) && "active",
+              href === "/pricing" && !isActive(href) && "text-brand-400 hover:text-brand-300"
+            )}
           >
             <Icon className="h-4 w-4 shrink-0" />
             {label}
+            {href === "/pricing" && plan && plan.plan !== "free" && (
+              <span className={cn(
+                "ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full",
+                PLAN_COLORS[plan.plan]
+              )}>
+                {plan.display_name}
+              </span>
+            )}
           </Link>
         ))}
-
-        {plan && plan.plan !== "free" && (
-          <Link
-            to="/pricing"
-            className={cn(
-              "flex items-center gap-2 rounded-md px-3 py-2 text-xs font-medium transition-colors hover:bg-accent",
-              PLAN_COLORS[plan.plan]
-            )}
-          >
-            <Zap className="h-3.5 w-3.5 shrink-0" />
-            {plan.display_name} plan
-          </Link>
-        )}
 
         {user && (
           <div className="mt-2 flex items-center gap-2.5 rounded-md px-3 py-2">

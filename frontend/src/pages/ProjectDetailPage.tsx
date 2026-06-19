@@ -337,7 +337,7 @@ export function ProjectDetailPage() {
             Created {formatDate(selectedProject.created_at)}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button
             variant="outline"
             size="sm"
@@ -354,7 +354,7 @@ export function ProjectDetailPage() {
 
       <form onSubmit={handleSubmit(onSubmit)}>
         <Tabs defaultValue="overview">
-          <TabsList className="mb-6">
+          <TabsList className="mb-6 w-full overflow-x-auto flex-nowrap justify-start sm:justify-start gap-1">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="stack">Tech stack</TabsTrigger>
             <TabsTrigger value="tasks">Tasks & problems</TabsTrigger>
@@ -416,7 +416,7 @@ export function ProjectDetailPage() {
                     </Badge>
                   ))}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <Input
                     placeholder="Add technology (Enter to add)"
                     onKeyDown={e => {

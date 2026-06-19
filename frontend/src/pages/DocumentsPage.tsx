@@ -46,7 +46,7 @@ function DropZone({ onDrop, isUploading }: { onDrop: (files: File[]) => void; is
     <div
       {...getRootProps()}
       className={cn(
-        "flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 transition-colors cursor-pointer",
+        "flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 sm:p-10 transition-colors cursor-pointer",
         isDragActive
           ? "border-brand-500 bg-brand-500/10"
           : "border-border hover:border-brand-500/50 hover:bg-surface-2"

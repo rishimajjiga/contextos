@@ -107,3 +107,29 @@
     text-wrap: balance;
   }
 }
+
+@layer utilities {
+  /* Prevent horizontal overflow on mobile */
+  .mobile-safe {
+    @apply max-w-full overflow-x-hidden;
+  }
+
+  /* Larger tap targets on touch devices */
+  @media (pointer: coarse) {
+    .nav-item {
+      @apply py-3;
+    }
+    button, a {
+      min-height: 44px;
+    }
+  }
+
+  /* Hide scrollbar but keep scroll on tabs */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}

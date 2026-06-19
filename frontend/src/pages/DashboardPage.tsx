@@ -27,7 +27,7 @@ function StatCard({
   return (
     <Link to={href}>
       <Card className="hover:border-brand-500/40 transition-colors cursor-pointer">
-        <CardContent className="flex items-center justify-between p-5">
+        <CardContent className="flex items-center justify-between p-4 sm:p-5">
           <div>
             <p className="text-xs text-muted-foreground mb-1">{label}</p>
             <p className="text-2xl font-bold text-foreground">{value}</p>
@@ -145,7 +145,7 @@ export function DashboardPage() {
       )}
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-4 mb-8">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 mb-6 sm:mb-8">
         <StatCard label="Memories" value={docTotal} icon={Brain} href="/documents" />
         <StatCard label="Projects" value={projectTotal} icon={FolderKanban} href="/projects" />
         <StatCard label="Search" value="→" icon={Search} href="/search" />
