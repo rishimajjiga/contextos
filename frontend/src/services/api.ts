@@ -44,8 +44,10 @@ apiClient.interceptors.response.use(
         new Error("Can't reach the server. Please try again in a moment.")
       );
     }
+
+    const detail = error.response.data?.detail;
+
     if (error.response.status === 402) {
-      const detail = error.response.data?.detail;
       if (detail?.code === "LIMIT_REACHED") {
         return Promise.reject(new LimitError(detail));
       }
@@ -63,6 +65,16 @@ apiClient.interceptors.response.use(
         return Promise.reject(e);
       }
     }
+
+    // 410 Gone — grace period ended, data was deleted
+    if (error.response.status === 410 && detail?.code === "DATA_DELETED") {
+      const e: any = new Error(
+        detail.message || "Your data has been permanently deleted."
+      );
+      e.code = "DATA_DELETED";
+      return Promise.reject(e);
+    }
+
     const rawDetail = error.response?.data?.detail;
     const message =
       typeof rawDetail === "string"

@@ -5,27 +5,67 @@ import { Topbar } from "@/components/layout/Topbar";
 import { CommandPalette } from "@/components/common/CommandPalette";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { usePlan } from "@/hooks/usePlan";
+import { apiClient } from "@/services/api";
 
 function GracePeriodBanner() {
   const { plan } = usePlan();
+  const [downloading, setDownloading] = useState(false);
+
   if (!plan.is_in_grace_period) return null;
+
   const daysLeft = plan.grace_period_end
     ? Math.max(0, Math.ceil(
         (new Date(plan.grace_period_end).getTime() - Date.now()) / 86_400_000
       ))
     : 0;
+
+  const deleteDate = plan.grace_period_end
+    ? new Date(plan.grace_period_end).toLocaleDateString("en-IN", {
+        day: "numeric", month: "short", year: "numeric",
+      })
+    : "soon";
+
+  async function handleDownload() {
+    setDownloading(true);
+    try {
+      const res = await apiClient.get("/billing/download-backup", {
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `contextos-backup-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // silently fail — user can retry
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   return (
-    <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 flex items-center justify-between gap-4 text-sm">
+    <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 flex items-center justify-between gap-4 text-sm flex-wrap">
       <span className="text-amber-700 dark:text-amber-300">
-        Your subscription has expired. Data is read-only.{" "}
-        <strong>Renew within {daysLeft} day{daysLeft !== 1 ? "s" : ""}</strong> to avoid data deletion.
+        Your subscription has expired. Data is read-only and will be{" "}
+        <strong>permanently deleted on {deleteDate}</strong>.
+        Download your backup now or renew to keep it.
       </span>
-      <Link
-        to="/pricing"
-        className="shrink-0 px-3 py-1 bg-amber-500 hover:bg-amber-400 text-white rounded-md font-medium text-xs transition-colors"
-      >
-        Renew Now
-      </Link>
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={handleDownload}
+          disabled={downloading}
+          className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-md font-medium text-xs transition-colors disabled:opacity-60"
+        >
+          {downloading ? "Downloading..." : "Download My Data"}
+        </button>
+        <Link
+          to="/pricing"
+          className="px-3 py-1 border border-amber-500 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 rounded-md font-medium text-xs transition-colors"
+        >
+          Renew Plan
+        </Link>
+      </div>
     </div>
   );
 }

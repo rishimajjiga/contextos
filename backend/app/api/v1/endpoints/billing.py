@@ -36,7 +36,7 @@ import httpx
 
 from app.config import settings
 from app.database import get_db
-from app.api.v1.dependencies import get_user_id
+from app.api.v1.dependencies import get_user_id, get_user_id_no_purge
 from app.middleware import get_current_user_id
 from app.services.subscription_service import (
     get_or_create_subscription,
@@ -376,3 +376,29 @@ async def razorpay_webhook(
         log.info("razorpay_webhook_unhandled", event_type=event_type)
 
     return {"ok": True}
+
+
+# ── GET /billing/download-backup ──────────────────────────────────────────────
+
+@router.get("/download-backup")
+async def download_backup(
+    user_id: str = Depends(get_user_id_no_purge),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Generate and return a PDF of all user data for download.
+    Available during the grace period AND after expiry (no purge check).
+    """
+    from fastapi.responses import Response
+    from app.services.backup_service import generate_pdf_bytes
+
+    pdf_bytes = await generate_pdf_bytes(db, user_id)
+    now = datetime.now(timezone.utc).strftime("%Y%m%d")
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="contextos-backup-{now}.pdf"',
+            "Content-Length": str(len(pdf_bytes)),
+        },
+    )
