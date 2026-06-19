@@ -130,12 +130,12 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-_cors_origins = ["*"] if not settings.is_production else settings.cors_origins
+_cors_origins = ["*"]  # open for all origins; auth is enforced via Clerk JWT
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
-    allow_credentials=not ("*" in _cors_origins),
+    allow_credentials=False,  # cannot combine wildcard origins with credentials
     allow_methods=["*"],
     allow_headers=["*"],
 )
