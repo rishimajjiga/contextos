@@ -22,7 +22,7 @@ export function ConnectExtensionPage() {
     try {
       const token = await getToken();
       if (!token) throw new Error("Could not get auth token. Please sign in again.");
-      const base = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
+      const base = (import.meta.env.VITE_API_URL || "https://contextos-production-d82a.up.railway.app").replace(/\/$/, "");
       const res = await fetch(`${base}/api/v1/api-keys`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
