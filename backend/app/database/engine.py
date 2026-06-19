@@ -13,6 +13,10 @@ engine = create_async_engine(
     pool_size=10,
     max_overflow=20,
     pool_recycle=3600,
+    # Supabase routes through PgBouncer in transaction mode, which doesn't
+    # support asyncpg prepared statements. Disable the cache to avoid
+    # "prepared statement does not exist" errors.
+    connect_args={"statement_cache_size": 0},
 )
 
 AsyncSessionLocal = async_sessionmaker(

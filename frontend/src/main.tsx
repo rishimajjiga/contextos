@@ -6,6 +6,12 @@ import { Toaster } from "sonner";
 import App from "./App";
 import "./styles/globals.css";
 
+// Expose the backend API URL as an HTML data attribute so the Chrome extension's
+// content scripts (connect.js, website-bridge.js) can read it without needing
+// access to the JS execution context.
+document.documentElement.dataset.ctxosApiUrl =
+  import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 if (!PUBLISHABLE_KEY) {

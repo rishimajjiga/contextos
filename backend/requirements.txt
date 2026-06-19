@@ -4,8 +4,9 @@ uvicorn[standard]==0.30.1
 
 # Database
 sqlalchemy==2.0.31
-asyncpg>=0.29.0           # async driver used by the FastAPI engine (postgresql+asyncpg://)
-psycopg2-binary>=2.9.9   # sync driver used by Alembic migrations (postgresql+psycopg2://)
+psycopg[binary]>=3.1.0   # async driver for postgresql+psycopg:// URLs (psycopg3)
+asyncpg>=0.29.0           # alternative async driver (postgresql+asyncpg://)
+psycopg2-binary>=2.9.9   # sync driver used by Alembic migrations
 greenlet>=3.0.0
 
 # Auth

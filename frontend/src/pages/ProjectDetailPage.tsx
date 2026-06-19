@@ -6,10 +6,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowLeft, Trash2, Save, Plus, X, CheckCircle2, AlertCircle,
   Upload, FileText, File, BookOpen, Code2,
+  FolderOpen, StickyNote, GitCommit,
 } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { useProjects } from "@/hooks/useProjects";
 import { useDocuments } from "@/hooks/useDocuments";
+import { useThreadEvents } from "@/hooks/useThreadEvents";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -234,6 +236,7 @@ export function ProjectDetailPage() {
     documents, isLoading: docsLoading, isUploading,
     fetchDocuments, createDocument, uploadFile, deleteDocument,
   } = useDocuments(id);
+  const { events: threadEvents, isLoading: threadLoading, fetchThread } = useThreadEvents(id);
   const [showDelete, setShowDelete] = useState(false);
   const [showAddDoc, setShowAddDoc] = useState(false);
   const [limitError, setLimitError] = useState<LimitError | null>(null);
@@ -253,6 +256,10 @@ export function ProjectDetailPage() {
   useEffect(() => {
     if (id) fetchDocuments();
   }, [id, fetchDocuments]);
+
+  useEffect(() => {
+    if (id) fetchThread();
+  }, [id, fetchThread]);
 
   useEffect(() => {
     if (selectedProject) {
@@ -355,6 +362,12 @@ export function ProjectDetailPage() {
               Documents
               {documents.length > 0 && (
                 <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">{documents.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="thread" onClick={() => fetchThread()}>
+              Thread
+              {threadEvents.length > 0 && (
+                <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">{threadEvents.length}</Badge>
               )}
             </TabsTrigger>
           </TabsList>
@@ -506,6 +519,55 @@ export function ProjectDetailPage() {
                   );
                 })}
               </div>
+            )}
+          </TabsContent>
+
+          {/* ── Context Thread ────────────────────────────────────────────── */}
+          <TabsContent value="thread">
+            {threadLoading ? (
+              <div className="flex h-32 items-center justify-center">
+                <LoadingSpinner size="md" />
+              </div>
+            ) : threadEvents.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground gap-2">
+                <GitCommit className="h-8 w-8 opacity-30" />
+                <p className="text-sm">No events yet.</p>
+                <p className="text-xs">Create a document or update the project to start the thread.</p>
+              </div>
+            ) : (
+              <ol className="relative border-l border-border ml-3 space-y-0">
+                {threadEvents.map((event) => {
+                  const Icon =
+                    event.event_type === "project_created" ? FolderOpen
+                    : event.event_type === "file_uploaded" ? File
+                    : event.event_type === "project_updated" ? Save
+                    : StickyNote;
+
+                  const iconColor =
+                    event.event_type === "project_created" ? "text-brand-400"
+                    : event.event_type === "file_uploaded" ? "text-purple-400"
+                    : event.event_type === "project_updated" ? "text-yellow-400"
+                    : "text-emerald-400";
+
+                  return (
+                    <li key={event.id} className="ml-6 pb-8">
+                      <span className={`absolute -left-3 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-surface-2 ${iconColor}`}>
+                        <Icon className="h-3 w-3" />
+                      </span>
+                      <p className="text-sm font-medium text-foreground leading-tight">{event.title}</p>
+                      {event.detail && (
+                        <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{event.detail}</p>
+                      )}
+                      <time className="mt-1 block text-[10px] text-muted-foreground/60">
+                        {new Date(event.created_at).toLocaleString(undefined, {
+                          month: "short", day: "numeric",
+                          hour: "2-digit", minute: "2-digit",
+                        })}
+                      </time>
+                    </li>
+                  );
+                })}
+              </ol>
             )}
           </TabsContent>
         </Tabs>

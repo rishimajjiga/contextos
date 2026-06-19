@@ -1,570 +1,642 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ContextOS</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>ContextOS</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg0:#0a0a14;--bg1:#0f0f1c;--bg2:#14142a;--bg3:#1a1a32;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --text:rgba(255,255,255,0.9);--muted:rgba(255,255,255,0.38);--dim:rgba(255,255,255,0.2);
+  --brand:#6366F1;--brand2:#8B5CF6;--brand-glow:rgba(99,102,241,0.35);
+  --green:#10B981;--yellow:#F59E0B;--red:#EF4444;--purple:#8B5CF6;
+}
+html{overflow:hidden}
+body{
+  background:var(--bg0);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  width:380px;height:600px;overflow:hidden;
+  display:flex;flex-direction:column;
+  font-size:13px;line-height:1.5;
+}
+body::before{
+  content:'';position:fixed;top:-100px;left:50%;transform:translateX(-50%);
+  width:400px;height:240px;
+  background:radial-gradient(ellipse,rgba(99,102,241,0.12) 0%,transparent 70%);
+  pointer-events:none;z-index:0;
+}
 
-    body {
-      background: #0f0f1a;
-      color: #fff;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      width: 360px;
-      height: 540px;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
+/* ── SCREENS ── */
+#screen-login,#screen-main{display:none;flex-direction:column;flex:1;min-height:0}
+#screen-login.show,#screen-main.show{display:flex}
 
-    /* ── Glow background ── */
-    body::before {
-      content: '';
-      position: fixed;
-      top: -80px; left: 50%;
-      transform: translateX(-50%);
-      width: 300px; height: 200px;
-      background: radial-gradient(ellipse, rgba(99,102,241,0.18) 0%, transparent 70%);
-      pointer-events: none;
-    }
+/* ── LOGIN ── */
+#screen-login{
+  align-items:center;justify-content:center;
+  gap:20px;padding:44px 28px;text-align:center;
+  background:var(--bg0);
+}
+.login-glow{
+  width:88px;height:88px;border-radius:26px;
+  background:linear-gradient(135deg,var(--brand),var(--brand2));
+  display:flex;align-items:center;justify-content:center;font-size:40px;
+  box-shadow:0 8px 40px var(--brand-glow);margin-bottom:4px;
+}
+.login-title{font-size:22px;font-weight:800;letter-spacing:-0.5px}
+.login-tagline{font-size:12px;color:var(--muted);line-height:1.6;max-width:240px}
+#connect-btn{
+  width:100%;padding:14px;font-size:14px;font-weight:700;border-radius:13px;
+  background:linear-gradient(135deg,var(--brand),var(--brand2));
+  border:none;color:#fff;cursor:pointer;
+  box-shadow:0 6px 28px var(--brand-glow);letter-spacing:0.2px;
+  transition:opacity .15s,transform .1s;
+}
+#connect-btn:hover{opacity:.88}
+#connect-btn:active{transform:scale(.97)}
+#connect-btn:disabled{opacity:.45;cursor:not-allowed}
+#connect-status{font-size:11px;color:var(--muted);min-height:18px}
 
-    /* ── Header ── */
-    .header { flex-shrink: 0;
-      background: linear-gradient(135deg, rgba(99,102,241,0.9) 0%, rgba(139,92,246,0.9) 100%);
-      backdrop-filter: blur(12px);
-      padding: 14px 16px 13px;
-      display: flex;
-      align-items: center;
-      gap: 11px;
-      position: relative;
-      overflow: hidden;
-    }
-    .header::after {
-      content: '';
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      height: 1px;
-      background: rgba(255,255,255,0.15);
-    }
-    .header-logo {
-      width: 34px; height: 34px;
-      background: rgba(255,255,255,0.15);
-      border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px;
-      flex-shrink: 0;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    }
-    .header-title  { font-size: 15px; font-weight: 800; letter-spacing: -0.3px; }
-    .header-sub    { font-size: 10px; opacity: 0.65; margin-top: 1px; letter-spacing: 0.2px; }
-    .header-pill {
-      margin-left: auto;
-      background: rgba(255,255,255,0.15);
-      border-radius: 20px;
-      padding: 3px 9px;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.3px;
-    }
+/* ── HEADER ── */
+.header{
+  flex-shrink:0;
+  background:linear-gradient(135deg,rgba(99,102,241,.85),rgba(139,92,246,.85));
+  backdrop-filter:blur(16px);
+  padding:12px 14px 11px;
+  display:flex;align-items:center;gap:10px;
+  position:relative;z-index:10;
+}
+.header::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;
+  height:1px;background:rgba(255,255,255,.14);
+}
+.hdr-logo{
+  width:32px;height:32px;border-radius:9px;
+  background:rgba(255,255,255,.16);
+  display:flex;align-items:center;justify-content:center;font-size:17px;
+  flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.25);
+}
+.hdr-title{font-size:14px;font-weight:800;letter-spacing:-.3px}
+.hdr-sub{font-size:9.5px;opacity:.6;margin-top:1px;letter-spacing:.2px}
+.hdr-status{
+  margin-left:auto;
+  display:flex;align-items:center;gap:5px;
+  background:rgba(255,255,255,.14);border-radius:20px;
+  padding:3px 9px;font-size:10px;font-weight:700;
+}
+.hdr-dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+.hdr-dot.off{background:rgba(255,255,255,.3)}
 
-    /* ── Tabs ── */
-    .tabs { flex-shrink: 0;
-      display: flex;
-      background: #14142a;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      padding: 0 4px;
-    }
-    .tab {
-      flex: 1;
-      background: none;
-      border: none;
-      color: rgba(255,255,255,0.32);
-      cursor: pointer;
-      font-size: 10.5px;
-      font-weight: 700;
-      padding: 11px 4px 9px;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      transition: color 0.15s;
-      border-bottom: 2px solid transparent;
-      display: flex; align-items: center; justify-content: center;
-      gap: 5px;
-      margin-bottom: -1px;
-    }
-    .tab.active { color: #a5b4fc; border-bottom-color: #6366F1; }
-    .tab:hover:not(.active) { color: rgba(255,255,255,0.55); }
+/* ── NAV TABS ── */
+.nav{
+  flex-shrink:0;display:flex;
+  background:var(--bg1);border-bottom:1px solid var(--border);
+  padding:0 4px;overflow-x:auto;scrollbar-width:none;
+}
+.nav::-webkit-scrollbar{display:none}
+.nav-btn{
+  background:none;border:none;
+  color:var(--muted);cursor:pointer;
+  font-family:inherit;font-size:10px;font-weight:700;
+  padding:10px 8px 8px;white-space:nowrap;
+  letter-spacing:.4px;text-transform:uppercase;
+  border-bottom:2px solid transparent;
+  transition:color .15s,border-color .15s;
+  margin-bottom:-1px;display:flex;align-items:center;gap:4px;
+}
+.nav-btn.active{color:#a5b4fc;border-bottom-color:var(--brand)}
+.nav-btn:hover:not(.active){color:rgba(255,255,255,.55)}
 
-    /* ── Panels ── */
-    .panel { display: none; padding: 14px; flex-direction: column; gap: 11px; flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.08) transparent; }
-    .panel.active { display: flex; }
+/* ── PANELS ── */
+.panel{
+  display:none;flex-direction:column;gap:10px;
+  padding:12px 13px;flex:1;min-height:0;
+  overflow-y:auto;scrollbar-width:thin;
+  scrollbar-color:rgba(255,255,255,.08) transparent;
+}
+.panel.active{display:flex}
 
-    /* ── Inputs ── */
-    input[type="text"], input[type="password"], textarea {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 10px;
-      color: #fff;
-      font-family: inherit;
-      font-size: 13px;
-      outline: none;
-      padding: 9px 12px;
-      transition: border-color 0.15s, background 0.15s;
-      width: 100%;
-    }
-    input[type="text"]:focus, input[type="password"]:focus, textarea:focus {
-      border-color: rgba(99,102,241,0.6);
-      background: rgba(255,255,255,0.07);
-    }
-    input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.2); }
+/* ── INPUTS ── */
+input[type="text"],input[type="password"],input[type="search"],textarea,select{
+  background:rgba(255,255,255,.05);
+  border:1px solid var(--border);border-radius:9px;
+  color:var(--text);font-family:inherit;font-size:12px;
+  outline:none;padding:8px 11px;width:100%;
+  transition:border-color .15s,background .15s;
+}
+input:focus,textarea:focus,select:focus{
+  border-color:rgba(99,102,241,.55);background:rgba(255,255,255,.07);
+}
+input::placeholder,textarea::placeholder{color:var(--dim)}
+select option{background:#1a1a32;color:var(--text)}
 
-    /* ── Field label ── */
-    .field-label {
-      font-size: 10px; font-weight: 700;
-      letter-spacing: 0.7px; text-transform: uppercase;
-      color: rgba(255,255,255,0.32);
-      margin-bottom: 5px;
-    }
+.lbl{
+  font-size:9.5px;font-weight:700;letter-spacing:.7px;
+  text-transform:uppercase;color:var(--muted);margin-bottom:4px;
+}
 
-    /* ── Buttons ── */
-    button {
-      background: #6366F1;
-      border: none; border-radius: 10px;
-      color: #fff; cursor: pointer;
-      font-family: inherit; font-size: 12px; font-weight: 700;
-      padding: 9px 14px;
-      white-space: nowrap;
-      transition: opacity 0.15s, transform 0.1s;
-    }
-    button:hover  { opacity: 0.88; }
-    button:active { transform: scale(0.97); }
-    button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+/* ── BUTTONS ── */
+button{
+  background:var(--brand);border:none;border-radius:9px;
+  color:#fff;cursor:pointer;font-family:inherit;
+  font-size:12px;font-weight:700;padding:8px 14px;
+  transition:opacity .15s,transform .1s;white-space:nowrap;
+}
+button:hover{opacity:.88}
+button:active{transform:scale(.97)}
+button:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn-ghost{background:rgba(255,255,255,.07);color:var(--muted)}
+.btn-ghost:hover{background:rgba(255,255,255,.11);opacity:1}
+.btn-sm{padding:5px 10px;font-size:11px;border-radius:7px}
+.btn-danger{background:rgba(239,68,68,.15);color:#f87171}
+.btn-danger:hover{background:rgba(239,68,68,.22);opacity:1}
+.btn-full{width:100%;padding:11px;font-size:13px;border-radius:11px}
+.btn-primary-grad{
+  background:linear-gradient(135deg,var(--brand),var(--brand2));
+  box-shadow:0 4px 18px var(--brand-glow);
+}
+.btn-primary-grad:hover{opacity:.9;box-shadow:0 6px 24px var(--brand-glow)}
 
-    .btn-ghost {
-      background: rgba(255,255,255,0.07);
-      color: rgba(255,255,255,0.55);
-    }
-    .btn-ghost:hover { background: rgba(255,255,255,0.11); opacity: 1; }
-    .btn-sm { padding: 6px 11px; font-size: 11px; border-radius: 8px; }
-    .btn-danger { background: rgba(239,68,68,0.15); color: #F87171; }
-    .btn-danger:hover { background: rgba(239,68,68,0.22); opacity: 1; }
+/* ── SEARCH ROW ── */
+.search-row{
+  display:flex;gap:6px;
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--border);border-radius:9px;
+  padding:5px 10px;align-items:center;
+}
+.search-row-icon{font-size:13px;flex-shrink:0;opacity:.38}
+.search-row input{
+  background:transparent;border:none;border-radius:0;
+  padding:3px 0;font-size:12px;
+}
+.search-row input:focus{border-color:transparent;background:transparent}
 
-    /* ── Search row ── */
-    .search-row {
-      display: flex; gap: 6px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.07);
-      border-radius: 10px;
-      padding: 6px 10px;
-      align-items: center;
-    }
-    .search-row-icon { font-size: 13px; flex-shrink: 0; opacity: 0.4; }
-    .search-row input {
-      background: transparent; border: none;
-      border-radius: 0; padding: 2px 0;
-      font-size: 13px;
-    }
-    .search-row input:focus { border-color: transparent; background: transparent; }
+/* ── MEMORY / DOC ITEMS ── */
+.item-list{display:flex;flex-direction:column;gap:6px}
+.item{
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--border);border-radius:10px;
+  padding:9px 11px;cursor:default;
+  transition:background .12s,border-color .12s;
+  position:relative;
+}
+.item:hover{background:rgba(255,255,255,.06);border-color:rgba(99,102,241,.2)}
+.item-title{font-size:12px;font-weight:700;line-height:1.35;margin-bottom:3px}
+.item-preview{
+  color:var(--muted);font-size:11px;line-height:1.5;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.item-footer{display:flex;align-items:center;gap:5px;margin-top:6px;flex-wrap:wrap}
+.badge{
+  font-size:9px;font-weight:700;letter-spacing:.3px;
+  padding:2px 7px;border-radius:20px;text-transform:uppercase;
+}
+.badge-note{background:rgba(99,102,241,.18);color:#a5b4fc}
+.badge-code{background:rgba(16,185,129,.15);color:#6ee7b7}
+.badge-research{background:rgba(59,130,246,.15);color:#93c5fd}
+.badge-reference{background:rgba(245,158,11,.15);color:#fcd34d}
+.badge-prompt{background:rgba(236,72,153,.15);color:#f9a8d4}
+.badge-other{background:rgba(255,255,255,.08);color:var(--muted)}
+.tag{
+  background:rgba(255,255,255,.06);border-radius:4px;
+  color:rgba(255,255,255,.32);font-size:10px;font-weight:600;
+  padding:1px 6px;
+}
+.item-del{
+  position:absolute;top:8px;right:8px;
+  background:none;border:none;color:var(--muted);
+  cursor:pointer;padding:2px;font-size:13px;
+  opacity:0;transition:opacity .15s;
+}
+.item:hover .item-del{opacity:1}
+.item-del:hover{color:#f87171;opacity:1}
 
-    /* ── Memory list ── */
-    .memory-list {
-      display: flex; flex-direction: column; gap: 7px;
-    }
-    .memory-item {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.07);
-      border-radius: 11px;
-      padding: 10px 12px;
-      cursor: default;
-      transition: background 0.12s, border-color 0.12s;
-      position: relative;
-    }
-    .memory-item:hover {
-      background: rgba(255,255,255,0.07);
-      border-color: rgba(99,102,241,0.25);
-    }
-    .memory-item-top { display: flex; align-items: flex-start; gap: 8px; }
-    .memory-type-dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      flex-shrink: 0; margin-top: 4px;
-    }
-    .memory-item-title { font-size: 12px; font-weight: 700; flex: 1; line-height: 1.4; }
-    .memory-item-preview {
-      color: rgba(255,255,255,0.38);
-      font-size: 11px; line-height: 1.5;
-      margin-top: 5px;
-    }
-    .memory-item-footer {
-      display: flex; align-items: center; gap: 6px;
-      margin-top: 8px;
-    }
-    .memory-type-badge {
-      font-size: 9px; font-weight: 700;
-      letter-spacing: 0.4px;
-      padding: 2px 7px; border-radius: 20px;
-      text-transform: uppercase;
-    }
-    .type-note      { background: rgba(99,102,241,0.18);  color: #a5b4fc; }
-    .type-code      { background: rgba(16,185,129,0.14);  color: #6ee7b7; }
-    .type-reference { background: rgba(245,158,11,0.14);  color: #fcd34d; }
-    .type-idea      { background: rgba(236,72,153,0.14);  color: #f9a8d4; }
-    .type-other     { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.45); }
-    .memory-item-tags { display: flex; flex-wrap: wrap; gap: 3px; }
-    .tag {
-      background: rgba(255,255,255,0.06);
-      border-radius: 4px;
-      color: rgba(255,255,255,0.35);
-      font-size: 10px; font-weight: 600;
-      padding: 1px 6px;
-    }
-    .empty-state {
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 8px; padding: 28px 16px;
-      text-align: center; color: rgba(255,255,255,0.28);
-      font-size: 12px;
-    }
-    .empty-state-icon { font-size: 30px; opacity: 0.5; }
+/* ── PROJECTS ── */
+.project-item{
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--border);border-radius:10px;
+  padding:10px 12px;cursor:pointer;
+  transition:background .12s,border-color .12s;
+  display:flex;align-items:center;gap:10px;
+}
+.project-item:hover{background:rgba(255,255,255,.07);border-color:rgba(99,102,241,.3)}
+.project-icon{
+  width:34px;height:34px;border-radius:9px;flex-shrink:0;
+  background:linear-gradient(135deg,rgba(99,102,241,.25),rgba(139,92,246,.18));
+  display:flex;align-items:center;justify-content:center;font-size:16px;
+}
+.project-name{font-size:12px;font-weight:700;line-height:1.3}
+.project-desc{font-size:10.5px;color:var(--muted);margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+.project-meta{margin-left:auto;font-size:10px;color:var(--dim);flex-shrink:0}
 
-    /* ── Status ── */
-    .status-msg {
-      color: rgba(255,255,255,0.3);
-      font-size: 12px; text-align: center;
-      padding: 6px 0; min-height: 24px;
-    }
-    .status-msg.error   { color: #F87171; }
-    .status-msg.success { color: #34D399; }
+/* ── FILTER CHIPS ── */
+.filter-chips{display:flex;gap:5px;flex-wrap:wrap}
+.chip{
+  background:rgba(255,255,255,.05);
+  border:1.5px solid var(--border);border-radius:20px;
+  color:var(--muted);cursor:pointer;font-family:inherit;
+  font-size:10px;font-weight:700;padding:4px 10px;
+  transition:all .13s;
+}
+.chip.active,.chip:hover{
+  background:rgba(99,102,241,.2);border-color:var(--brand);
+  color:#a5b4fc;
+}
 
-    /* ── SAVE TAB ── */
-    .save-page-bar {
-      display: flex; align-items: center; gap: 9px;
-      background: rgba(99,102,241,0.08);
-      border: 1px solid rgba(99,102,241,0.2);
-      border-radius: 10px; padding: 9px 12px;
-      transition: background 0.15s;
-    }
-    .save-page-favicon { width: 15px; height: 15px; border-radius: 3px; flex-shrink: 0; }
-    .save-page-info { flex: 1; min-width: 0; }
-    .save-page-title {
-      font-size: 11px; font-weight: 600;
-      color: rgba(255,255,255,0.75);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .save-page-domain { font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 1px; }
-    .save-page-pill {
-      font-size: 9px; font-weight: 700;
-      background: rgba(99,102,241,0.22); color: #a5b4fc;
-      padding: 3px 8px; border-radius: 20px; flex-shrink: 0;
-    }
+/* ── SAVE FORM ── */
+.page-bar{
+  display:flex;align-items:center;gap:9px;
+  background:rgba(99,102,241,.08);
+  border:1px solid rgba(99,102,241,.2);
+  border-radius:9px;padding:8px 11px;cursor:pointer;
+  transition:background .15s;
+}
+.page-bar:hover{background:rgba(99,102,241,.12)}
+.page-favicon{width:15px;height:15px;border-radius:3px;flex-shrink:0}
+.page-bar-info{flex:1;min-width:0}
+.page-bar-title{
+  font-size:11px;font-weight:600;color:rgba(255,255,255,.75);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.page-bar-host{font-size:10px;color:var(--muted);margin-top:1px}
+.page-bar-chip{
+  font-size:9px;font-weight:700;
+  background:rgba(99,102,241,.22);color:#a5b4fc;
+  padding:3px 8px;border-radius:20px;flex-shrink:0;
+}
 
-    /* Type chips */
-    .type-chips { display: flex; gap: 6px; }
-    .type-chip {
-      flex: 1;
-      background: rgba(255,255,255,0.04);
-      border: 1.5px solid rgba(255,255,255,0.07);
-      border-radius: 9px;
-      color: rgba(255,255,255,0.38);
-      cursor: pointer; font-family: inherit;
-      font-size: 11px; font-weight: 700;
-      padding: 7px 4px; text-align: center;
-      transition: all 0.13s;
-    }
-    .type-chip:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.65); }
-    .type-chip.active-note      { background: rgba(99,102,241,0.2);  border-color: #6366F1; color: #a5b4fc; }
-    .type-chip.active-code      { background: rgba(16,185,129,0.14); border-color: #10B981; color: #6ee7b7; }
-    .type-chip.active-reference { background: rgba(245,158,11,0.14); border-color: #F59E0B; color: #fcd34d; }
-    .type-chip.active-idea      { background: rgba(236,72,153,0.14); border-color: #EC4899; color: #f9a8d4; }
+.type-chips{display:flex;gap:5px}
+.type-chip{
+  flex:1;background:rgba(255,255,255,.04);
+  border:1.5px solid var(--border);border-radius:8px;
+  color:var(--muted);cursor:pointer;font-family:inherit;
+  font-size:11px;font-weight:700;padding:6px 2px;text-align:center;
+  transition:all .13s;
+}
+.type-chip:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.6)}
+.type-chip.sel-note     {background:rgba(99,102,241,.2);border-color:var(--brand);color:#a5b4fc}
+.type-chip.sel-code     {background:rgba(16,185,129,.14);border-color:var(--green);color:#6ee7b7}
+.type-chip.sel-research {background:rgba(59,130,246,.15);border-color:#3b82f6;color:#93c5fd}
+.type-chip.sel-prompt   {background:rgba(236,72,153,.14);border-color:#ec4899;color:#f9a8d4}
+.type-chip.sel-reference{background:rgba(245,158,11,.14);border-color:var(--yellow);color:#fcd34d}
 
-    .content-wrapper { position: relative; }
-    .char-bar { height: 2px; border-radius: 2px; margin-top: 5px; transition: width .2s, background .2s; background: #6366F1; width: 0%; }
-    .char-counter { font-size: 10px; color: rgba(255,255,255,0.25); text-align: right; margin-top: 3px; }
-    .char-counter.warn { color: #F59E0B; }
-    .char-counter.over { color: #EF4444; }
-    #save-content { resize: none; }
+.char-track{height:2px;border-radius:2px;margin-top:4px;
+  background:rgba(255,255,255,.07);overflow:hidden}
+.char-fill{height:100%;border-radius:2px;width:0%;
+  background:var(--brand);transition:width .2s,background .2s}
+.char-count{font-size:10px;color:var(--dim);text-align:right;margin-top:2px}
+.char-count.warn{color:var(--yellow)}
+.char-count.over{color:var(--red)}
 
-    /* Tags */
-    .tags-area {
-      display: flex; flex-wrap: wrap; gap: 5px; align-items: center;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 10px; padding: 6px 10px; min-height: 36px; cursor: text;
-    }
-    .tags-area:focus-within { border-color: rgba(99,102,241,0.5); }
-    .tag-pill {
-      display: flex; align-items: center; gap: 4px;
-      background: rgba(99,102,241,0.2); border-radius: 20px;
-      color: #a5b4fc; font-size: 11px; font-weight: 600;
-      padding: 3px 9px;
-    }
-    .tag-pill-x { cursor: pointer; opacity: 0.5; font-size: 13px; line-height: 1; }
-    .tag-pill-x:hover { opacity: 1; }
-    #save-tags-input {
-      background: transparent; border: none; border-radius: 0;
-      color: #fff; flex: 1; font-size: 12px;
-      min-width: 80px; outline: none; padding: 2px 0;
-    }
-    #save-tags-input::placeholder { color: rgba(255,255,255,0.2); }
+.tags-area{
+  display:flex;flex-wrap:wrap;gap:5px;align-items:center;
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--border);border-radius:9px;
+  padding:5px 9px;min-height:34px;cursor:text;
+}
+.tags-area:focus-within{border-color:rgba(99,102,241,.5)}
+.tag-pill{
+  display:flex;align-items:center;gap:4px;
+  background:rgba(99,102,241,.2);border-radius:20px;
+  color:#a5b4fc;font-size:11px;font-weight:600;padding:2px 9px;
+}
+.tag-x{cursor:pointer;opacity:.5;font-size:13px;line-height:1}
+.tag-x:hover{opacity:1}
+#save-tags-input{
+  background:transparent;border:none;border-radius:0;
+  color:var(--text);flex:1;font-size:12px;
+  min-width:80px;outline:none;padding:2px 0;
+}
 
-    .save-btn-main {
-      width: 100%; padding: 12px; font-size: 13px;
-      border-radius: 11px;
-      background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
-      box-shadow: 0 4px 20px rgba(99,102,241,0.4);
-      letter-spacing: 0.2px;
-    }
-    .save-btn-main:hover { opacity: 0.9; box-shadow: 0 6px 24px rgba(99,102,241,0.5); }
+.proj-selector{
+  background:rgba(255,255,255,.05);
+  border:1px solid var(--border);border-radius:9px;
+  color:var(--text);font-family:inherit;font-size:12px;
+  padding:8px 11px;width:100%;
+  transition:border-color .15s;cursor:pointer;
+  appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.3)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;
+  padding-right:28px;
+}
+.proj-selector:focus{border-color:rgba(99,102,241,.55)}
+.proj-selector option{background:#14142a}
 
-    /* Success */
-    .save-success {
-      display: none; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 10px; padding: 36px 20px;
-      text-align: center; animation: popIn 0.28s ease;
-    }
-    .save-success.show { display: flex; }
-    @keyframes popIn {
-      from { opacity: 0; transform: scale(0.85); }
-      to   { opacity: 1; transform: scale(1); }
-    }
-    .success-icon  { font-size: 46px; line-height: 1; }
-    .success-title { font-size: 16px; font-weight: 800; }
-    .success-sub   { font-size: 12px; color: rgba(255,255,255,0.4); line-height: 1.6; max-width: 220px; }
-    .success-actions { display: flex; gap: 8px; margin-top: 4px; }
+/* ── SUCCESS ── */
+.save-success{
+  display:none;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:10px;padding:36px 20px;text-align:center;
+  animation:popIn .28s ease;
+}
+.save-success.show{display:flex}
+@keyframes popIn{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+.suc-icon{font-size:48px;line-height:1}
+.suc-title{font-size:16px;font-weight:800}
+.suc-sub{font-size:12px;color:var(--muted);line-height:1.6;max-width:220px}
+.suc-actions{display:flex;gap:8px;margin-top:4px}
 
-    /* ── Settings ── */
-    .settings-section {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.07);
-      border-radius: 11px; padding: 12px;
-      display: flex; flex-direction: column; gap: 10px;
-    }
-    .settings-section-title {
-      font-size: 10px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: 0.7px;
-      color: rgba(255,255,255,0.3);
-    }
-    .toggle-row {
-      display: flex; align-items: center;
-      justify-content: space-between; padding: 2px 0;
-    }
-    .toggle-label { font-size: 13px; color: rgba(255,255,255,0.65); }
-    .toggle-sub   { font-size: 10px; color: rgba(255,255,255,0.28); margin-top: 2px; }
-    input[type="checkbox"] {
-      width: 38px; height: 21px; cursor: pointer; accent-color: #6366F1;
-      flex-shrink: 0;
-    }
-    .btn-row { display: flex; gap: 7px; }
+/* ── SETTINGS ── */
+.settings-block{
+  background:rgba(255,255,255,.03);
+  border:1px solid var(--border);border-radius:10px;
+  padding:11px;display:flex;flex-direction:column;gap:9px;
+}
+.settings-block-title{
+  font-size:9.5px;font-weight:700;letter-spacing:.7px;
+  text-transform:uppercase;color:var(--muted);
+}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:1px 0}
+.toggle-lbl{font-size:12px;color:rgba(255,255,255,.65)}
+.toggle-sub{font-size:10px;color:var(--dim);margin-top:2px}
+input[type="checkbox"]{
+  width:36px;height:20px;cursor:pointer;
+  accent-color:var(--brand);flex-shrink:0;
+}
 
-    /* ── Footer ── */
-    .footer { flex-shrink: 0;
-      border-top: 1px solid rgba(255,255,255,0.05);
-      color: rgba(255,255,255,0.15);
-      font-size: 10px; padding: 9px 16px;
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .footer a { color: inherit; text-decoration: none; }
-    .footer a:hover { color: rgba(255,255,255,0.35); }
+/* ── STATUS MESSAGES ── */
+.status{color:var(--muted);font-size:11px;text-align:center;padding:5px 0;min-height:22px}
+.status.error{color:#f87171}
+.status.success{color:#34d399}
+.status.warn{color:#fcd34d}
 
-    /* ── Login ── */
+/* ── EMPTY STATES ── */
+.empty{
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:7px;
+  padding:24px 16px;text-align:center;color:var(--muted);
+}
+.empty-icon{font-size:28px;opacity:.45}
+.empty-title{font-size:13px;font-weight:700;color:rgba(255,255,255,.45)}
+.empty-sub{font-size:11px;line-height:1.6;max-width:200px}
 
-    /* Upgrade banner inside memories list */
-    .upgrade-banner {
-      background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.08));
-      border: 1px solid rgba(99,102,241,0.3);
-      border-radius: 11px; padding: 14px;
-      text-align: center; margin-top: 4px;
-    }
-    .upgrade-banner-title { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 4px; }
-    .upgrade-banner-sub   { font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 12px; line-height: 1.5; }
-    .upgrade-banner-btn {
-      display: inline-block; background: linear-gradient(135deg,#6366F1,#8B5CF6);
-      border: none; border-radius: 9px; color: #fff; cursor: pointer;
-      font-size: 12px; font-weight: 700; padding: 8px 20px;
-      box-shadow: 0 4px 14px rgba(99,102,241,0.4);
-      text-decoration: none;
-    }
+/* ── UPGRADE BANNER ── */
+.upgrade-banner{
+  background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(139,92,246,.08));
+  border:1px solid rgba(99,102,241,.28);
+  border-radius:10px;padding:13px;text-align:center;
+}
+.upgrade-title{font-size:12px;font-weight:700;margin-bottom:4px}
+.upgrade-sub{font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5}
 
-    #screen-login {
-      display: none; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 22px; padding: 44px 24px;
-      text-align: center; min-height: 400px;
-    }
-    .login-brand { font-size: 52px; line-height: 1; }
-    .login-glow {
-      width: 90px; height: 90px; border-radius: 28px;
-      background: linear-gradient(135deg, #6366F1, #8B5CF6);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 40px;
-      box-shadow: 0 8px 32px rgba(99,102,241,0.5);
-    }
-    .login-title { font-size: 20px; font-weight: 800; letter-spacing: -0.4px; margin-bottom: -8px; }
-    .login-sub   { font-size: 13px; color: rgba(255,255,255,0.4); line-height: 1.6; max-width: 240px; }
-    #connect-btn {
-      width: 100%; padding: 14px; font-size: 14px; border-radius: 12px;
-      background: linear-gradient(135deg, #6366F1, #8B5CF6);
-      box-shadow: 0 6px 24px rgba(99,102,241,0.45);
-    }
+/* ── SECTION HEADERS ── */
+.section-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:2px;
+}
+.section-title{
+  font-size:10px;font-weight:700;letter-spacing:.5px;
+  text-transform:uppercase;color:var(--muted);
+}
 
-    #screen-main  {
-      display: none;
-      flex-direction: column;
-      flex: 1;
-      min-height: 0;
-      overflow: hidden;
-    }
-    #screen-main.visible  { display: flex; }
-    #screen-login { flex: 1; }
-    #screen-login.visible { display: flex; }
-  </style>
+/* ── FOOTER ── */
+.footer{
+  flex-shrink:0;border-top:1px solid var(--border);
+  color:rgba(255,255,255,.15);font-size:10px;
+  padding:8px 14px;display:flex;align-items:center;
+  justify-content:space-between;background:var(--bg1);
+}
+.footer a{color:inherit;text-decoration:none;transition:color .15s}
+.footer a:hover{color:rgba(255,255,255,.4)}
+
+/* ── SPINNER ── */
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{
+  width:18px;height:18px;border:2px solid rgba(255,255,255,.12);
+  border-top-color:var(--brand);border-radius:50%;
+  animation:spin .6s linear infinite;margin:auto;
+}
+.spinner-wrap{display:flex;justify-content:center;padding:20px 0}
+
+/* ── INJECT PANEL (shown in AI tools) ── */
+.inject-row{
+  display:flex;align-items:flex-start;gap:8px;
+  background:rgba(255,255,255,.04);border:1px solid var(--border);
+  border-radius:9px;padding:9px 11px;cursor:pointer;
+  transition:background .12s,border-color .12s;
+}
+.inject-row:hover{background:rgba(99,102,241,.08);border-color:rgba(99,102,241,.3)}
+.inject-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:var(--brand);flex-shrink:0;margin-top:5px;
+}
+.inject-text{font-size:11.5px;line-height:1.4;flex:1}
+.inject-title{font-weight:700;font-size:12px;margin-bottom:2px}
+.inject-btn{
+  background:rgba(99,102,241,.2);border-radius:7px;
+  color:#a5b4fc;font-size:10px;font-weight:700;
+  padding:4px 9px;flex-shrink:0;border:none;cursor:pointer;
+  transition:background .13s;
+}
+.inject-btn:hover{background:rgba(99,102,241,.35)}
+</style>
 </head>
 <body>
 
-<!-- LOGIN SCREEN -->
+<!-- ═══════════════════ LOGIN SCREEN ═══════════════════ -->
 <div id="screen-login">
   <div class="login-glow">🧠</div>
   <div>
     <div class="login-title">ContextOS</div>
   </div>
-  <div class="login-sub">Connect your account to save and inject memories across all your AI tools.</div>
+  <div class="login-tagline">
+    Remember everything. Your second brain for creators and developers.
+  </div>
   <button id="connect-btn">Connect with ContextOS →</button>
-  <div id="connect-status" class="status-msg"></div>
+  <div id="connect-status" class="status"></div>
 </div>
 
-<!-- MAIN SCREEN -->
+<!-- ═══════════════════ MAIN SCREEN ═══════════════════ -->
 <div id="screen-main">
 
+  <!-- Header -->
   <div class="header">
-    <div class="header-logo">🧠</div>
+    <div class="hdr-logo">🧠</div>
     <div>
-      <div class="header-title">ContextOS</div>
-      <div class="header-sub" id="header-version">AI Memory Layer</div>
+      <div class="hdr-title">ContextOS</div>
+      <div class="hdr-sub">Second Brain</div>
     </div>
-    <div class="header-pill">✦ Active</div>
+    <div class="hdr-status" id="hdr-status">
+      <span class="hdr-dot off" id="hdr-dot"></span>
+      <span id="hdr-status-text">Connecting…</span>
+    </div>
   </div>
 
-  <div class="tabs">
-    <button class="tab active" data-tab="memories">💡 Memories</button>
-    <button class="tab" data-tab="save">✨ Save</button>
-    <button class="tab" data-tab="settings">⚙️ Settings</button>
+  <!-- Nav -->
+  <div class="nav">
+    <button class="nav-btn active" data-tab="search">🔍 Search</button>
+    <button class="nav-btn" data-tab="projects">📁 Projects</button>
+    <button class="nav-btn" data-tab="memories">🧠 Memories</button>
+    <button class="nav-btn" data-tab="save">✨ Save</button>
+    <button class="nav-btn" data-tab="settings">⚙️ Settings</button>
   </div>
 
-  <!-- ── MEMORIES TAB ── -->
-  <div id="tab-memories" class="panel active">
+  <!-- ── SEARCH ── -->
+  <div id="panel-search" class="panel active">
     <div class="search-row">
       <span class="search-row-icon">🔍</span>
-      <input id="search-input" type="text" placeholder="Search your memories…" />
-      <button id="search-btn" class="btn-sm" style="flex-shrink:0">Search</button>
+      <input id="search-input" type="search" placeholder="Search memories, documents, projects…"/>
     </div>
-    <div id="memory-list" class="memory-list">
-      <div class="status-msg">Loading…</div>
+    <div id="search-hint" style="font-size:11px;color:var(--muted);text-align:center;padding:4px 0">
+      Type to search across all your knowledge
+    </div>
+    <div id="search-results" class="item-list"></div>
+  </div>
+
+  <!-- ── PROJECTS ── -->
+  <div id="panel-projects" class="panel">
+    <div class="section-hdr">
+      <span class="section-title">Your Projects</span>
+      <button id="new-project-btn" class="btn-sm" style="font-size:11px">+ New</button>
+    </div>
+    <div id="new-project-form" style="display:none;flex-direction:column;gap:7px">
+      <input id="new-proj-name" type="text" placeholder="Project name…" maxlength="80"/>
+      <input id="new-proj-desc" type="text" placeholder="Short description (optional)…" maxlength="200"/>
+      <div style="display:flex;gap:6px">
+        <button id="create-proj-btn" class="btn-primary-grad" style="flex:1">Create Project</button>
+        <button id="cancel-proj-btn" class="btn-ghost" style="flex:0 0 auto">Cancel</button>
+      </div>
+      <div id="new-proj-status" class="status"></div>
+    </div>
+    <div id="project-list"></div>
+  </div>
+
+  <!-- ── MEMORIES ── -->
+  <div id="panel-memories" class="panel">
+    <div class="filter-chips" id="mem-filters">
+      <button class="chip active" data-filter="all">All</button>
+      <button class="chip" data-filter="note">Notes</button>
+      <button class="chip" data-filter="code">Code</button>
+      <button class="chip" data-filter="research">Research</button>
+      <button class="chip" data-filter="prompt">Prompts</button>
+      <button class="chip" data-filter="reference">References</button>
+    </div>
+    <div id="mem-list" class="item-list">
+      <div class="spinner-wrap"><div class="spinner"></div></div>
     </div>
   </div>
 
-  <!-- ── SAVE TAB ── -->
-  <div id="tab-save" class="panel">
-    <div id="save-form">
+  <!-- ── SAVE ── -->
+  <div id="panel-save" class="panel">
+    <div id="save-form" style="display:flex;flex-direction:column;gap:9px">
 
-      <!-- Current page capture -->
-      <div id="page-capture-bar" class="save-page-bar" style="display:none">
-        <img id="page-favicon" class="save-page-favicon" src="" alt="" />
-        <div class="save-page-info">
-          <div id="page-title-text" class="save-page-title"></div>
-          <div id="page-domain-text" class="save-page-domain"></div>
+      <!-- Page capture -->
+      <div id="page-bar" class="page-bar" style="display:none">
+        <img id="page-favicon" class="page-favicon" src="" alt=""/>
+        <div class="page-bar-info">
+          <div id="page-bar-title" class="page-bar-title"></div>
+          <div id="page-bar-host"  class="page-bar-host"></div>
         </div>
-        <span class="save-page-pill">📎 Captured</span>
+        <span class="page-bar-chip">📎 Use</span>
       </div>
 
       <!-- Title -->
       <div>
-        <div class="field-label">Title</div>
-        <input id="save-title" type="text" placeholder="Name this memory…" maxlength="120" />
+        <div class="lbl">Title</div>
+        <input id="save-title" type="text" placeholder="Name this memory…" maxlength="120"/>
       </div>
 
-      <!-- Type chips -->
+      <!-- Type -->
       <div>
-        <div class="field-label">Type</div>
+        <div class="lbl">Type</div>
         <div class="type-chips">
-          <button class="type-chip active-note" data-type="note">📝 Note</button>
+          <button class="type-chip sel-note" data-type="note">📝 Note</button>
           <button class="type-chip" data-type="code">💻 Code</button>
+          <button class="type-chip" data-type="prompt">💬 Prompt</button>
+          <button class="type-chip" data-type="research">🔬 Research</button>
           <button class="type-chip" data-type="reference">🔗 Ref</button>
-          <button class="type-chip" data-type="idea">💡 Idea</button>
         </div>
       </div>
 
       <!-- Content -->
       <div>
-        <div class="field-label">Content</div>
-        <div class="content-wrapper">
-          <textarea id="save-content" rows="5" placeholder="Paste notes, code, a URL, or anything you want to remember…"></textarea>
-          <div class="char-bar-wrap" style="height:2px;background:rgba(255,255,255,0.07);border-radius:2px;margin-top:4px">
-            <div id="char-bar" class="char-bar"></div>
-          </div>
-          <div id="char-counter" class="char-counter">0 / 4000</div>
-        </div>
+        <div class="lbl">Content</div>
+        <textarea id="save-content" rows="4"
+          placeholder="Paste notes, code, a prompt, a URL, or anything worth remembering…"
+          style="resize:none"></textarea>
+        <div class="char-track"><div id="char-fill" class="char-fill"></div></div>
+        <div id="char-count" class="char-count">0 / 4000</div>
+      </div>
+
+      <!-- Project -->
+      <div>
+        <div class="lbl">Project (optional)</div>
+        <select id="proj-select" class="proj-selector">
+          <option value="">— No project —</option>
+        </select>
       </div>
 
       <!-- Tags -->
       <div>
-        <div class="field-label">Tags</div>
+        <div class="lbl">Tags</div>
         <div class="tags-area" id="tags-area">
-          <input id="save-tags-input" type="text" placeholder="Add a tag and press Enter…" />
+          <input id="save-tags-input" type="text" placeholder="Type a tag, press Enter…"/>
         </div>
       </div>
 
-      <button class="save-btn-main" id="save-btn">💾 Save Memory</button>
-      <div id="save-status" class="status-msg"></div>
+      <button id="save-btn" class="btn-full btn-primary-grad">💾 Save to ContextOS</button>
+      <div id="save-status" class="status"></div>
     </div>
 
-    <!-- Success overlay -->
+    <!-- Success state -->
     <div id="save-success" class="save-success">
-      <div class="success-icon">🎉</div>
-      <div class="success-title">Saved!</div>
-      <div class="success-sub" id="success-sub">Your AI tools will now have access to this memory.</div>
-      <div class="success-actions">
+      <div class="suc-icon">🎉</div>
+      <div class="suc-title">Saved!</div>
+      <div class="suc-sub" id="suc-sub">Your knowledge is now in ContextOS.</div>
+      <div class="suc-actions">
         <button id="save-another-btn" class="btn-ghost btn-sm">+ Save another</button>
-        <button id="view-memories-btn" class="btn-sm" style="background:rgba(99,102,241,0.2);color:#a5b4fc">View all</button>
+        <button id="view-mem-btn" class="btn-sm" style="background:rgba(99,102,241,.2);color:#a5b4fc">View all</button>
       </div>
     </div>
   </div>
 
-  <!-- ── SETTINGS TAB ── -->
-  <div id="tab-settings" class="panel">
+  <!-- ── SETTINGS ── -->
+  <div id="panel-settings" class="panel">
 
-    <div class="settings-section">
-      <div class="settings-section-title">Connection</div>
+    <div class="settings-block">
+      <div class="settings-block-title">Connection</div>
       <div>
-        <div class="field-label">API URL</div>
-        <input id="api-url" type="text" placeholder="http://localhost:8000" />
+        <div class="lbl">Backend URL</div>
+        <input id="api-url" type="text" placeholder="http://localhost:8000"/>
       </div>
       <div>
-        <div class="field-label">API Key</div>
-        <input id="api-key" type="password" placeholder="ctxos_…" />
+        <div class="lbl">API Key</div>
+        <input id="api-key" type="password" placeholder="ctxos_…"/>
       </div>
+      <div style="display:flex;gap:6px">
+        <button id="save-settings-btn" style="flex:1">Save</button>
+        <button id="test-conn-btn" class="btn-ghost" style="flex:1">Test</button>
+      </div>
+      <div id="settings-status" class="status"></div>
     </div>
 
-    <div class="settings-section">
-      <div class="settings-section-title">Behaviour</div>
+    <div class="settings-block">
+      <div class="settings-block-title">Behaviour</div>
       <div class="toggle-row">
         <div>
-          <div class="toggle-label">Auto-suggest memories</div>
-          <div class="toggle-sub">Show related memories as you type in AI tools</div>
+          <div class="toggle-lbl">Auto-suggest memories</div>
+          <div class="toggle-sub">Show related context when you type in AI tools</div>
         </div>
-        <input id="auto-inject" type="checkbox" checked />
+        <input id="auto-inject" type="checkbox" checked/>
       </div>
     </div>
 
-    <div class="btn-row">
-      <button id="save-settings-btn" style="flex:1">Save Settings</button>
-      <button id="test-btn" class="btn-ghost" style="flex:1">Test Connection</button>
+    <div class="settings-block">
+      <div class="settings-block-title">Account</div>
+      <div style="display:flex;gap:6px">
+        <button id="open-app-btn" class="btn-ghost" style="flex:1">Open App ↗</button>
+        <button id="disconnect-btn" class="btn-danger btn-sm" style="flex:1">Disconnect</button>
+      </div>
     </div>
-    <div id="settings-status" class="status-msg"></div>
+
   </div>
 
+  <!-- Footer -->
   <div class="footer">
-    <span>ContextOS · AI Memory</span>
-    <a href="http://localhost:5173/settings" target="_blank">Open app ↗</a>
+    <span>ContextOS · v<span id="ext-version">2.0.0</span></span>
+    <a id="footer-app-link" href="http://localhost:5173" target="_blank">Open app ↗</a>
   </div>
 
 </div><!-- end #screen-main -->

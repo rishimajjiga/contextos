@@ -52,7 +52,13 @@ export class LimitError extends Error {
 apiClient.interceptors.response.use(
   (res) => res,
   (error: AxiosError<any>) => {
-    if (error.response?.status === 402) {
+    // No response at all → backend unreachable
+    if (!error.response) {
+      return Promise.reject(
+        new Error("Can't reach the server. Make sure the backend is running on port 8000.")
+      );
+    }
+    if (error.response.status === 402) {
       const detail = error.response.data?.detail;
       if (detail?.code === "LIMIT_REACHED") {
         return Promise.reject(new LimitError(detail));
@@ -67,6 +73,8 @@ apiClient.interceptors.response.use(
     const message =
       typeof rawDetail === "string"
         ? rawDetail
+        : Array.isArray(rawDetail)
+        ? "Validation error: " + rawDetail.map((e: any) => e.msg).join("; ")
         : rawDetail?.message || error.message || "An unexpected error occurred";
     return Promise.reject(new Error(message));
   }

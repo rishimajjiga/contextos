@@ -16,6 +16,7 @@ from app.services import (
 )
 from app.api.v1.dependencies import get_user_id
 from app.services.subscription_service import check_project_limit
+from app.services.thread_event_service import log_thread_event
 
 router = APIRouter()
 
@@ -46,7 +47,16 @@ async def create_project_endpoint(
     db: AsyncSession = Depends(get_db),
 ):
     await check_project_limit(db, user_id)
-    return await create_project(db, user_id, data)
+    project = await create_project(db, user_id, data)
+    await log_thread_event(
+        db,
+        project_id=project.id,
+        user_id=user_id,
+        event_type="project_created",
+        title='Project "' + project.name + '" created',
+        detail=project.description or "",
+    )
+    return project
 
 
 @router.patch("/{project_id}", response_model=ProjectOut)
@@ -56,7 +66,15 @@ async def update_project_endpoint(
     user_id: str = Depends(get_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    return await update_project(db, project_id, user_id, data)
+    project = await update_project(db, project_id, user_id, data)
+    await log_thread_event(
+        db,
+        project_id=project_id,
+        user_id=user_id,
+        event_type="project_updated",
+        title='Project "' + project.name + '" updated',
+    )
+    return project
 
 
 @router.delete("/{project_id}", status_code=204)

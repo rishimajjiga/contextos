@@ -14,13 +14,26 @@ from app.config import settings
 async def _fetch_clerk_user(clerk_id: str) -> dict:
     """Fetch user details from Clerk's REST API."""
     async with httpx.AsyncClient() as client:
-        resp = await client.get(
-            f"https://api.clerk.com/v1/users/{clerk_id}",
-            headers={"Authorization": f"Bearer {settings.clerk_secret_key}"},
-            timeout=10,
-        )
-        resp.raise_for_status()
-        return resp.json()
+        try:
+            resp = await client.get(
+                f"https://api.clerk.com/v1/users/{clerk_id}",
+                headers={"Authorization": f"Bearer {settings.clerk_secret_key}"},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            return resp.json()
+        except httpx.HTTPStatusError as exc:
+            from fastapi import HTTPException, status
+            if exc.response.status_code == 401:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Server misconfiguration: invalid Clerk secret key. Check CLERK_SECRET_KEY env var.",
+                ) from exc
+            # Other Clerk errors — fall through with empty data so we can still provision
+            return {}
+        except httpx.RequestError:
+            # Clerk unreachable — fall through with empty data
+            return {}
 
 
 async def get_or_provision_user(

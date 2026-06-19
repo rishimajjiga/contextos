@@ -39,7 +39,12 @@ const PLAN_COLORS = {
   team: "bg-purple-500/15 text-purple-400",
 };
 
-export function Sidebar() {
+interface SidebarProps {
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
+}
+
+export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const location = useLocation();
   const { user } = useUser();
   const [plan, setPlan] = useState<PlanInfo | null>(null);
@@ -48,13 +53,23 @@ export function Sidebar() {
     billingService.getPlan().then(setPlan).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    onMobileClose?.();
+  }, [location.pathname, onMobileClose]);
+
   const isActive = (href: string) =>
     href === "/dashboard"
       ? location.pathname === href
       : location.pathname.startsWith(href);
 
   return (
-    <aside className="flex h-full w-60 flex-col border-r border-border bg-surface-1">
+    <aside
+      className={cn(
+        "flex h-full w-60 shrink-0 flex-col border-r border-border bg-surface-1",
+        "fixed inset-y-0 left-0 z-50 transition-transform duration-200 ease-out md:relative md:translate-x-0",
+        mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+      )}
+    >
       {/* Logo */}
       <div className="flex items-center gap-2.5 border-b border-border px-4 py-4">
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-500">

@@ -36,12 +36,20 @@ class Settings(BaseSettings):
     supabase_bucket: str = "contextos-documents"
 
     # ── CORS ──────────────────────────────────────────────────────────────
-    cors_origins: List[str] = ["http://localhost:5173"]
+    cors_origins: str | List[str] = ["http://localhost:5173"]
 
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, v: str | List[str]) -> List[str]:
         if isinstance(v, str):
+            v_stripped = v.strip()
+            # If it looks like a JSON array, parse it as JSON
+            if v_stripped.startswith("[") and v_stripped.endswith("]"):
+                import json
+                try:
+                    return json.loads(v_stripped)
+                except Exception:
+                    pass
             return [origin.strip() for origin in v.split(",")]
         return v
 

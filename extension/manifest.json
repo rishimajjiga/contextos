@@ -1,11 +1,19 @@
 {
   "manifest_version": 3,
-  "name": "ContextOS — AI Memory",
-  "description": "Save and inject memory across Claude, ChatGPT, Gemini, Perplexity, Copilot, Mistral, and Grok",
-  "version": "1.0.0",
-  "permissions": ["storage", "activeTab", "scripting", "alarms", "tabs", "windows"],
+  "name": "ContextOS — Second Brain",
+  "description": "Remember everything. Your second brain for creators and developers. Save projects, documents, prompts, and knowledge. Continue anywhere.",
+  "version": "2.0.0",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "alarms",
+    "tabs",
+    "contextMenus"
+  ],
   "host_permissions": [
     "http://localhost/*",
+    "https://app.contextos.dev/*",
     "https://*.run.app/*",
     "https://claude.ai/*",
     "https://chatgpt.com/*",
@@ -33,7 +41,8 @@
     "https://replit.com/*",
     "https://bolt.new/*",
     "https://stackblitz.com/*",
-    "https://chat.qwenlm.ai/*"
+    "https://chat.qwenlm.ai/*",
+    "https://cursor.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -42,10 +51,21 @@
     {
       "matches": [
         "http://localhost:5173/connect-extension*",
-        "http://localhost:5174/connect-extension*"
+        "http://localhost:5174/connect-extension*",
+        "https://app.contextos.dev/connect-extension*"
       ],
       "js": ["connect.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "http://localhost:5173/*",
+        "http://localhost:5174/*",
+        "https://app.contextos.dev/*"
+      ],
+      "js": ["website-bridge.js"],
+      "run_at": "document_idle",
+      "world": "MAIN"
     },
     {
       "matches": [
@@ -58,24 +78,11 @@
         "https://copilot.microsoft.com/*",
         "https://chat.mistral.ai/*",
         "https://grok.com/*",
-        "https://x.com/*",
         "https://poe.com/*",
-        "https://huggingface.co/*",
-        "https://groq.com/*",
-        "https://console.groq.com/*",
-        "https://coral.cohere.com/*",
-        "https://you.com/*",
         "https://openrouter.ai/*",
         "https://chat.deepseek.com/*",
-        "https://kagi.com/*",
-        "https://vscode.dev/*",
-        "https://github.dev/*",
-        "https://github.com/*",
-        "https://lovable.dev/*",
-        "https://replit.com/*",
-        "https://bolt.new/*",
-        "https://stackblitz.com/*",
-        "https://chat.qwenlm.ai/*"
+        "https://groq.com/*",
+        "https://console.groq.com/*"
       ],
       "js": ["content.js"],
       "css": ["styles.css"],
@@ -83,15 +90,16 @@
     }
   ],
   "action": {
+    "default_popup": "popup.html",
     "default_icon": {
-      "16": "icons/icon16.png",
-      "48": "icons/icon48.png",
+      "16":  "icons/icon16.png",
+      "48":  "icons/icon48.png",
       "128": "icons/icon128.png"
     }
   },
   "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
+    "16":  "icons/icon16.png",
+    "48":  "icons/icon48.png",
     "128": "icons/icon128.png"
   }
 }

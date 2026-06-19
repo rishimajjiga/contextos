@@ -11,6 +11,7 @@ class DocumentCreate(BaseModel):
     doc_type: DocumentType = "note"
     project_id: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
+    visibility: Literal["private", "team"] = "private"
 
 
 class DocumentUpdate(BaseModel):

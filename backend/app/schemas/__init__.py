@@ -3,6 +3,7 @@ from .profile import ProfileCreate, ProfileUpdate, ProfileOut
 from .project import ProjectCreate, ProjectUpdate, ProjectOut, PaginatedProjects
 from .document import DocumentCreate, DocumentUpdate, DocumentOut, PaginatedDocuments
 from .search import SearchRequest, SearchResultItem
+from .thread_event import ThreadEventOut, ThreadOut
 
 __all__ = [
     "UserOut",
@@ -10,4 +11,5 @@ __all__ = [
     "ProjectCreate", "ProjectUpdate", "ProjectOut", "PaginatedProjects",
     "DocumentCreate", "DocumentUpdate", "DocumentOut", "PaginatedDocuments",
     "SearchRequest", "SearchResultItem",
+    "ThreadEventOut", "ThreadOut",
 ]

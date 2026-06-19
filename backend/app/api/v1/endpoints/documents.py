@@ -19,6 +19,7 @@ from app.services import (
 )
 from app.api.v1.dependencies import get_user_id
 from app.services.subscription_service import check_document_limit, get_user_plan, PLAN_LIMITS
+from app.services.thread_event_service import log_thread_event
 
 router = APIRouter()
 
@@ -32,10 +33,9 @@ async def list_documents_endpoint(
     user_id: str = Depends(get_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    # Accept page_size alias used by older extension builds
     effective_per_page = page_size if page_size is not None else per_page
     plan = await get_user_plan(db, user_id)
-    view_limit = PLAN_LIMITS[plan]["documents"]  # -1 = unlimited
+    view_limit = PLAN_LIMITS[plan]["documents"]
     return await list_documents(db, user_id, page, effective_per_page, project_id, view_limit=view_limit)
 
 
@@ -55,7 +55,20 @@ async def create_document_endpoint(
     db: AsyncSession = Depends(get_db),
 ):
     await check_document_limit(db, user_id)
-    return await create_document(db, user_id, data)
+    doc = await create_document(db, user_id, data)
+    if doc.project_id:
+        try:
+            await log_thread_event(
+                db,
+                project_id=doc.project_id,
+                user_id=user_id,
+                event_type="document_added",
+                title='Note added: "' + doc.title + '"',
+                detail=doc.content[:200] if doc.content else "",
+            )
+        except Exception:
+            pass  # thread event logging is non-fatal
+    return doc
 
 
 @router.post("/upload", response_model=DocumentOut, status_code=201)
@@ -67,7 +80,20 @@ async def upload_document_endpoint(
 ):
     """Upload a file (PDF, text, code). Extracts text and stores it."""
     await check_document_limit(db, user_id)
-    return await upload_file_document(db, user_id, file, project_id)
+    doc = await upload_file_document(db, user_id, file, project_id)
+    if project_id:
+        try:
+            await log_thread_event(
+                db,
+                project_id=project_id,
+                user_id=user_id,
+                event_type="file_uploaded",
+                title='File uploaded: "' + doc.title + '"',
+                detail="Type: " + doc.doc_type,
+            )
+        except Exception:
+            pass  # thread event logging is non-fatal
+    return doc
 
 
 @router.patch("/{doc_id}", response_model=DocumentOut)

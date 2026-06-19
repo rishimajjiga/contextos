@@ -13,8 +13,21 @@
     const apiKey = decodeURIComponent(match[1]);
     if (!apiKey.startsWith("ctxos_")) return false;
 
-    chrome.storage.sync.set({ apiKey }, () => {
-      console.log("[ContextOS] API key saved via connect.js fallback.");
+    // Derive backend API URL from the frontend URL (or from what the React app exposed)
+    let apiUrl = document.documentElement.dataset.ctxosApiUrl || "";
+    if (!apiUrl) {
+      try {
+        const u = new URL(window.location.origin);
+        if (u.port === "5173" || u.port === "5174") {
+          apiUrl = `${u.protocol}//${u.hostname}:8000`;
+        } else {
+          apiUrl = u.origin;
+        }
+      } catch (_) { apiUrl = "http://localhost:8000"; }
+    }
+
+    chrome.storage.sync.set({ apiKey, apiUrl }, () => {
+      console.log("[ContextOS] API key + URL saved via connect.js fallback.");
     });
     return true;
   }

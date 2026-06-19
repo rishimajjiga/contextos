@@ -9,8 +9,10 @@ from .session import AISession
 from .api_key import ApiKey
 from .subscription import UserSubscription
 from .organization import Organization, OrganizationMember, OrganizationInvite
+from .thread_event import ThreadEvent
 
 __all__ = [
     "User", "Profile", "Project", "Document", "AISession", "ApiKey",
     "UserSubscription", "Organization", "OrganizationMember", "OrganizationInvite",
+    "ThreadEvent",
 ]

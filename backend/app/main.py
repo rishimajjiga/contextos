@@ -30,13 +30,33 @@ async def lifespan(app: FastAPI):
     # In production, use Alembic migrations instead.
     if not settings.is_production:
         async with engine.begin() as conn:
-            # Idempotent: add columns introduced after initial table creation.
-            # Backend self-heals on restart -- no manual alembic needed in dev.
+            # Idempotent column additions introduced after initial table creation.
             await conn.execute(sa.text(
                 "ALTER TABLE IF EXISTS documents "
                 "ADD COLUMN IF NOT EXISTS visibility VARCHAR(16) NOT NULL DEFAULT 'private'"
             ))
             await conn.run_sync(Base.metadata.create_all)
+            # thread_events table (added 2026-06-18)
+            await conn.execute(sa.text(
+                "CREATE TABLE IF NOT EXISTS thread_events ("
+                "    id VARCHAR(36) PRIMARY KEY,"
+                "    project_id VARCHAR(36) NOT NULL REFERENCES projects(id) ON DELETE CASCADE,"
+                "    user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,"
+                "    event_type VARCHAR(64) NOT NULL,"
+                "    title VARCHAR(255) NOT NULL,"
+                "    detail TEXT NOT NULL DEFAULT '',"
+                "    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),"
+                "    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
+                ")"
+            ))
+            await conn.execute(sa.text(
+                "CREATE INDEX IF NOT EXISTS ix_thread_events_project_id "
+                "ON thread_events (project_id)"
+            ))
+            await conn.execute(sa.text(
+                "CREATE INDEX IF NOT EXISTS ix_thread_events_user_id "
+                "ON thread_events (user_id)"
+            ))
 
     yield
 
@@ -64,8 +84,6 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# In development allow all origins (covers chrome-extension://, localhost ports, etc.)
-# In production, restrict to configured origins only.
 _cors_origins = ["*"] if not settings.is_production else settings.cors_origins
 
 app.add_middleware(
