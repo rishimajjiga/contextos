@@ -39,20 +39,6 @@ export const billingService = {
     return request({ method: "GET", url: "/billing/student-check" });
   },
 
-  /** Send a 6-digit OTP to the given institutional email address. */
-  async studentSendOtp(email: string): Promise<{ ok: boolean; email: string }> {
-    return request({ method: "POST", url: "/billing/student-otp-send", data: { email } });
-  },
-
-  /** Verify the OTP and activate the 30-day Student Plan trial. */
-  async studentVerifyOtp(
-    email: string,
-    otp: string,
-  ): Promise<{ ok: boolean; trial_ends: string }> {
-    return request({ method: "POST", url: "/billing/student-verify", data: { email, otp } });
-  },
-
-  /** @deprecated Use studentSendOtp + studentVerifyOtp instead. */
   async studentClaim(): Promise<{ ok: boolean; trial_ends: string }> {
     return request({ method: "POST", url: "/billing/student-claim" });
   },
