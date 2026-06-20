@@ -1,10 +1,12 @@
 import { useEffect, useState, useRef } from "react";
-import { Brain, Trash2, Tag, ChevronDown, ChevronUp, Search, X, AlertCircle } from "lucide-react";
+import { Brain, Trash2, Tag, ChevronDown, ChevronUp, Search, X, AlertCircle, Plus } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useMemories } from "@/hooks/useMemories";
 import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/common/EmptyState";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatRelativeTime, truncate } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -30,6 +32,13 @@ export function MemoriesPage() {
       <PageHeader
         title="Memories"
         description="Notes and snippets saved from the Chrome extension. Your AI tools reference these automatically."
+        action={
+          <Link to="/memories/new">
+            <Button className="gap-2 w-full sm:w-auto">
+              <Plus className="h-4 w-4" /> New memory
+            </Button>
+          </Link>
+        }
       />
 
       {/* Error banner */}

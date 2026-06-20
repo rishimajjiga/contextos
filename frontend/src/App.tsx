@@ -7,6 +7,7 @@ import { AuthLayout } from "@/layouts/AuthLayout";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { ProfilePage } from "@/pages/ProfilePage";
 import { MemoriesPage } from "@/pages/MemoriesPage";
+import { SaveMemoryPage } from "@/pages/SaveMemoryPage";
 import { ProjectsPage } from "@/pages/ProjectsPage";
 import { ProjectDetailPage } from "@/pages/ProjectDetailPage";
 import { SearchPage } from "@/pages/SearchPage";
@@ -60,6 +61,7 @@ export default function App() {
         <Route path="/dashboard"    element={<DashboardPage />} />
         <Route path="/profile"      element={<ProfilePage />} />
         <Route path="/memories"     element={<MemoriesPage />} />
+        <Route path="/memories/new" element={<SaveMemoryPage />} />
         <Route path="/search"       element={<SearchPage />} />
         <Route path="/projects"     element={<ProjectsPage />} />
         <Route path="/projects/:id" element={<ProjectDetailPage />} />
