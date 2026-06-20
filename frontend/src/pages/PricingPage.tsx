@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth, useUser } from "@clerk/clerk-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { billingService, openRazorpayCheckout, type PlanInfo, type StudentCheckResult } from "@/services/billing.service";
+import { billingService, openRazorpayCheckout, type PlanInfo } from "@/services/billing.service";
 
 type Billing = "monthly" | "annual";
 
@@ -37,7 +37,7 @@ const PLANS = (billing: Billing) => [
     cta: "Claim student plan",
     featured: false,
     badge: "1 month free",
-    features: ["200 memories", "5 projects", "Unlimited auto-inject", "3 API keys", "Chrome extension (all features)", ".edu / .ac.in email required"],
+    features: ["200 memories", "5 projects", "Unlimited auto-inject", "3 API keys", "Chrome extension (all features)", "Verified institutional email required"],
     missing: ["Team sharing"],
   },
   {
@@ -73,61 +73,74 @@ const PLANS = (billing: Billing) => [
 ];
 
 // ── Student Claim Modal ───────────────────────────────────────────────────────
-// Uses the backend /billing/student-check endpoint as the single source of
-// truth. The old client-side isEducationalEmail() regex is intentionally
-// removed — only what the server says counts.
+// Eligibility is now proven by email ownership only — no domain restrictions.
+// Flow: user enters any institutional email → backend sends 6-digit OTP →
+// user enters OTP → backend verifies and activates the 30-day free trial.
 
 type StudentPhase =
-  | "loading"       // waiting for isLoaded or the API call
-  | "not-signed-in" // Clerk says the user is signed out
-  | "check-error"   // /student-check API call failed
-  | "eligible"      // backend says eligible, ready to claim
-  | "ineligible"    // backend says not eligible
-  | "claiming"      // POST /student-claim in flight
-  | "claim-error"   // POST /student-claim failed
-  | "claimed";      // trial activated successfully
+  | "loading"       // checking Clerk auth state
+  | "not-signed-in" // user is signed out
+  | "enter-email"   // user types their institutional email
+  | "sending"       // POST /billing/student-otp-send in flight
+  | "enter-otp"     // OTP sent, waiting for user to type it
+  | "verifying"     // POST /billing/student-verify in flight
+  | "claimed"       // trial activated successfully
+  | "error";        // any error (message stored in errorMsg)
 
 function StudentModal({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
   const { isLoaded, isSignedIn } = useUser();
 
   const [phase, setPhase] = useState<StudentPhase>("loading");
-  const [checkData, setCheckData] = useState<StudentCheckResult | null>(null);
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
   const [trialEnds, setTrialEnds] = useState<string | null>(null);
-  const [claimErrorMsg, setClaimErrorMsg] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
-  // ── Step 1: ask the backend whether this email is eligible ───────────────
+  // Resolve auth state on mount
   useEffect(() => {
     if (!isLoaded) return;
-    if (!isSignedIn) { setPhase("not-signed-in"); return; }
-
-    billingService
-      .studentCheck()
-      .then((res) => {
-        setCheckData(res);
-        setPhase(res.eligible ? "eligible" : "ineligible");
-      })
-      .catch(() => setPhase("check-error"));
+    setPhase(isSignedIn ? "enter-email" : "not-signed-in");
   }, [isLoaded, isSignedIn]);
 
-  // ── Step 2: claim the trial (only if backend said eligible) ──────────────
-  async function handleClaim() {
-    setPhase("claiming");
+  // ── Step 1: send OTP to the supplied email ───────────────────────────────
+  async function handleSendOtp() {
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed || !trimmed.includes("@")) {
+      setErrorMsg("Please enter a valid email address.");
+      setPhase("error");
+      return;
+    }
+    setPhase("sending");
     try {
-      const res = await billingService.studentClaim();
+      await billingService.studentSendOtp(trimmed);
+      setEmail(trimmed);  // normalise
+      setOtp("");
+      setPhase("enter-otp");
+    } catch (err: any) {
+      setErrorMsg(err?.message ?? "Failed to send verification email. Please try again.");
+      setPhase("error");
+    }
+  }
+
+  // ── Step 2: verify OTP and activate trial ────────────────────────────────
+  async function handleVerifyOtp() {
+    setPhase("verifying");
+    try {
+      const res = await billingService.studentVerifyOtp(email, otp.trim());
       setTrialEnds(res.trial_ends);
       setPhase("claimed");
     } catch (err: any) {
-      setClaimErrorMsg(
-        err?.message ?? "Unable to activate your student trial. Please try again."
-      );
-      setPhase("claim-error");
+      setErrorMsg(err?.message ?? "Verification failed. Please check your code and try again.");
+      setPhase("error");
     }
   }
 
   // ── Content for each phase (exactly one block renders at a time) ─────────
   function renderContent() {
     switch (phase) {
+
+      // Waiting for Clerk to resolve auth state
       case "loading":
         return (
           <div className="py-10 text-center">
@@ -136,7 +149,7 @@ function StudentModal({ onClose }: { onClose: () => void }) {
               transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }}
               className="inline-block text-2xl mb-3 opacity-50"
             >⟳</motion.div>
-            <p className="text-sm text-white/30">Verifying your account…</p>
+            <p className="text-sm text-white/30">Loading…</p>
           </div>
         );
 
@@ -144,7 +157,7 @@ function StudentModal({ onClose }: { onClose: () => void }) {
         return (
           <div className="space-y-4">
             <p className="text-sm text-white/40 leading-relaxed">
-              Please sign in to check your student eligibility.
+              Please sign in to activate your student plan.
             </p>
             <button
               onClick={() => navigate("/sign-in")}
@@ -155,76 +168,89 @@ function StudentModal({ onClose }: { onClose: () => void }) {
           </div>
         );
 
-      case "check-error":
+      // User enters their institutional email
+      case "enter-email":
         return (
           <div className="space-y-4">
-            <div className="rounded-xl border border-amber-500/25 bg-amber-500/8 p-4 flex items-start gap-3">
-              <span className="text-amber-400 text-lg mt-0.5">⚠</span>
-              <p className="text-sm text-amber-300 leading-relaxed">
-                Unable to verify your student account right now. Please try again in a moment.
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="w-full py-3 border border-white/10 hover:bg-white/5 text-white rounded-xl text-sm font-medium transition-all"
-            >
-              Close
-            </button>
-          </div>
-        );
-
-      case "eligible":
-        return (
-          <div className="space-y-4">
-            <div className="rounded-xl border border-green-500/25 bg-green-500/8 p-4 flex items-start gap-3">
-              <span className="text-green-400 text-xl mt-0.5">✓</span>
-              <div>
-                <p className="text-sm font-semibold text-green-400">Student account verified</p>
-                <p className="text-xs text-white/40 mt-1">
-                  <strong className="text-white/60">{checkData?.email}</strong> is a verified student email.
-                </p>
-              </div>
-            </div>
             <p className="text-sm text-white/40 leading-relaxed">
-              Start your <strong className="text-white/80">1-month free trial</strong> — no credit card needed.
-              After 30 days, subscribe at ₹199/month to keep your memories.
+              Enter your <strong className="text-white/70">institutional email</strong> and we'll
+              send you a verification code. Any university or college email works.
             </p>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSendOtp()}
+              placeholder="you@university.edu"
+              autoFocus
+              className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-white/20 outline-none focus:ring-2 focus:ring-indigo-500"
+              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+            />
             <button
-              onClick={handleClaim}
-              className="w-full py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-semibold transition-all hover:scale-[1.01] active:scale-[0.99]"
+              onClick={handleSendOtp}
+              disabled={!email.trim()}
+              className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl text-sm font-semibold transition-all hover:scale-[1.01] active:scale-[0.99]"
             >
-              Start Free Month
+              Send verification code
             </button>
           </div>
         );
 
-      case "ineligible":
+      // OTP send in flight
+      case "sending":
+        return (
+          <div className="py-10 text-center">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }}
+              className="inline-block text-2xl mb-3 opacity-50"
+            >⟳</motion.div>
+            <p className="text-sm text-white/30">Sending verification code…</p>
+          </div>
+        );
+
+      // User enters the 6-digit OTP they received
+      case "enter-otp":
         return (
           <div className="space-y-4">
-            <div className="rounded-xl border border-red-500/25 bg-red-500/8 p-4 flex items-start gap-3">
-              <span className="text-red-400 text-xl mt-0.5">✗</span>
-              <div>
-                <p className="text-sm font-semibold text-red-400">Not eligible</p>
-                <p className="text-xs text-white/40 mt-1">
-                  {checkData?.reason ?? "Student verification requires a valid educational email (.edu or .ac.in)."}
-                </p>
-              </div>
-            </div>
-            {checkData?.email && (
-              <p className="text-xs text-white/30">
-                Email on file: <strong className="text-white/50">{checkData.email}</strong>
+            <div className="rounded-xl border border-indigo-500/25 bg-indigo-500/8 p-4">
+              <p className="text-sm text-indigo-300">
+                We sent a 6-digit code to{" "}
+                <strong className="text-white/80">{email}</strong>.
+                Enter it below — it expires in 10 minutes.
               </p>
-            )}
+            </div>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={(e) => e.key === "Enter" && otp.length === 6 && handleVerifyOtp()}
+              placeholder="000000"
+              autoFocus
+              className="w-full px-4 py-3 rounded-xl text-center text-2xl font-bold tracking-[0.4em] text-white placeholder-white/15 outline-none focus:ring-2 focus:ring-indigo-500"
+              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+            />
             <button
-              onClick={onClose}
-              className="w-full py-3 border border-white/10 hover:bg-white/5 text-white rounded-xl text-sm font-medium transition-all"
+              onClick={handleVerifyOtp}
+              disabled={otp.length !== 6}
+              className="w-full py-3 bg-green-600 hover:bg-green-500 disabled:opacity-40 text-white rounded-xl text-sm font-semibold transition-all hover:scale-[1.01] active:scale-[0.99]"
             >
-              Close
+              Verify &amp; activate trial
+            </button>
+            {/* Allow resending without losing the email */}
+            <button
+              onClick={() => { setOtp(""); setPhase("enter-email"); }}
+              className="w-full text-xs text-white/30 hover:text-white/50 transition-colors py-1"
+            >
+              Wrong email? Go back
             </button>
           </div>
         );
 
-      case "claiming":
+      // OTP verify in flight
+      case "verifying":
         return (
           <div className="py-10 text-center">
             <motion.div
@@ -236,14 +262,15 @@ function StudentModal({ onClose }: { onClose: () => void }) {
           </div>
         );
 
-      case "claim-error":
+      // Any error — show message with retry options
+      case "error":
         return (
           <div className="space-y-4">
             <div className="rounded-xl border border-red-500/25 bg-red-500/8 p-4 flex items-start gap-3">
               <span className="text-red-400 text-xl mt-0.5">✗</span>
               <div>
-                <p className="text-sm font-semibold text-red-400">Activation failed</p>
-                <p className="text-xs text-white/40 mt-1">{claimErrorMsg}</p>
+                <p className="text-sm font-semibold text-red-400">Something went wrong</p>
+                <p className="text-xs text-white/40 mt-1">{errorMsg}</p>
               </div>
             </div>
             <div className="flex gap-3">
@@ -254,7 +281,7 @@ function StudentModal({ onClose }: { onClose: () => void }) {
                 Close
               </button>
               <button
-                onClick={() => { setClaimErrorMsg(""); setPhase("eligible"); }}
+                onClick={() => { setErrorMsg(""); setPhase("enter-email"); }}
                 className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-all"
               >
                 Try Again
@@ -877,10 +904,8 @@ export function PricingPage() {
         >
           <span className="text-2xl shrink-0 mt-0.5">🎓</span>
           <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.38)" }}>
-            <strong style={{ color: "rgba(255,255,255,0.65)" }}>Student plan</strong> requires a college email ending in{" "}
-            <code className="text-purple-400 px-1.5 py-0.5 rounded text-xs" style={{ background: "rgba(168,85,247,0.12)" }}>.edu</code>{" "}
-            or{" "}
-            <code className="text-purple-400 px-1.5 py-0.5 rounded text-xs" style={{ background: "rgba(168,85,247,0.12)" }}>.ac.in</code>.
+            <strong style={{ color: "rgba(255,255,255,0.65)" }}>Student plan</strong> requires a verified institutional email.
+            Enter your college or university email and we'll send you a verification code.
             {" "}Includes <strong style={{ color: "rgba(255,255,255,0.65)" }}>1 month free</strong> — no card required to start.
           </p>
         </motion.div>

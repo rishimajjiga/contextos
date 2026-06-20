@@ -256,13 +256,111 @@ async def cancel_subscription(
     return {"ok": True, "cancel_at_cycle_end": body.cancel_at_cycle_end}
 
 
-# ── GET /billing/student-check ────────────────────────────────────────────────
+# ── Student email OTP verification ───────────────────────────────────────────
+# Domain restrictions (.edu / .ac.in) are removed. Eligibility is now proven
+# solely by ownership: the user receives a 6-digit OTP at the address they
+# enter and must supply it back to activate the trial.
+
+from app.services.email_service import (
+    generate_and_store_otp,
+    verify_otp as _verify_otp,
+    send_otp_email,
+)
+
+
+class StudentOtpSendRequest(BaseModel):
+    email: str  # institutional email the user wants to verify
+
+
+class StudentOtpVerifyRequest(BaseModel):
+    email: str
+    otp: str   # 6-digit code from the verification email
+
+
+# ── POST /billing/student-otp-send ───────────────────────────────────────────
+
+@router.post("/student-otp-send")
+async def student_otp_send(
+    body: StudentOtpSendRequest,
+    user_id: str = Depends(get_user_id),
+):
+    """
+    Send a 6-digit OTP to the supplied email address.
+    Any email is accepted — verification proves ownership, not domain membership.
+    Rate-limited by slowapi (inherited from the app limiter).
+    """
+    email = body.email.strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Please enter a valid email address.")
+
+    # Generate OTP and store it in memory with a 10-minute TTL
+    otp = generate_and_store_otp(email, user_id)
+
+    # Send the OTP email; if SMTP is unconfigured the call logs and returns False
+    sent = send_otp_email(email, otp)
+    if not sent:
+        log.error("student_otp_email_not_sent", user_id=user_id, email=email)
+        raise HTTPException(
+            status_code=503,
+            detail="Email service is not configured. Please contact support.",
+        )
+
+    log.info("student_otp_sent", user_id=user_id, email=email)
+    return {"ok": True, "email": email}
+
+
+# ── POST /billing/student-verify ─────────────────────────────────────────────
+
+@router.post("/student-verify")
+async def student_verify(
+    body: StudentOtpVerifyRequest,
+    user_id: str = Depends(get_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Verify the OTP and, if correct, activate a 30-day Student Plan trial.
+    The OTP is consumed on success and after too many wrong attempts.
+    """
+    from datetime import timedelta
+
+    email = body.email.strip().lower()
+
+    # Verify OTP against the in-memory store
+    ok, reason = _verify_otp(email, body.otp, user_id)
+    if not ok:
+        raise HTTPException(status_code=400, detail=reason)
+
+    # Guard against re-activation of an existing trial or active subscription
+    sub = await get_or_create_subscription(db, user_id)
+    if sub.plan == "student" and sub.status == "trialing":
+        raise HTTPException(status_code=400, detail="You already have an active student trial.")
+    if sub.plan == "student" and sub.status == "active":
+        raise HTTPException(status_code=400, detail="You already have an active student subscription.")
+
+    # Activate the 30-day free trial
+    sub.plan = "student"
+    sub.status = "trialing"
+    sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=30)
+    await db.commit()
+
+    log.info("student_trial_activated", user_id=user_id, verified_email=email)
+    return {
+        "ok": True,
+        "trial_ends": sub.current_period_end.isoformat(),
+    }
+
+
+# ── GET /billing/student-check (kept for backward compatibility) ──────────────
 
 @router.get("/student-check")
 async def student_check(
     clerk_id: str = Depends(get_current_user_id),
 ):
-    """Check if the logged-in user's primary email is eligible for the student plan."""
+    """
+    Returns the user's primary Clerk email.
+    Domain-based eligibility checks are removed; any email can be verified
+    via the OTP flow (/billing/student-otp-send + /billing/student-verify).
+    """
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.get(
             f"https://api.clerk.com/v1/users/{clerk_id}",
@@ -278,71 +376,26 @@ async def student_check(
         (ea["email_address"] for ea in email_addresses if ea["id"] == primary_id),
         "",
     )
-
-    eligible = email.lower().endswith((".edu", ".ac.in"))
-    return {
-        "eligible": eligible,
-        "email": email,
-        "reason": None if eligible else (
-            f"'{email}' is not a student email. "
-            "A .edu or .ac.in address is required."
-        ),
-    }
+    # All emails are now eligible — ownership is proven via OTP
+    return {"eligible": True, "email": email, "reason": None}
 
 
-# ── POST /billing/student-claim ───────────────────────────────────────────────
+# ── POST /billing/student-claim (kept for backward compatibility) ─────────────
 
 @router.post("/student-claim")
 async def student_claim(
-    clerk_id: str = Depends(get_current_user_id),
     user_id: str = Depends(get_user_id),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Activate a 30-day free trial of the Student plan.
-    Re-verifies email server-side; no payment required.
-    After the trial, the user must subscribe via Razorpay.
+    Legacy endpoint kept for backward compatibility.
+    New clients should use /student-otp-send → /student-verify instead.
+    This endpoint now returns 400 directing callers to the OTP flow.
     """
-    from datetime import timedelta
-
-    # Server-side re-verification
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.get(
-            f"https://api.clerk.com/v1/users/{clerk_id}",
-            headers={"Authorization": f"Bearer {settings.clerk_secret_key}"},
-        )
-    if resp.status_code != 200:
-        raise HTTPException(status_code=502, detail="Could not verify your email.")
-
-    user_data = resp.json()
-    email_addresses = user_data.get("email_addresses", [])
-    primary_id = user_data.get("primary_email_address_id")
-    email = next(
-        (ea["email_address"] for ea in email_addresses if ea["id"] == primary_id),
-        "",
+    raise HTTPException(
+        status_code=400,
+        detail="Please verify your institutional email to activate the Student Plan.",
     )
-
-    if not email.lower().endswith((".edu", ".ac.in")):
-        raise HTTPException(
-            status_code=400,
-            detail=f"'{email}' is not eligible for the Student plan. Use a .edu or .ac.in email.",
-        )
-
-    sub = await get_or_create_subscription(db, user_id)
-    if sub.plan == "student" and sub.status == "trialing":
-        raise HTTPException(status_code=400, detail="You already have an active student trial.")
-    if sub.plan == "student" and sub.status == "active":
-        raise HTTPException(status_code=400, detail="You already have an active student subscription.")
-
-    sub.plan = "student"
-    sub.status = "trialing"
-    sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=30)
-    await db.commit()
-
-    return {
-        "ok": True,
-        "trial_ends": sub.current_period_end.isoformat(),
-    }
 
 
 # ── POST /billing/webhook ─────────────────────────────────────────────────────
