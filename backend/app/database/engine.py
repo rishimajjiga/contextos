@@ -11,12 +11,15 @@ from app.config import settings
 # psycopg3 names its prepared statements "_pg3_0", "_pg3_1", etc.
 # PgBouncer (transaction mode) doesn't persist prepared statements across
 # connections, so on reconnect psycopg3 tries to CREATE them again and gets
-# DuplicatePreparedStatement. Setting prepare_threshold=0 prevents psycopg3
-# from ever creating server-side prepared statements.
+# DuplicatePreparedStatement.
+#
+# psycopg3 prepare_threshold semantics:
+#   0    = always prepare (WRONG — causes DuplicatePreparedStatement)
+#   None = never prepare  (CORRECT for PgBouncer transaction mode)
 if "asyncpg" in settings.database_url:
     _connect_args = {"statement_cache_size": 0}
 else:
-    _connect_args = {"prepare_threshold": 0}
+    _connect_args = {"prepare_threshold": None}
 
 engine = create_async_engine(
     settings.database_url,
@@ -30,7 +33,7 @@ engine = create_async_engine(
 )
 
 
-# Belt-and-suspenders: enforce prepare_threshold=0 at the connection level
+# Belt-and-suspenders: enforce prepare_threshold=None at the connection level
 # so that even connections already in the pool get the correct setting.
 @event.listens_for(engine.sync_engine, "connect")
 def on_new_connection(dbapi_connection, connection_record):
@@ -41,7 +44,7 @@ def on_new_connection(dbapi_connection, connection_record):
     raw = getattr(dbapi_connection, "driver_connection", dbapi_connection)
     if hasattr(raw, "prepare_threshold"):
         try:
-            raw.prepare_threshold = 0
+            raw.prepare_threshold = None  # None = never prepare (0 = always prepare)
         except (AttributeError, TypeError):
             pass
 
