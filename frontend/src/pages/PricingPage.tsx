@@ -119,13 +119,13 @@ function StudentModal({ onClose }: { onClose: () => void }) {
         className="relative w-full max-w-md"
       >
         {/* Gradient border */}
-        <div className="relative rounded-2xl p-px" style={{ background: "linear-gradient(135deg, #a855f7, #ec4899, #6366f1)" }}>
+        <div className="relative rounded-2xl p-px" style={{ background: "linear-gradient(135deg, #6366f1, #a855f7)" }}>
           <div className="rounded-[calc(1rem-1px)] p-6" style={{ background: "#0f0f12" }}>
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                     style={{ background: "linear-gradient(135deg, rgba(168,85,247,0.2), rgba(236,72,153,0.2))", border: "1px solid rgba(168,85,247,0.3)" }}>
+                     style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.2), rgba(168,85,247,0.2))", border: "1px solid rgba(99,102,241,0.3)" }}>
                   🎓
                 </div>
                 <div>
@@ -227,7 +227,7 @@ function UsageBar({ used, limit, color = "#6366f1" }: { used: number; limit: num
       ) : (
         <motion.div
           className="h-full rounded-full"
-          style={{ background: `linear-gradient(90deg, ${color}, #f472b6)` }}
+          style={{ background: `linear-gradient(90deg, ${color}, rgba(168,85,247,0.6))` }}
           initial={{ width: 0 }}
           animate={{ width: `${pct}%` }}
           transition={{ duration: 1.2, delay: 0.4, ease: [0.23, 1, 0.32, 1] }}
@@ -334,10 +334,10 @@ export function PricingPage() {
           className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[600px] opacity-25 rounded-full"
           style={{ background: "radial-gradient(ellipse at center, #6366f1 0%, #a855f7 40%, transparent 70%)", filter: "blur(60px)" }}
         />
-        {/* Left pink blob */}
+        {/* Left purple blob */}
         <div
           className="absolute top-1/3 -left-48 w-[640px] h-[640px] opacity-12 rounded-full"
-          style={{ background: "radial-gradient(circle, #f472b6 0%, transparent 70%)", filter: "blur(80px)" }}
+          style={{ background: "radial-gradient(circle, #a855f7 0%, transparent 70%)", filter: "blur(80px)" }}
         />
         {/* Right indigo blob */}
         <div
@@ -354,12 +354,12 @@ export function PricingPage() {
         />
         {/* Floating particles */}
         {[
-          { size: 4,  x: "14%",  y: "18%",  color: "#f472b6", dur: 3.8, delay: 0 },
+          { size: 4,  x: "14%",  y: "18%",  color: "#818cf8", dur: 3.8, delay: 0 },
           { size: 6,  x: "82%",  y: "12%",  color: "#818cf8", dur: 4.2, delay: 1.4 },
-          { size: 3,  x: "67%",  y: "38%",  color: "#f472b6", dur: 3.5, delay: 0.8 },
+          { size: 3,  x: "67%",  y: "38%",  color: "#a855f7", dur: 3.5, delay: 0.8 },
           { size: 5,  x: "8%",   y: "62%",  color: "#a855f7", dur: 4.6, delay: 2.1 },
           { size: 4,  x: "91%",  y: "52%",  color: "#6366f1", dur: 3.9, delay: 0.4 },
-          { size: 3,  x: "44%",  y: "82%",  color: "#f472b6", dur: 4.1, delay: 1.2 },
+          { size: 3,  x: "44%",  y: "82%",  color: "#6366f1", dur: 4.1, delay: 1.2 },
           { size: 6,  x: "28%",  y: "32%",  color: "#818cf8", dur: 4.8, delay: 1.9 },
           { size: 4,  x: "72%",  y: "68%",  color: "#a855f7", dur: 3.6, delay: 0.6 },
           { size: 3,  x: "55%",  y: "22%",  color: "#6366f1", dur: 4.3, delay: 2.5 },
@@ -404,15 +404,15 @@ export function PricingPage() {
             <div className="relative">
               <div
                 className="absolute inset-0 rounded-2xl blur-2xl"
-                style={{ background: "linear-gradient(135deg, #f472b6, #6366f1)", opacity: 0.5 }}
+                style={{ background: "linear-gradient(135deg, #6366f1, #a855f7)", opacity: 0.5 }}
               />
               <motion.div
-                animate={{ boxShadow: ["0 0 20px rgba(244,114,182,0.2)", "0 0 40px rgba(99,102,241,0.3)", "0 0 20px rgba(244,114,182,0.2)"] }}
+                animate={{ boxShadow: ["0 0 20px rgba(99,102,241,0.25)", "0 0 40px rgba(168,85,247,0.35)", "0 0 20px rgba(99,102,241,0.25)"] }}
                 transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
                 className="relative w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
                 style={{
-                  background: "linear-gradient(135deg, rgba(244,114,182,0.12), rgba(99,102,241,0.12))",
-                  border: "1px solid rgba(244,114,182,0.25)",
+                  background: "linear-gradient(135deg, rgba(99,102,241,0.12), rgba(168,85,247,0.12))",
+                  border: "1px solid rgba(99,102,241,0.25)",
                   backdropFilter: "blur(12px)",
                 }}
               >
@@ -421,7 +421,7 @@ export function PricingPage() {
             </div>
           </motion.div>
 
-          <motion.span variants={fadeInUp} className="text-[11px] font-bold tracking-[0.25em] uppercase text-pink-400/70 block mb-4">
+          <motion.span variants={fadeInUp} className="text-[11px] font-bold tracking-[0.25em] uppercase text-indigo-400/70 block mb-4">
             Pricing
           </motion.span>
 
@@ -494,7 +494,7 @@ export function PricingPage() {
               className="mb-16"
             >
               <p className="text-[11px] font-bold tracking-[0.2em] uppercase text-white/20 text-center mb-6">Your usage</p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
 
                 {/* Memories */}
                 <div className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
@@ -508,7 +508,7 @@ export function PricingPage() {
                       /{planInfo.limits.memories >= 10000 ? "∞" : planInfo.limits.memories}
                     </span>
                   </p>
-                  <UsageBar used={planInfo.usage.memories} limit={planInfo.limits.memories} color="#f472b6" />
+                  <UsageBar used={planInfo.usage.memories} limit={planInfo.limits.memories} color="#6366f1" />
                 </div>
 
                 {/* Projects */}
@@ -537,27 +537,6 @@ export function PricingPage() {
                     <span className="text-white/20 text-sm font-normal ml-1">/day</span>
                   </p>
                   <div className="h-1.5 rounded-full w-full" style={{ background: "linear-gradient(90deg, rgba(250,204,21,0.3), rgba(234,179,8,0.3))" }} />
-                </div>
-
-                {/* Current plan */}
-                <div
-                  className="rounded-2xl p-4 relative overflow-hidden"
-                  style={{ background: "linear-gradient(135deg, rgba(244,114,182,0.06), rgba(99,102,241,0.06))", border: "1px solid rgba(244,114,182,0.12)" }}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-lg">⭐</span>
-                    <span className="text-[10px] text-white/25 font-semibold uppercase tracking-wide">Plan</span>
-                  </div>
-                  <p className="text-xl font-bold text-white mb-1 capitalize">{planInfo.display_name}</p>
-                  {planInfo.is_trialing ? (
-                    <span className="text-[11px] text-purple-400 font-semibold">Free trial active</span>
-                  ) : planInfo.current_period_end ? (
-                    <span className="text-[11px] text-white/25">
-                      Renews {new Date(planInfo.current_period_end).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
-                    </span>
-                  ) : (
-                    <span className="text-[11px] text-white/25">Active</span>
-                  )}
                 </div>
 
               </div>
@@ -589,7 +568,7 @@ export function PricingPage() {
                   ) : isPro ? (
                     <span
                       className="text-[11px] font-bold px-3 py-1 rounded-full"
-                      style={{ background: "rgba(244,114,182,0.12)", color: "#f9a8d4", border: "1px solid rgba(244,114,182,0.25)" }}
+                      style={{ background: "rgba(99,102,241,0.12)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.25)" }}
                     >
                       ⭐ Most Popular
                     </span>
@@ -637,7 +616,7 @@ export function PricingPage() {
                     >
                       <svg
                         className="w-4 h-4 mt-0.5 shrink-0"
-                        style={{ color: isPro ? "#f472b6" : isStudent ? "#c084fc" : isTeam ? "#818cf8" : "#6366f1" }}
+                        style={{ color: isPro ? "#818cf8" : isStudent ? "#c084fc" : isTeam ? "#818cf8" : "#6366f1" }}
                         fill="none" stroke="currentColor" viewBox="0 0 24 24"
                       >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
@@ -666,9 +645,9 @@ export function PricingPage() {
                     isCurrent
                       ? { background: "rgba(52,211,153,0.08)", color: "#34d399", border: "1px solid rgba(52,211,153,0.2)", cursor: "default" }
                       : isPro
-                      ? { background: "linear-gradient(135deg, #f472b6, #a855f7, #6366f1)", color: "#fff", boxShadow: "0 0 24px rgba(244,114,182,0.25), 0 4px 16px rgba(99,102,241,0.2)" }
+                      ? { background: "linear-gradient(135deg, #6366f1, #a855f7)", color: "#fff", boxShadow: "0 0 24px rgba(99,102,241,0.35), 0 4px 16px rgba(168,85,247,0.2)" }
                       : isStudent
-                      ? { background: "linear-gradient(135deg, #a855f7, #ec4899)", color: "#fff", boxShadow: "0 0 20px rgba(168,85,247,0.2)" }
+                      ? { background: "linear-gradient(135deg, #7c3aed, #a855f7)", color: "#fff", boxShadow: "0 0 20px rgba(124,58,237,0.25)" }
                       : isTeam
                       ? { background: "rgba(99,102,241,0.9)", color: "#fff" }
                       : { background: "transparent", color: "rgba(255,255,255,0.55)", border: "1px solid rgba(255,255,255,0.1)" }
@@ -701,12 +680,12 @@ export function PricingPage() {
                   {/* Outer glow halo */}
                   <div
                     className="absolute -inset-[3px] rounded-[28px] blur-xl opacity-35"
-                    style={{ background: "linear-gradient(135deg, #f472b6, #a855f7, #6366f1)" }}
+                    style={{ background: "linear-gradient(135deg, #6366f1, #a855f7)" }}
                   />
                   {/* Animated glow pulse */}
                   <motion.div
                     className="absolute -inset-[2px] rounded-[27px] blur-sm opacity-20"
-                    style={{ background: "linear-gradient(135deg, #f472b6, #6366f1)" }}
+                    style={{ background: "linear-gradient(135deg, #6366f1, #a855f7)" }}
                     animate={{ opacity: [0.15, 0.35, 0.15] }}
                     transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
                   />
@@ -715,7 +694,7 @@ export function PricingPage() {
                     whileHover={{ scale: 1.02 }}
                     transition={{ type: "spring", stiffness: 280, damping: 22 }}
                     className="relative rounded-3xl p-px"
-                    style={{ background: "linear-gradient(135deg, #f472b6, #a855f7, #6366f1)" }}
+                    style={{ background: "linear-gradient(135deg, #6366f1, #a855f7, #818cf8)" }}
                   >
                     <div className="h-full flex flex-col" style={{ background: "#0f0f14", borderRadius: "calc(1.5rem - 1px)" }}>
                       {body}
@@ -733,7 +712,7 @@ export function PricingPage() {
                     whileHover={{ scale: 1.02 }}
                     transition={{ type: "spring", stiffness: 280, damping: 22 }}
                     className="relative rounded-3xl p-px"
-                    style={{ background: "linear-gradient(135deg, rgba(168,85,247,0.55), rgba(236,72,153,0.45))" }}
+                    style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.5), rgba(168,85,247,0.5))" }}
                   >
                     <div className="h-full flex flex-col" style={{ background: "#0f0f12", borderRadius: "calc(1.5rem - 1px)" }}>
                       {body}
@@ -808,7 +787,7 @@ export function PricingPage() {
                     animate={{ rotate: openFaq === i ? 45 : 0 }}
                     transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
                     className="text-xl leading-none shrink-0 font-light transition-colors"
-                    style={{ color: openFaq === i ? "rgba(244,114,182,0.8)" : "rgba(255,255,255,0.2)" }}
+                    style={{ color: openFaq === i ? "rgba(129,140,248,0.9)" : "rgba(255,255,255,0.2)" }}
                   >
                     +
                   </motion.span>
