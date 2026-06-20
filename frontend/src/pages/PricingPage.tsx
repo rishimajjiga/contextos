@@ -3,16 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth, useUser } from "@clerk/clerk-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { billingService, openRazorpayCheckout, type PlanInfo } from "@/services/billing.service";
-
-// ── Helpers (unchanged) ───────────────────────────────────────────────────────
-
-// Accepts .edu, .edu.<cc> (e.g. .edu.in), and .ac.<cc> (e.g. .ac.in, .ac.uk).
-function isEducationalEmail(email: string): boolean {
-  const domain = (email.split("@")[1] ?? "").trim().toLowerCase();
-  if (!domain) return false;
-  return /\.edu$/.test(domain) || /\.edu\.[a-z]{2,}$/.test(domain) || /\.ac\.[a-z]{2,}$/.test(domain);
-}
+import { billingService, openRazorpayCheckout, type PlanInfo, type StudentCheckResult } from "@/services/billing.service";
 
 type Billing = "monthly" | "annual";
 
@@ -81,31 +72,221 @@ const PLANS = (billing: Billing) => [
   },
 ];
 
-// ── Student Claim Modal (logic unchanged, visuals updated) ────────────────────
+// ── Student Claim Modal ───────────────────────────────────────────────────────
+// Uses the backend /billing/student-check endpoint as the single source of
+// truth. The old client-side isEducationalEmail() regex is intentionally
+// removed — only what the server says counts.
+
+type StudentPhase =
+  | "loading"       // waiting for isLoaded or the API call
+  | "not-signed-in" // Clerk says the user is signed out
+  | "check-error"   // /student-check API call failed
+  | "eligible"      // backend says eligible, ready to claim
+  | "ineligible"    // backend says not eligible
+  | "claiming"      // POST /student-claim in flight
+  | "claim-error"   // POST /student-claim failed
+  | "claimed";      // trial activated successfully
 
 function StudentModal({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
-  const { isLoaded, isSignedIn, user } = useUser();
-  const [claiming, setClaiming] = useState(false);
+  const { isLoaded, isSignedIn } = useUser();
+
+  const [phase, setPhase] = useState<StudentPhase>("loading");
+  const [checkData, setCheckData] = useState<StudentCheckResult | null>(null);
   const [trialEnds, setTrialEnds] = useState<string | null>(null);
-  const [claimed, setClaimed] = useState(false);
-  const [claimError, setClaimError] = useState(false);
+  const [claimErrorMsg, setClaimErrorMsg] = useState("");
 
-  const email = user?.primaryEmailAddress?.emailAddress ?? "";
-  const eligible = isEducationalEmail(email);
+  // ── Step 1: ask the backend whether this email is eligible ───────────────
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (!isSignedIn) { setPhase("not-signed-in"); return; }
 
+    billingService
+      .studentCheck()
+      .then((res) => {
+        setCheckData(res);
+        setPhase(res.eligible ? "eligible" : "ineligible");
+      })
+      .catch(() => setPhase("check-error"));
+  }, [isLoaded, isSignedIn]);
+
+  // ── Step 2: claim the trial (only if backend said eligible) ──────────────
   async function handleClaim() {
-    setClaiming(true);
-    setClaimError(false);
+    setPhase("claiming");
     try {
       const res = await billingService.studentClaim();
       setTrialEnds(res.trial_ends);
-      setClaimed(true);
+      setPhase("claimed");
     } catch (err: any) {
-      setClaimError(true);
-      toast.error(err?.message ?? "Unable to verify your student account right now. Please try again later.");
-    } finally {
-      setClaiming(false);
+      setClaimErrorMsg(
+        err?.message ?? "Unable to activate your student trial. Please try again."
+      );
+      setPhase("claim-error");
+    }
+  }
+
+  // ── Content for each phase (exactly one block renders at a time) ─────────
+  function renderContent() {
+    switch (phase) {
+      case "loading":
+        return (
+          <div className="py-10 text-center">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }}
+              className="inline-block text-2xl mb-3 opacity-50"
+            >⟳</motion.div>
+            <p className="text-sm text-white/30">Verifying your account…</p>
+          </div>
+        );
+
+      case "not-signed-in":
+        return (
+          <div className="space-y-4">
+            <p className="text-sm text-white/40 leading-relaxed">
+              Please sign in to check your student eligibility.
+            </p>
+            <button
+              onClick={() => navigate("/sign-in")}
+              className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-all"
+            >
+              Sign In
+            </button>
+          </div>
+        );
+
+      case "check-error":
+        return (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-amber-500/25 bg-amber-500/8 p-4 flex items-start gap-3">
+              <span className="text-amber-400 text-lg mt-0.5">⚠</span>
+              <p className="text-sm text-amber-300 leading-relaxed">
+                Unable to verify your student account right now. Please try again in a moment.
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-full py-3 border border-white/10 hover:bg-white/5 text-white rounded-xl text-sm font-medium transition-all"
+            >
+              Close
+            </button>
+          </div>
+        );
+
+      case "eligible":
+        return (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-green-500/25 bg-green-500/8 p-4 flex items-start gap-3">
+              <span className="text-green-400 text-xl mt-0.5">✓</span>
+              <div>
+                <p className="text-sm font-semibold text-green-400">Student account verified</p>
+                <p className="text-xs text-white/40 mt-1">
+                  <strong className="text-white/60">{checkData?.email}</strong> is a verified student email.
+                </p>
+              </div>
+            </div>
+            <p className="text-sm text-white/40 leading-relaxed">
+              Start your <strong className="text-white/80">1-month free trial</strong> — no credit card needed.
+              After 30 days, subscribe at ₹199/month to keep your memories.
+            </p>
+            <button
+              onClick={handleClaim}
+              className="w-full py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-semibold transition-all hover:scale-[1.01] active:scale-[0.99]"
+            >
+              Start Free Month
+            </button>
+          </div>
+        );
+
+      case "ineligible":
+        return (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-red-500/25 bg-red-500/8 p-4 flex items-start gap-3">
+              <span className="text-red-400 text-xl mt-0.5">✗</span>
+              <div>
+                <p className="text-sm font-semibold text-red-400">Not eligible</p>
+                <p className="text-xs text-white/40 mt-1">
+                  {checkData?.reason ?? "Student verification requires a valid educational email (.edu or .ac.in)."}
+                </p>
+              </div>
+            </div>
+            {checkData?.email && (
+              <p className="text-xs text-white/30">
+                Email on file: <strong className="text-white/50">{checkData.email}</strong>
+              </p>
+            )}
+            <button
+              onClick={onClose}
+              className="w-full py-3 border border-white/10 hover:bg-white/5 text-white rounded-xl text-sm font-medium transition-all"
+            >
+              Close
+            </button>
+          </div>
+        );
+
+      case "claiming":
+        return (
+          <div className="py-10 text-center">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }}
+              className="inline-block text-2xl mb-3 opacity-50"
+            >⟳</motion.div>
+            <p className="text-sm text-white/30">Activating your trial…</p>
+          </div>
+        );
+
+      case "claim-error":
+        return (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-red-500/25 bg-red-500/8 p-4 flex items-start gap-3">
+              <span className="text-red-400 text-xl mt-0.5">✗</span>
+              <div>
+                <p className="text-sm font-semibold text-red-400">Activation failed</p>
+                <p className="text-xs text-white/40 mt-1">{claimErrorMsg}</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="flex-1 py-3 border border-white/10 hover:bg-white/5 text-white rounded-xl text-sm font-medium transition-all"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => { setClaimErrorMsg(""); setPhase("eligible"); }}
+                className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-all"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        );
+
+      case "claimed":
+        return (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-green-500/25 bg-green-500/8 p-5 text-center">
+              <p className="text-3xl mb-3">🎉</p>
+              <p className="text-sm font-semibold text-green-400 mb-1">Trial activated!</p>
+              <p className="text-xs text-white/40 leading-relaxed">
+                Your free month runs until{" "}
+                <strong className="text-white/70">
+                  {trialEnds
+                    ? new Date(trialEnds).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
+                    : "30 days from now"}
+                </strong>
+                . After that, subscribe for ₹199/month to keep your memories.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="w-full py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-semibold transition-all hover:scale-[1.01] active:scale-[0.99]"
+            >
+              Go to dashboard →
+            </button>
+          </div>
+        );
     }
   }
 
@@ -118,96 +299,30 @@ function StudentModal({ onClose }: { onClose: () => void }) {
         transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
         className="relative w-full max-w-md"
       >
-        {/* Gradient border */}
         <div className="relative rounded-2xl p-px" style={{ background: "linear-gradient(135deg, #6366f1, #a855f7)" }}>
           <div className="rounded-[calc(1rem-1px)] p-6" style={{ background: "#0f0f12" }}>
-            {/* Header */}
+            {/* Modal header */}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                     style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.2), rgba(168,85,247,0.2))", border: "1px solid rgba(99,102,241,0.3)" }}>
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                  style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.2), rgba(168,85,247,0.2))", border: "1px solid rgba(99,102,241,0.3)" }}
+                >
                   🎓
                 </div>
                 <div>
                   <h2 className="text-base font-semibold text-white">Student Plan</h2>
-                  <p className="text-xs text-white/30">Perfect for students</p>
+                  <p className="text-xs text-white/30">Verified by your institution email</p>
                 </div>
               </div>
-              <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-white/30 hover:text-white hover:bg-white/5 transition-all text-lg leading-none">×</button>
+              <button
+                onClick={onClose}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-white/30 hover:text-white hover:bg-white/5 transition-all text-lg leading-none"
+              >×</button>
             </div>
 
-            {/* Dynamic content — same logic as before */}
-            {claimed ? (
-              <div className="space-y-4">
-                <div className="rounded-xl border border-green-500/25 bg-green-500/8 p-5 text-center">
-                  <p className="text-3xl mb-3">🎉</p>
-                  <p className="text-sm font-semibold text-green-400 mb-1">Trial activated!</p>
-                  <p className="text-xs text-white/40 leading-relaxed">
-                    Your free month runs until{" "}
-                    <strong className="text-white/70">
-                      {trialEnds
-                        ? new Date(trialEnds).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
-                        : "30 days from now"}
-                    </strong>
-                    . After that, subscribe for ₹199/month to keep your memories.
-                  </p>
-                </div>
-                <button onClick={() => navigate("/dashboard")}
-                        className="w-full py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-semibold transition-all hover:scale-[1.01] active:scale-[0.99]">
-                  Go to dashboard →
-                </button>
-              </div>
-            ) : !isLoaded ? (
-              <div className="py-10 text-center text-sm text-white/30">Checking your account…</div>
-            ) : !isSignedIn ? (
-              <div className="space-y-4">
-                <p className="text-sm text-white/40 leading-relaxed">Please sign in to check student eligibility.</p>
-                <button onClick={() => navigate("/sign-in")}
-                        className="w-full py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-semibold transition-all">
-                  Sign In
-                </button>
-              </div>
-            ) : !email ? (
-              <div className="space-y-4">
-                <div className="rounded-xl border border-amber-500/25 bg-amber-500/8 p-4">
-                  <p className="text-sm text-amber-300">Unable to verify your student account right now. Please try again later.</p>
-                </div>
-                <button onClick={onClose} className="w-full py-3 border border-white/10 hover:bg-white/5 text-white rounded-xl text-sm font-medium transition-all">Close</button>
-              </div>
-            ) : eligible ? (
-              <div className="space-y-4">
-                <div className="rounded-xl border border-green-500/25 bg-green-500/8 p-4 flex items-start gap-3">
-                  <span className="text-green-400 text-xl mt-0.5">✓</span>
-                  <div>
-                    <p className="text-sm font-semibold text-green-400">Student account detected</p>
-                    <p className="text-xs text-white/40 mt-1"><strong className="text-white/60">{email}</strong> is a verified student email.</p>
-                  </div>
-                </div>
-                <p className="text-sm text-white/40 leading-relaxed">
-                  Start your <strong className="text-white/80">1-month free trial</strong> — no credit card needed. After 30 days, subscribe at ₹199/month to keep your memories.
-                </p>
-                {claimError && <p className="text-xs text-amber-300">Unable to verify your student account right now. Please try again later.</p>}
-                <button onClick={handleClaim} disabled={claiming}
-                        className="w-full py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed hover:scale-[1.01] active:scale-[0.99]">
-                  {claiming ? "Starting…" : "Start Free Month"}
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="rounded-xl border border-red-500/25 bg-red-500/8 p-4 flex items-start gap-3">
-                  <span className="text-red-400 text-xl mt-0.5">✗</span>
-                  <div>
-                    <p className="text-sm font-semibold text-red-400">Not eligible</p>
-                    <p className="text-xs text-white/40 mt-1">Student verification requires a valid educational email address (.edu or .ac.in).</p>
-                  </div>
-                </div>
-                <p className="text-xs text-white/30">Detected email: <strong className="text-white/50">{email}</strong></p>
-                <div className="flex gap-3">
-                  <button onClick={onClose} className="flex-1 py-3 border border-white/10 hover:bg-white/5 text-white rounded-xl text-sm font-medium transition-all">Close</button>
-                  <button disabled className="flex-1 py-3 bg-green-600 text-white rounded-xl text-sm font-semibold opacity-40 cursor-not-allowed">Start Free Month</button>
-                </div>
-              </div>
-            )}
+            {/* Single active phase — never two states at once */}
+            {renderContent()}
           </div>
         </div>
       </motion.div>
@@ -443,6 +558,8 @@ export function PricingPage() {
         </motion.div>
 
         {/* ── Billing toggle ─────────────────────────────────────────────────── */}
+        {/* Uses Framer Motion layoutId so the pill smoothly follows the active   */}
+        {/* button regardless of each button's individual width.                  */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -450,36 +567,45 @@ export function PricingPage() {
           className="flex justify-center mb-14"
         >
           <div
-            className="relative flex items-center gap-0.5 p-1 rounded-2xl"
+            className="relative flex items-center p-1 gap-1 rounded-2xl"
             style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
           >
-            {/* Animated pill */}
-            <motion.div
-              className="absolute rounded-xl"
-              animate={{ left: billing === "monthly" ? 4 : "calc(50%)" }}
-              transition={{ type: "spring", stiffness: 380, damping: 32 }}
-              style={{
-                background: "linear-gradient(135deg, #6366f1, #a855f7)",
-                height: "calc(100% - 8px)",
-                width: "calc(50% - 6px)",
-                top: 4,
-              }}
-            />
-            <button
-              onClick={() => setBilling("monthly")}
-              className={`relative z-10 px-6 py-2.5 rounded-xl text-sm font-semibold transition-colors min-w-[100px] ${billing === "monthly" ? "text-white" : "text-white/35 hover:text-white/60"}`}
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => setBilling("annual")}
-              className={`relative z-10 flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold transition-colors min-w-[140px] ${billing === "annual" ? "text-white" : "text-white/35 hover:text-white/60"}`}
-            >
-              Annual
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold transition-colors ${billing === "annual" ? "bg-white/20 text-white" : "bg-green-500/15 text-green-400"}`}>
-                Save 25%
-              </span>
-            </button>
+            {(["monthly", "annual"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setBilling(mode)}
+                className="relative flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors z-10"
+                style={{
+                  color: billing === mode ? "#fff" : "rgba(255,255,255,0.35)",
+                  minWidth: mode === "annual" ? "148px" : "108px",
+                }}
+              >
+                {/* Animated pill lives inside the active button so layoutId  */}
+                {/* auto-animates it from one button's bounds to the other.   */}
+                {billing === mode && (
+                  <motion.div
+                    layoutId="billing-toggle-pill"
+                    className="absolute inset-0 rounded-xl"
+                    style={{ background: "linear-gradient(135deg, #6366f1, #a855f7)" }}
+                    transition={{ type: "spring", stiffness: 500, damping: 38 }}
+                  />
+                )}
+                <span className="relative z-10">
+                  {mode === "monthly" ? "Monthly" : "Annual"}
+                </span>
+                {mode === "annual" && (
+                  <span
+                    className={`relative z-10 text-[10px] px-2 py-0.5 rounded-full font-bold transition-all duration-300 ${
+                      billing === "annual"
+                        ? "bg-white/20 text-white"
+                        : "bg-emerald-500/15 text-emerald-400"
+                    }`}
+                  >
+                    Save 25%
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
         </motion.div>
 
