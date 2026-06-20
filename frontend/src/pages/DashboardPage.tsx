@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
-import { FolderKanban, User, ArrowRight, Plus, CheckCircle2, Circle, Chrome, Key, Zap } from "lucide-react";
+import { FolderKanban, User, ArrowRight, Plus, CheckCircle2, Circle, Chrome, Key, Zap, Brain } from "lucide-react";
 import { useProjects } from "@/hooks/useProjects";
 import { useProfile } from "@/hooks/useProfile";
 import { usePlan } from "@/hooks/usePlan";
+import { useMemories } from "@/hooks/useMemories";
+import { formatRelativeTime, truncate } from "@/lib/utils";
 import { apiKeyService } from "@/services/apikey.service";
 import { PageHeader } from "@/components/common/PageHeader";
 import { SkeletonCard } from "@/components/common/SkeletonCard";
@@ -129,6 +131,7 @@ export function DashboardPage() {
   const { projects, isLoading: projectsLoading } = useProjects();
   const { profile, isLoading: profileLoading } = useProfile();
   const { plan } = usePlan();
+  const { memories, isLoading: memoriesLoading, fetchMemories } = useMemories();
   const [hasKey, setHasKey] = useState(false);
   const [keysLoaded, setKeysLoaded] = useState(false);
 
@@ -140,6 +143,10 @@ export function DashboardPage() {
       setKeysLoaded(true);
     }).catch(() => setKeysLoaded(true));
   }, []);
+
+  useEffect(() => {
+    fetchMemories();
+  }, [fetchMemories]);
 
   const firstName = user?.firstName || user?.username || "there";
 
@@ -223,6 +230,56 @@ export function DashboardPage() {
                       <Badge variant="outline" className="text-[10px] shrink-0">{project.stack[0]}</Badge>
                     )}
                     <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Recent Memories */}
+      <Card className="mt-6">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Recent memories</CardTitle>
+            <Link to="/memories">
+              <Button variant="ghost" size="sm" className="gap-1 text-xs text-muted-foreground">
+                View all memories <ArrowRight className="h-3 w-3" />
+              </Button>
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {memoriesLoading ? (
+            <SkeletonCard />
+          ) : memories.length === 0 ? (
+            <div className="py-8 text-center">
+              <Brain className="mx-auto h-8 w-8 text-muted-foreground mb-3 opacity-40" />
+              <p className="text-sm text-muted-foreground">No memories yet</p>
+              <p className="text-xs text-muted-foreground mt-1 mb-4">Save your first note, decision, or snippet</p>
+              <Link to="/memories/new">
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Plus className="h-3.5 w-3.5" /> Save a memory
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <ul className="space-y-1">
+              {memories.slice(0, 5).map((mem) => (
+                <li key={mem.id}>
+                  <Link
+                    to="/memories"
+                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-accent transition-colors"
+                  >
+                    <Brain className="h-4 w-4 text-brand-400 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground truncate">{mem.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{truncate(mem.content, 80)}</p>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground shrink-0">
+                      {formatRelativeTime(mem.created_at)}
+                    </span>
                   </Link>
                 </li>
               ))}

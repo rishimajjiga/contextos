@@ -19,7 +19,7 @@ from app.models.document import Document
 PLAN_LIMITS = {
     "free": {
         "projects":     1,
-        "memories":     20,
+        "memories":     10,
         "api_keys":     1,
         "daily_inject": 3,
     },

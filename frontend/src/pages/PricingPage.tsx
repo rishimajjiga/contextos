@@ -20,7 +20,7 @@ const PLANS = (billing: Billing) => [
     featured: false,
     badge: null,
     features: [
-      "20 memories",
+      "10 memories",
       "2 projects",
       "3 auto-injections / day",
       "1 API key",

@@ -89,7 +89,7 @@ export function UpgradeModal({ resource, limit, plan, onClose }: Props) {
           {loading ? "Opening payment..." : "Upgrade to Pro - Rs.499/month"}
         </button>
         <button
-          onClick={() => navigate("/pricing")}
+          onClick={() => navigate("/plans")}
           className="w-full py-2.5 text-text-secondary hover:text-text-primary text-sm transition-colors"
         >
           See all plans

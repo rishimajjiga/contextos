@@ -69,7 +69,7 @@ export function SaveMemoryPage() {
               <span className="ml-2 text-muted-foreground font-normal">({plan.display_name} plan)</span>
             </span>
             {atLimit && plan.plan === "free" && (
-              <Link to="/pricing">
+              <Link to="/plans">
                 <Button size="sm" variant="default" className="gap-1 h-6 text-xs px-2">
                   <Zap className="h-2.5 w-2.5" /> Upgrade
                 </Button>
@@ -116,9 +116,11 @@ export function SaveMemoryPage() {
 
       {/* Success state */}
       {saved ? (
-        <Card className="border-green-200 bg-green-50">
+        <Card className="border-brand-500/30 bg-brand-500/5">
           <CardContent className="pt-6 pb-6 flex flex-col items-center gap-4 text-center">
-            <CheckCircle2 className="h-10 w-10 text-green-500" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-500/15">
+              <CheckCircle2 className="h-8 w-8 text-brand-400" />
+            </div>
             <div>
               <p className="font-semibold text-foreground text-base">Memory saved!</p>
               <p className="text-sm text-muted-foreground mt-1">

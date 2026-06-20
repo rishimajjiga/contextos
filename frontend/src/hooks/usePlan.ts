@@ -4,7 +4,7 @@ import { billingService, type PlanInfo } from "@/services/billing.service";
 const FREE_PLAN_DEFAULT: PlanInfo = {
   plan: "free",
   display_name: "Free",
-  limits: { projects: 1, memories: 20, api_keys: 1, daily_inject: 3 },
+  limits: { projects: 1, memories: 10, api_keys: 1, daily_inject: 3 },
   usage: { projects: 0, memories: 0 },
   current_period_end: null,
   is_trialing: false,
