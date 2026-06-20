@@ -383,6 +383,7 @@ function injectStyles() {
     ".ctx-item-body{flex:1;min-width:0}",
     ".ctx-item-title{font-size:12px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}",
     ".ctx-item-sub{font-size:10px;color:rgba(255,255,255,0.38);line-height:1.4;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+    ".ctx-item-ts{font-size:9px;color:rgba(255,255,255,0.22);margin-top:3px}",
     ".ctx-item-badge{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(99,102,241,0.2);color:#a5b4fc;text-transform:uppercase;letter-spacing:0.3px;flex-shrink:0}",
     ".ctx-inject-btn{background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);border-radius:7px;color:#a5b4fc;cursor:pointer;font-family:inherit;font-size:10px;font-weight:700;padding:4px 9px;transition:all .15s;flex-shrink:0;white-space:nowrap}",
     ".ctx-inject-btn:hover{background:#6366F1;border-color:#6366F1;color:#fff}",
@@ -482,6 +483,9 @@ var _panelOpen = false;
 var _activeTab = "save";
 var _panelMemCache = null;
 var _panelProjCache = null;
+// Set by injectFAB so the message listener below can open the panel
+var _openPanelFn = null;
+var _switchTabFn = null;
 
 function injectFAB(platform) {
   _currentPlatform = platform;
@@ -525,7 +529,8 @@ function injectFAB(platform) {
       '</div>' +
       // Memories tab
       '<div class="ctx-tc" id="ctx-tc-memories">' +
-        '<div id="ctx-panel-mems"><div class="ctx-state"><span class="ctx-state-icon">🧠</span>Loading memories…</div></div>' +
+        '<div class="ctx-search-wrap"><input id="ctx-mem-q" placeholder="Search memories…" autocomplete="off" /></div>' +
+        '<div id="ctx-panel-mems" style="flex:1;overflow-y:auto"><div class="ctx-state"><span class="ctx-state-icon">🧠</span>Loading memories…</div></div>' +
       '</div>' +
       // Projects tab
       '<div class="ctx-tc" id="ctx-tc-projects">' +
@@ -687,6 +692,10 @@ function injectFAB(platform) {
     if (name === "search")   setTimeout(function() { var q = document.getElementById("ctx-panel-q"); if(q) q.focus(); }, 50);
   }
 
+  // Expose to module-level message listener so right-click can open the panel
+  _openPanelFn = openPanel;
+  _switchTabFn = switchTab;
+
   document.querySelectorAll("#ctx-panel .ctx-tab").forEach(function(btn) {
     btn.onclick = function(e) { e.stopPropagation(); switchTab(btn.dataset.tab); };
   });
@@ -719,6 +728,33 @@ function injectFAB(platform) {
       _searchTimer = setTimeout(function() { runPanelSearch(q); }, 350);
     });
     panelQ.addEventListener("click", function(e) { e.stopPropagation(); });
+  }
+
+  // ── Memory tab search ────────────────────────────────────────────────────────
+  var _memSearchTimer;
+  var memQ = document.getElementById("ctx-mem-q");
+  if (memQ) {
+    memQ.addEventListener("input", function() {
+      clearTimeout(_memSearchTimer);
+      var q = memQ.value.trim();
+      var memsEl = document.getElementById("ctx-panel-mems");
+      if (!q) {
+        // show cached list (or reload if cache is gone)
+        if (_panelMemCache) renderPanelMems(_panelMemCache);
+        else loadPanelMemories();
+        return;
+      }
+      if (memsEl) memsEl.innerHTML = '<div class="ctx-state"><span style="display:inline-block;animation:ctxSpin 1s linear infinite">⟳</span> Searching…</div>';
+      _memSearchTimer = setTimeout(function() {
+        sendMessage("SEARCH_MEMORY", { query: q, limit: 12 }).then(function(data) {
+          var results = Array.isArray(data) ? data : (data.results || []);
+          renderPanelMems(results);
+        }).catch(function(err) {
+          if (memsEl) renderPanelError(memsEl, err);
+        });
+      }, 350);
+    });
+    memQ.addEventListener("click", function(e) { e.stopPropagation(); });
   }
 
   // ── Auto-suggest toggle (checkbox) ─────────────────────────────────────────
@@ -829,13 +865,26 @@ function initSaveTab() {
 
 // ── Panel: load memories ──────────────────────────────────────────────────────
 
+function formatRelTime(iso) {
+  if (!iso) return "";
+  try {
+    var d = new Date(iso);
+    var diff = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (diff < 60)     return "just now";
+    if (diff < 3600)   return Math.floor(diff / 60)   + "m ago";
+    if (diff < 86400)  return Math.floor(diff / 3600)  + "h ago";
+    if (diff < 604800) return Math.floor(diff / 86400) + "d ago";
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  } catch (_) { return ""; }
+}
+
 function loadPanelMemories() {
   if (_panelMemCache) { renderPanelMems(_panelMemCache); return; }
   var el = document.getElementById("ctx-panel-mems");
   if (!el) return;
   el.innerHTML = '<div class="ctx-state"><span style="display:inline-block;animation:ctxSpin 1s linear infinite">⟳</span> Loading…</div>';
   sendMessage("LIST_MEMORY", { page: 1, perPage: 12 }).then(function(data) {
-    _panelMemCache = (data && data.items) ? data.items : [];
+    _panelMemCache = Array.isArray(data) ? data : (data.items || []);
     renderPanelMems(_panelMemCache);
   }).catch(function(err) {
     if (el) renderPanelError(el, err);
@@ -853,12 +902,14 @@ function renderPanelMems(items) {
   el.innerHTML = items.map(function(m) {
     var icon = typeIcon[m.doc_type] || "📝";
     var preview = (m.content || "").replace(/\n/g," ").slice(0,80);
+    var ts = formatRelTime(m.created_at);
     return (
       '<div class="ctx-item" data-content="' + escapeHtml(m.content || "") + '">' +
         '<span class="ctx-item-icon">' + icon + '</span>' +
         '<span class="ctx-item-body">' +
           '<div class="ctx-item-title">' + escapeHtml((m.title||"Untitled").slice(0,50)) + '</div>' +
           (preview ? '<div class="ctx-item-sub">' + escapeHtml(preview) + (m.content&&m.content.length>80?"…":"") + '</div>' : '') +
+          (ts ? '<div class="ctx-item-ts">' + ts + '</div>' : '') +
         '</span>' +
         '<button class="ctx-inject-btn" title="Inject into chat">⚡ Use</button>' +
       '</div>'
@@ -1078,7 +1129,8 @@ function friendlyPanelError(err) {
   var m = (err && err.message) || "";
   if (m.includes("LIMIT_REACHED"))  return null; // handled by showPanelUpgrade
   if (m.includes("NOT_CONFIGURED")) return "Not connected. Open the extension popup to connect.";
-  if (m.includes("NETWORK_ERROR"))  return "Can't reach server. Is the backend running?";
+  if (m.includes("QUEUED"))         return "Offline — saved locally, will sync when reconnected.";
+  if (m.includes("NETWORK_ERROR"))  return "Unable to sync right now.";
   if (m.includes("AUTH_ERROR"))     return "Bad API key. Open popup → Settings to reconnect.";
   return m.replace(/^(API_ERROR \d+:|NETWORK_ERROR:|AUTH_ERROR:)\s*/,"") || "Something went wrong.";
 }
@@ -1426,7 +1478,7 @@ async function loadMemories(query) {
       renderMemories(Array.isArray(data) ? data : (data.results || []), results);
     } else {
       data = await sendMessage("LIST_MEMORY");
-      renderMemories(data.items, results);
+      renderMemories(Array.isArray(data) ? data : (data.items || []), results);
     }
   } catch (err) {
     results.innerHTML = '<div class="ctx-error">' + escapeHtml(err.message) + '</div>';
@@ -1814,16 +1866,40 @@ function init() {
       }
     });
 
-    // Allow popup to inject text/project context into the AI chat input
+    // Allow popup / background to send commands to the content script
     chrome.runtime.onMessage.addListener(function(msg, _sender, sendResponse) {
       if (msg && msg.type === "INJECT_TEXT") {
         injectIntoInput(msg.text || "");
+        sendResponse({ ok: true });
+      }
+      if (msg && msg.type === "OPEN_PANEL_WITH_SELECTION") {
+        // Right-click "Open Movable Brain" — open FAB panel with text prefilled.
+        // User edits and saves manually; nothing is auto-saved here.
+        var selText  = msg.text  || "";
+        var selTitle = msg.title || document.title;
+        _saveTabInited = false; // allow initSaveTab to run fresh
+        if (_openPanelFn) _openPanelFn();
+        if (_switchTabFn) _switchTabFn("save"); // triggers initSaveTab (sync)
+        // Override whatever initSaveTab filled in
+        var ti = document.getElementById("ctx-save-title");
+        var ci = document.getElementById("ctx-save-content");
+        if (ti) ti.value = selTitle.slice(0, 120);
+        if (ci) ci.value = selText;
         sendResponse({ ok: true });
       }
       return false;
     });
 
     chrome.storage.onChanged.addListener(function(changes, area) {
+      // Bust memory cache when extension saves a memory (lastSave stamped by background.js)
+      if (area === "local" && changes.lastSave) {
+        _panelMemCache = null;
+        var memTab = document.getElementById("ctx-tc-memories");
+        if (memTab && memTab.classList.contains("ctx-active")) {
+          loadPanelMemories();
+        }
+        return;
+      }
       if (area !== "sync" || !changes.suggestEnabled) return;
       _suggestEnabled = changes.suggestEnabled.newValue === true;
       _autoSuggestOn = _suggestEnabled;

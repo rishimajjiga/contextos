@@ -101,6 +101,12 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
     title: "Save this page to ContextOS",
     contexts: ["page"],
   });
+  // "Open Movable Brain" — opens the floating panel prefilled with selected text
+  chrome.contextMenus.create({
+    id: "open-brain-with-selection",
+    title: "Open Movable Brain",
+    contexts: ["selection"],
+  });
 });
 
 // ── Context menu handler ──────────────────────────────────────────────────────
@@ -130,6 +136,19 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       chrome.action.setBadgeBackgroundColor({ color: "#EF4444" });
       setTimeout(() => chrome.action.setBadgeText({ text: "" }), 3000);
     }
+  }
+
+  if (info.menuItemId === "open-brain-with-selection") {
+    // Tell the content script to open the floating brain panel with prefilled text.
+    // User sees the form and clicks Save manually — nothing is auto-saved here.
+    chrome.tabs.sendMessage(tab.id, {
+      type: "OPEN_PANEL_WITH_SELECTION",
+      text:  info.selectionText || "",
+      title: tab.title         || "",
+    }, function() {
+      if (chrome.runtime.lastError) {} // no content script on this page — ignore
+    });
+    return;
   }
 
   if (info.menuItemId === "save-page" && tab?.url) {
