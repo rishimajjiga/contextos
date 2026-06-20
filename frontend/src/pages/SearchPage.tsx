@@ -96,7 +96,7 @@ export function SearchPage() {
 
       {/* Error */}
       {error && (
-        <p className="mb-4 text-sm text-red-600 rounded-lg border border-red-200 bg-red-50 px-4 py-3">{error}</p>
+        <p className="mb-4 text-sm text-red-300 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3">{error}</p>
       )}
 
       {/* Empty prompt */}

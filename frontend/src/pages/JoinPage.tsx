@@ -42,9 +42,9 @@ export function JoinPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface-0 px-4">
-      <div className="w-full max-w-sm rounded-2xl border border-surface-2 bg-white p-8 text-center shadow-md">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-100">
-          <Users className="h-7 w-7 text-brand-600" />
+      <div className="w-full max-w-sm rounded-2xl border border-border bg-surface-1 p-8 text-center shadow-md">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-500/15">
+          <Users className="h-7 w-7 text-brand-400" />
         </div>
 
         {(status === "loading" || status === "joining") && (
@@ -69,7 +69,7 @@ export function JoinPage() {
 
         {status === "error" && (
           <>
-            <h1 className="mb-2 text-lg font-semibold text-red-600">Invite error</h1>
+            <h1 className="mb-2 text-lg font-semibold text-red-400">Invite error</h1>
             <p className="mb-6 text-sm text-text-secondary">{errorMsg}</p>
             <Button variant="outline" onClick={() => navigate("/dashboard")} className="w-full">
               Go to Dashboard

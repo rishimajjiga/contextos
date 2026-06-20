@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from "react";
-import { Brain, Trash2, Tag, ChevronDown, ChevronUp, Search, X, AlertCircle, Plus } from "lucide-react";
+import { Brain, Trash2, Tag, ChevronDown, ChevronUp, Search, X, AlertCircle, Plus, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useMemories } from "@/hooks/useMemories";
+import { usePlan } from "@/hooks/usePlan";
 import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/common/EmptyState";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
@@ -13,6 +14,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 
 export function MemoriesPage() {
   const { memories, isLoading, error, clearError, fetchMemories, deleteMemory } = useMemories();
+  const { plan } = usePlan();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedQ = useDebounce(searchQuery, 350);
@@ -26,6 +28,15 @@ export function MemoriesPage() {
     setSearchQuery("");
     searchRef.current?.focus();
   };
+
+  // Free plan has a positive memory limit; Pro/Student are unlimited (-1).
+  // We never delete anything — older memories stay stored and simply aren't
+  // shown until the user upgrades again.
+  const memLimit = plan.limits.memories;
+  const limited = memLimit > 0;
+  const visibleMemories = limited ? memories.slice(0, memLimit) : memories;
+  const hiddenCount = limited ? Math.max(0, memories.length - memLimit) : 0;
+  const showLimitBanner = hiddenCount > 0 && !searchQuery.trim();
 
   return (
     <div>
@@ -43,10 +54,10 @@ export function MemoriesPage() {
 
       {/* Error banner */}
       {error && (
-        <div className="mb-4 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-          <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
-          <p className="flex-1 text-sm text-red-700">{error}</p>
-          <button onClick={clearError} className="text-red-400 hover:text-red-600 text-xs underline shrink-0">
+        <div className="mb-4 flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3">
+          <AlertCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+          <p className="flex-1 text-sm text-red-300">{error}</p>
+          <button onClick={clearError} className="text-red-400 hover:text-red-300 text-xs underline shrink-0">
             Dismiss
           </button>
         </div>
@@ -74,6 +85,21 @@ export function MemoriesPage() {
         )}
       </div>
 
+      {/* Plan limit notice — older memories stay stored, just hidden on Free */}
+      {showLimitBanner && (
+        <div className="mb-4 flex flex-col gap-3 rounded-lg border border-brand-500/30 bg-brand-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-foreground">
+            Showing your latest {memLimit} memories.{" "}
+            <span className="text-muted-foreground">Upgrade to access all your memories.</span>
+          </p>
+          <Link to="/plans" className="shrink-0">
+            <Button size="sm" className="gap-1.5 w-full sm:w-auto">
+              <Zap className="h-3.5 w-3.5" /> Upgrade
+            </Button>
+          </Link>
+        </div>
+      )}
+
       {/* List */}
       {isLoading ? (
         <div className="flex h-40 items-center justify-center">
@@ -96,7 +122,7 @@ export function MemoriesPage() {
         )
       ) : (
         <div className="space-y-3">
-          {memories.map((mem) => {
+          {visibleMemories.map((mem) => {
             const isOpen = expanded === mem.id;
             return (
               <Card key={mem.id} className="hover:border-border/80 transition-colors">

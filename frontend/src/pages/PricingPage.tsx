@@ -1,9 +1,16 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@clerk/clerk-react";
+import { useAuth, useUser } from "@clerk/clerk-react";
 import { toast } from "sonner";
 import { billingService, openRazorpayCheckout } from "@/services/billing.service";
-import type { StudentCheckResult } from "@/services/billing.service";
+
+// Accepts .edu, .edu.<cc> (e.g. .edu.in), and .ac.<cc> (e.g. .ac.in, .ac.uk).
+// Covers university domains like stanford.edu, iitb.ac.in, vit.ac.in.
+function isEducationalEmail(email: string): boolean {
+  const domain = (email.split("@")[1] ?? "").trim().toLowerCase();
+  if (!domain) return false;
+  return /\.edu$/.test(domain) || /\.edu\.[a-z]{2,}$/.test(domain) || /\.ac\.[a-z]{2,}$/.test(domain);
+}
 
 type Billing = "monthly" | "annual";
 
@@ -97,38 +104,27 @@ const PLANS = (billing: Billing) => [
 
 function StudentModal({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
-  const { isSignedIn } = useAuth();
-  const [step, setStep] = useState<"check" | "eligible" | "ineligible" | "claimed">("check");
-  const [checkResult, setCheckResult] = useState<StudentCheckResult | null>(null);
-  const [checking, setChecking] = useState(false);
+  const { isLoaded, isSignedIn, user } = useUser();
   const [claiming, setClaiming] = useState(false);
   const [trialEnds, setTrialEnds] = useState<string | null>(null);
+  const [claimed, setClaimed] = useState(false);
+  const [claimError, setClaimError] = useState(false);
 
-  async function handleCheck() {
-    if (!isSignedIn) {
-      navigate("/sign-up?plan=student");
-      return;
-    }
-    setChecking(true);
-    try {
-      const result = await billingService.studentCheck();
-      setCheckResult(result);
-      setStep(result.eligible ? "eligible" : "ineligible");
-    } catch (err: any) {
-      toast.error(err?.message ?? "Could not verify your email. Please try again.");
-    } finally {
-      setChecking(false);
-    }
-  }
+  // Detect the student email directly from the authenticated Clerk user —
+  // no server round-trip, so this never shows "Couldn't fetch account details".
+  const email = user?.primaryEmailAddress?.emailAddress ?? "";
+  const eligible = isEducationalEmail(email);
 
   async function handleClaim() {
     setClaiming(true);
+    setClaimError(false);
     try {
       const res = await billingService.studentClaim();
       setTrialEnds(res.trial_ends);
-      setStep("claimed");
+      setClaimed(true);
     } catch (err: any) {
-      toast.error(err?.message ?? "Could not activate trial. Please try again.");
+      setClaimError(true);
+      toast.error(err?.message ?? "Unable to verify your student account right now. Please try again later.");
     } finally {
       setClaiming(false);
     }
@@ -148,94 +144,8 @@ function StudentModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        {/* Step: check */}
-        {step === "check" && (
-          <div className="space-y-4">
-            <p className="text-sm text-text-secondary leading-relaxed">
-              We'll check your account email to verify you're a student. A{" "}
-              <code className="text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded text-xs">.edu</code>{" "}
-              or{" "}
-              <code className="text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded text-xs">.ac.in</code>{" "}
-              address is required.
-            </p>
-            <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-4">
-              <p className="text-xs text-text-secondary font-medium mb-2">What you get:</p>
-              <ul className="text-xs text-text-secondary space-y-1">
-                <li>✓ 1 month completely free — no card required</li>
-                <li>✓ 100 memories, 3 projects, unlimited auto-inject</li>
-                <li>✓ After trial: ₹199/mo ($2.10) to continue</li>
-              </ul>
-            </div>
-            <button
-              onClick={handleCheck}
-              disabled={checking}
-              className="w-full py-2.5 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-60"
-            >
-              {checking ? "Checking your email…" : "Check my eligibility"}
-            </button>
-          </div>
-        )}
-
-        {/* Step: eligible */}
-        {step === "eligible" && checkResult && (
-          <div className="space-y-4">
-            <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-4 flex items-start gap-3">
-              <span className="text-green-400 text-xl">✓</span>
-              <div>
-                <p className="text-sm font-semibold text-green-400">You're eligible!</p>
-                <p className="text-xs text-text-secondary mt-1">
-                  <strong>{checkResult.email}</strong> is a verified student email.
-                </p>
-              </div>
-            </div>
-            <p className="text-sm text-text-secondary">
-              Click below to activate your <strong>1-month free trial</strong>. No credit card needed.
-              After 30 days you'll be prompted to subscribe at ₹199/month to keep your memories.
-            </p>
-            <button
-              onClick={handleClaim}
-              disabled={claiming}
-              className="w-full py-2.5 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-60"
-            >
-              {claiming ? "Activating…" : "Claim 1-month free trial"}
-            </button>
-          </div>
-        )}
-
-        {/* Step: ineligible */}
-        {step === "ineligible" && checkResult && (
-          <div className="space-y-4">
-            <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 flex items-start gap-3">
-              <span className="text-red-400 text-xl">✗</span>
-              <div>
-                <p className="text-sm font-semibold text-red-400">Not eligible</p>
-                <p className="text-xs text-text-secondary mt-1">{checkResult.reason}</p>
-              </div>
-            </div>
-            <p className="text-sm text-text-secondary">
-              Sign up with a college email ending in <code className="text-green-400">.edu</code> or{" "}
-              <code className="text-green-400">.ac.in</code> to access the student plan.
-              Otherwise, check out our Pro plan starting at ₹499/month.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={onClose}
-                className="flex-1 py-2.5 border border-border hover:bg-surface-2 text-text-primary rounded-xl text-sm font-medium transition-colors"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => navigate("/pricing")}
-                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-colors"
-              >
-                See Pro plan
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Step: claimed */}
-        {step === "claimed" && (
+        {claimed ? (
+          /* Claimed */
           <div className="space-y-4">
             <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-5 text-center">
               <p className="text-3xl mb-3">🎉</p>
@@ -256,6 +166,96 @@ function StudentModal({ onClose }: { onClose: () => void }) {
             >
               Go to dashboard →
             </button>
+          </div>
+        ) : !isLoaded ? (
+          /* Loading */
+          <div className="py-10 text-center text-sm text-text-secondary">Checking your account…</div>
+        ) : !isSignedIn ? (
+          /* Signed out */
+          <div className="space-y-4">
+            <p className="text-sm text-text-secondary leading-relaxed">
+              Please sign in to check student eligibility.
+            </p>
+            <button
+              onClick={() => navigate("/sign-in")}
+              className="w-full py-2.5 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-semibold transition-colors"
+            >
+              Sign In
+            </button>
+          </div>
+        ) : !email ? (
+          /* Unable to read email */
+          <div className="space-y-4">
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+              <p className="text-sm text-amber-300">
+                Unable to verify your student account right now. Please try again later.
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-full py-2.5 border border-border hover:bg-surface-2 text-text-primary rounded-xl text-sm font-medium transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        ) : eligible ? (
+          /* Eligible */
+          <div className="space-y-4">
+            <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-4 flex items-start gap-3">
+              <span className="text-green-400 text-xl">✓</span>
+              <div>
+                <p className="text-sm font-semibold text-green-400">Student account detected</p>
+                <p className="text-xs text-text-secondary mt-1">
+                  <strong>{email}</strong> is a verified student email.
+                </p>
+              </div>
+            </div>
+            <p className="text-sm text-text-secondary">
+              Start your <strong>1-month free trial</strong> — no credit card needed. After 30 days,
+              subscribe at ₹199/month to keep your memories.
+            </p>
+            {claimError && (
+              <p className="text-xs text-amber-300">
+                Unable to verify your student account right now. Please try again later.
+              </p>
+            )}
+            <button
+              onClick={handleClaim}
+              disabled={claiming}
+              className="w-full py-2.5 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-60"
+            >
+              {claiming ? "Starting…" : "Start Free Month"}
+            </button>
+          </div>
+        ) : (
+          /* Ineligible */
+          <div className="space-y-4">
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 flex items-start gap-3">
+              <span className="text-red-400 text-xl">✗</span>
+              <div>
+                <p className="text-sm font-semibold text-red-400">Not eligible</p>
+                <p className="text-xs text-text-secondary mt-1">
+                  Student verification requires a valid educational email address (.edu or .ac.in).
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-text-secondary">
+              Detected email: <strong>{email}</strong>
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="flex-1 py-2.5 border border-border hover:bg-surface-2 text-text-primary rounded-xl text-sm font-medium transition-colors"
+              >
+                Close
+              </button>
+              <button
+                disabled
+                className="flex-1 py-2.5 bg-green-600 text-white rounded-xl text-sm font-semibold opacity-50 cursor-not-allowed"
+              >
+                Start Free Month
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -370,7 +370,7 @@ export function PricingPage() {
           >
             Annual
             <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-              billing === "annual" ? "bg-white/20 text-white" : "bg-green-100 text-green-700"
+              billing === "annual" ? "bg-white/20 text-white" : "bg-green-500/15 text-green-400"
             }`}>
               Save up to 25%
             </span>
