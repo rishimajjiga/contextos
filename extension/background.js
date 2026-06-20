@@ -6,7 +6,7 @@ const CACHE_TTL = { list: 30_000, search: 15_000, context: 60_000, projects: 45_
 
 // ── Keep-alive (MV3 service worker) ──────────────────────────────────────────
 chrome.alarms.create("keepAlive", { periodInMinutes: 0.4 });
-chrome.alarms.onAlarm.addListener(() => {});
+chrome.alarms.onAlarm.addListener(() => { flushSaveQueue(); });
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name === "keepAlive") port.onDisconnect.addListener(() => {});
 });
@@ -228,6 +228,29 @@ async function apiRequest(path, method = "GET", body = null, retries = 2) {
 }
 
 // ── Message router ────────────────────────────────────────────────────────────
+// ── Offline save queue ────────────────────────────────────────────────────────
+// When SAVE_MEMORY fails with a network error we queue the payload in
+// chrome.storage.local so it can be retried on the next keepAlive tick.
+
+async function flushSaveQueue() {
+  const { saveQueue = [] } = await new Promise(r => chrome.storage.local.get("saveQueue", r));
+  if (!saveQueue.length) return;
+  const remaining = [];
+  for (const item of saveQueue) {
+    try {
+      const result = await apiRequest("/api/v1/memories", "POST", item);
+      cacheInvalidate("list:", "search:", "context:");
+      await chrome.storage.local.set({ lastSave: Date.now() });
+    } catch (_) {
+      remaining.push(item);  // still offline — keep in queue
+    }
+  }
+  await new Promise(r => chrome.storage.local.set({ saveQueue: remaining }, r));
+}
+
+// Flush any queued saves on extension startup too
+chrome.runtime.onStartup.addListener(flushSaveQueue);
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   handleMessage(msg).then(
     (data) => sendResponse({ ok: true,  data }),
@@ -266,19 +289,37 @@ async function handleMessage(msg) {
     }
 
     case "SAVE_MEMORY": {
-      const result = await apiRequest("/api/v1/memories", "POST", {
+      const payload = {
         title:      msg.title,
         content:    msg.content,
         tags:       msg.tags       || [],
         project_id: msg.project_id || null,
-      });
-      cacheInvalidate("list:", "search:", "context:");
-      return result;
+      };
+      try {
+        const result = await apiRequest("/api/v1/memories", "POST", payload);
+        cacheInvalidate("list:", "search:", "context:");
+        // Stamp storage so open website tabs know to refetch
+        await chrome.storage.local.set({ lastSave: Date.now() });
+        return result;
+      } catch (err) {
+        // Queue for retry when network returns
+        if (err.message.includes("NETWORK_ERROR")) {
+          const { saveQueue = [] } = await new Promise(r => chrome.storage.local.get("saveQueue", r));
+          const isDup = saveQueue.some(q => q.title === payload.title && q.content === payload.content);
+          if (!isDup) {
+            saveQueue.push(payload);
+            await new Promise(r => chrome.storage.local.set({ saveQueue }, r));
+          }
+          throw new Error("QUEUED: Unable to sync right now. Will retry automatically.");
+        }
+        throw err;
+      }
     }
 
     case "DELETE_MEMORY": {
       await apiRequest(`/api/v1/memories/${msg.id}`, "DELETE");
       cacheInvalidate("list:", "search:", "context:");
+      await chrome.storage.local.set({ lastSave: Date.now() });
       return { deleted: true };
     }
 
@@ -385,5 +426,20 @@ async function handleMessage(msg) {
       return { saved: true };
     }
 
+    // ── Plan info ─────────────────────────────────────────────────────────────
+    case "GET_PLAN": {
+      return apiRequest("/api/v1/billing/plan");
+    }
 
-    
+    // ── Current user ──────────────────────────────────────────────────────────
+    case "GET_USER_INFO": {
+      return apiRequest("/api/v1/users/me");
+    }
+
+    // ── Cache invalidation (called by website-bridge when website saves) ───────
+    case "INVALIDATE_CACHE": {
+      cacheInvalidate("list:", "search:", "context:", "projects:");
+      return { ok: true };
+    }
+  }
+}

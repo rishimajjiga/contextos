@@ -23,7 +23,7 @@
         } else {
           apiUrl = u.origin;
         }
-      } catch (_) { apiUrl = "http://localhost:8000"; }
+      } catch (_) { apiUrl = "https://contextos-production-d82a.up.railway.app"; }
     }
 
     chrome.storage.sync.set({ apiKey, apiUrl }, () => {

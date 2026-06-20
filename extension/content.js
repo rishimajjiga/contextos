@@ -1114,11 +1114,11 @@ function getWebAppUrl(path) {
   return new Promise(function(resolve) {
     chrome.storage.sync.get(["apiUrl"], function(r) {
       try {
-        var u    = new URL(r.apiUrl || "http://localhost:8000");
+        var u    = new URL(r.apiUrl || "https://contextos-production-d82a.up.railway.app");
         var port = u.port === "8000" ? "5173" : u.port;
         resolve(u.protocol + "//" + u.hostname + (port ? ":" + port : "") + path);
       } catch(_) {
-        resolve("http://localhost:5173" + path);
+        resolve("https://contextos-eta.vercel.app" + path);
       }
     });
   });

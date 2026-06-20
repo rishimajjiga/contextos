@@ -50,3 +50,29 @@
     // chrome.runtime not available — extension not installed
   }
 })();
+
+// ── Bidirectional sync ────────────────────────────────────────────────────────
+// 1. When the extension saves a memory, background.js sets chrome.storage.local.lastSave.
+//    We watch for that change here and dispatch a DOM event so React can refetch.
+// 2. When the website saves a memory it dispatches contextos:memory-saved on window.
+//    We forward that to background.js so it can invalidate its cache.
+
+(function attachSyncListeners() {
+  // Extension → Website: storage stamp → DOM event
+  if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === "local" && changes.lastSave) {
+        window.dispatchEvent(new CustomEvent("contextos:memory-saved"));
+      }
+    });
+  }
+
+  // Website → Extension: DOM event → background cache invalidation
+  window.addEventListener("contextos:memory-saved", () => {
+    try {
+      chrome.runtime.sendMessage({ type: "INVALIDATE_CACHE" }, () => {
+        if (chrome.runtime.lastError) { /* extension not active */ }
+      });
+    } catch (_) {}
+  });
+})();

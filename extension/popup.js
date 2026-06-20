@@ -71,10 +71,11 @@ function isAuthError(err) {
 function friendlyError(err) {
   const m = err.message || "";
   if (m.includes("NOT_CONFIGURED")) return "Not connected. Go to Settings.";
-  if (m.includes("NETWORK_ERROR"))  return "Can't reach server. Is the backend running?";
+  if (m.includes("NETWORK_ERROR"))  return "Unable to sync right now. Please try again in a few moments.";
+  if (m.includes("QUEUED"))         return "Offline — saved locally, will sync automatically when reconnected.";
   if (m.includes("AUTH_ERROR"))     return "Bad API key. Check Settings.";
   if (m.includes("LIMIT_REACHED"))  return "Plan limit reached. Upgrade to save more.";
-  return m.replace(/^(API_ERROR \d+:|NETWORK_ERROR:|AUTH_ERROR:)\s*/,"");
+  return m.replace(/^(API_ERROR \d+:|NETWORK_ERROR:|AUTH_ERROR:|QUEUED:)\s*/,"");
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────────
@@ -790,6 +791,20 @@ function initConnectFlow() {
   };
 }
 
+// ── User info ────────────────────────────────────────────────────────────────
+
+async function loadUserInfo() {
+  try {
+    const user = await sendMsg("GET_USER_INFO");
+    const sub = document.getElementById("hdr-sub");
+    if (sub && (user.name || user.email)) {
+      sub.textContent = user.name || user.email;
+    }
+  } catch (_) {
+    // Non-critical — header sub text stays as "Second Brain"
+  }
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 
 async function init() {
@@ -815,6 +830,7 @@ async function init() {
 
   // Load initial data
   refreshStatusDot();
+  loadUserInfo();  // show user name in header
   loadMemories();  // pre-load memories so tab is instant
   loadPlanUsage(); // show plan usage in header + memories tab
 
