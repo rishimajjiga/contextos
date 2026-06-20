@@ -26,7 +26,14 @@ async def lifespan(app: FastAPI):
     """Startup / shutdown lifecycle hook."""
     log.info("ContextOS starting", env=settings.app_env)
 
-    if not settings.is_production:
+    # Run the idempotent schema setup on every boot, including production.
+    # Alembic versions are gitignored, so they don't ship to Railway; these
+    # CREATE TABLE IF NOT EXISTS / ADD COLUMN IF NOT EXISTS statements are what
+    # keep the managed (Supabase) schema current. Skipping them in production
+    # left the prod DB missing newer columns (e.g. documents.doc_type,
+    # user_subscriptions.grace_period_end), causing 500s on /memories,
+    # /billing/plan, etc. Guard only on having a database configured.
+    if settings.database_url:
         try:
             async with engine.begin() as conn:
                 # Create all ORM-mapped tables that don't exist yet
