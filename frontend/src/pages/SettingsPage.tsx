@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
 import { toast } from "sonner";
+import { Download } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PlanBadge } from "@/components/common/PlanBadge";
 import { billingService, openRazorpayCheckout, type PlanInfo } from "@/services/billing.service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { apiClient } from "@/services/api";
 
 export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -14,6 +16,7 @@ export function SettingsPage() {
   const [plan, setPlan] = useState<PlanInfo | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [subscribeLoading, setSubscribeLoading] = useState(false);
+  const [downloadLoading, setDownloadLoading] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("upgraded") === "1") {
@@ -54,9 +57,32 @@ export function SettingsPage() {
         },
       );
     } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong.");
+      toast.error(err?.message ?? "Unable to open payment. Please refresh and try again.");
     } finally {
       setSubscribeLoading(false);
+    }
+  }
+
+  async function handleDownload() {
+    setDownloadLoading(true);
+    try {
+      // Stream the PDF response from the backend and trigger a browser download
+      const response = await apiClient.get("/billing/download-backup", {
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(response.data as Blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `contextos-backup-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Your data has been downloaded.");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to generate your backup. Please try again.");
+    } finally {
+      setDownloadLoading(false);
     }
   }
 
@@ -249,6 +275,34 @@ export function SettingsPage() {
           </CardContent>
         </Card>
       )}
+      {/* Data & Privacy */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Data &amp; Privacy</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Export a full copy of your memories and projects as a PDF. Your data always belongs to
+            you — download it anytime.
+          </p>
+          {plan?.is_in_grace_period && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/8 p-3">
+              <p className="text-xs text-amber-400 leading-relaxed">
+                ⚠ Your subscription has expired. Download your data before it is cleaned up after
+                the grace period ends.
+              </p>
+            </div>
+          )}
+          <button
+            onClick={handleDownload}
+            disabled={downloadLoading}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border hover:bg-surface-2 text-sm font-medium text-foreground transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <Download className="h-4 w-4" />
+            {downloadLoading ? "Generating PDF…" : "Download Your Data"}
+          </button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

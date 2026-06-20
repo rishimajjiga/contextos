@@ -38,10 +38,29 @@ export class LimitError extends Error {
 
 apiClient.interceptors.response.use(
   (res) => res,
-  (error: AxiosError<any>) => {
+  async (error: AxiosError<any>) => {
+    const cfg = error.config as any;
+
+    // ── Auto-retry once on transient failures (network error OR 5xx) ──────────
+    // This silently handles Railway cold starts and brief Supabase hiccups.
+    // We mark the config so we never retry more than once per request.
+    if (cfg && !cfg.__retried) {
+      const isTransient = !error.response || error.response.status >= 500;
+      if (isTransient) {
+        cfg.__retried = true;
+        await new Promise((r) => setTimeout(r, 1500));
+        try {
+          return await apiClient.request(cfg);
+        } catch (retryErr) {
+          // Use the retry error for the rest of the handler below
+          error = retryErr as AxiosError<any>;
+        }
+      }
+    }
+
     if (!error.response) {
       return Promise.reject(
-        new Error("Can't reach the server. Please try again in a moment.")
+        new Error("No internet connection. Please check your network and try again.")
       );
     }
 
@@ -75,11 +94,16 @@ apiClient.interceptors.response.use(
       return Promise.reject(e);
     }
 
-    // 5xx — never surface raw Axios/server errors to users.
+    // 5xx — prefer the backend's own detail message (e.g. "Razorpay error: …",
+    // "Could not fetch your account details.") and only fall back to a generic
+    // string when the server sent no readable detail.
     if (error.response.status >= 500) {
-      return Promise.reject(
-        new Error("Something went wrong. Please try again in a few moments.")
-      );
+      const serverDetail = error.response?.data?.detail;
+      const msg =
+        typeof serverDetail === "string" && serverDetail.length > 0
+          ? serverDetail
+          : "Server error. Please try again in a few moments.";
+      return Promise.reject(new Error(msg));
     }
 
     const rawDetail = error.response?.data?.detail;

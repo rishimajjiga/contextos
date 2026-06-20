@@ -41,7 +41,7 @@ export function ConnectExtensionPage() {
       setTimeout(() => { try { window.close(); } catch (_) {} }, 2000);
     } catch (err: any) {
       setStage("error");
-      setErrorMsg(err?.message ?? "Something went wrong.");
+      setErrorMsg(err?.message ?? "Failed to connect extension. Please try again.");
     }
   }
 

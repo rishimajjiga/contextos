@@ -29,9 +29,9 @@ export function ErrorAlert({ message, onRetry, onDismiss, className }: ErrorAler
           <AlertTriangle className="h-4 w-4 text-brand-400" />
         </span>
         <div>
-          <p className="text-sm font-medium text-foreground">Something went wrong</p>
+          <p className="text-sm font-medium text-foreground">An error occurred</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {message || "Something went wrong. Please try again in a few moments."}
+            {message || "An unexpected error occurred. Please try again."}
           </p>
         </div>
       </div>

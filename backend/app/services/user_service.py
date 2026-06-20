@@ -4,15 +4,17 @@ Business logic for user provisioning.
 Called on every authenticated request to ensure the local users row exists.
 """
 import httpx
+import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import User
 from app.repositories import UserRepository
 from app.config import settings
 
+log = structlog.get_logger()
+
 
 async def _fetch_clerk_user(clerk_id: str) -> dict:
-    """Fetch user details from Clerk's REST API."""
     async with httpx.AsyncClient() as client:
         try:
             resp = await client.get(
@@ -25,30 +27,28 @@ async def _fetch_clerk_user(clerk_id: str) -> dict:
         except httpx.HTTPStatusError as exc:
             from fastapi import HTTPException, status
             if exc.response.status_code == 401:
+                log.error(
+                    "clerk_api_invalid_secret_key",
+                    clerk_id=clerk_id,
+                    hint="Check CLERK_SECRET_KEY env var (sk_live_... or sk_test_...)",
+                )
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Server misconfiguration: invalid Clerk secret key. Check CLERK_SECRET_KEY env var.",
                 ) from exc
-            # Other Clerk errors — fall through with empty data so we can still provision
+            log.warning("clerk_api_error_on_provision", clerk_id=clerk_id, status_code=exc.response.status_code)
             return {}
-        except httpx.RequestError:
-            # Clerk unreachable — fall through with empty data
+        except httpx.RequestError as exc:
+            log.warning("clerk_api_unreachable", clerk_id=clerk_id, error=str(exc))
             return {}
 
 
-async def get_or_provision_user(
-    db: AsyncSession, clerk_id: str
-) -> User:
-    """
-    Ensures a local users row exists for this Clerk user.
-    On first call we fetch name + email from Clerk; subsequent calls are a no-op.
-    """
+async def get_or_provision_user(db: AsyncSession, clerk_id: str) -> User:
     repo = UserRepository(db)
     user = await repo.get_by_clerk_id(clerk_id)
     if user:
         return user
 
-    # First visit — provision from Clerk
     clerk_data = await _fetch_clerk_user(clerk_id)
     email_objs = clerk_data.get("email_addresses", [])
     email = email_objs[0]["email_address"] if email_objs else ""
@@ -56,5 +56,7 @@ async def get_or_provision_user(
     last = clerk_data.get("last_name") or ""
     name = f"{first} {last}".strip() or email.split("@")[0]
 
-    user, _ = await repo.get_or_create(clerk_id=clerk_id, email=email, name=name)
+    user, created = await repo.get_or_create(clerk_id=clerk_id, email=email, name=name)
+    if created:
+        log.info("user_provisioned", clerk_id=clerk_id, email=email)
     return user
