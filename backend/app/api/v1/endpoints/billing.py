@@ -12,6 +12,7 @@ Flow:
 import hashlib
 import hmac
 from datetime import datetime, timezone
+from sqlalchemy import select
 # Python 3.12+ compatibility shim: razorpay uses pkg_resources which is not
 # bundled with Python 3.12+. Inject a minimal stub before importing razorpay.
 try:
@@ -32,12 +33,9 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import httpx
-
 from app.config import settings
 from app.database import get_db
 from app.api.v1.dependencies import get_user_id, get_user_id_no_purge
-from app.middleware import get_current_user_id
 from app.services.subscription_service import (
     get_or_create_subscription,
     get_plan_info,
@@ -256,131 +254,162 @@ async def cancel_subscription(
     return {"ok": True, "cancel_at_cycle_end": body.cancel_at_cycle_end}
 
 
-# ── Student email OTP verification ───────────────────────────────────────────
-# Domain restrictions (.edu / .ac.in) are removed. Eligibility is now proven
-# solely by ownership: the user receives a 6-digit OTP at the address they
-# enter and must supply it back to activate the trial.
+# ── Educational domain detection ──────────────────────────────────────────────
+# Eligibility is determined automatically from the user's Clerk login email.
+# No manual input, OTP, or document upload required.
+#
+# Strategy: check whether the email's domain ends with any known academic
+# suffix. Suffixes are ordered longest-first so that ".edu.au" matches before
+# a hypothetical bare ".au", preventing false positives.
+#
+# The pattern *.ac.<cc> (academic + country code) and *.edu.<cc> (education +
+# country code) covers most universities worldwide. Individual entries for
+# countries that use a different convention (e.g. Japan's .ac.jp, Korea's
+# .ac.kr) are included explicitly.
 
-from app.services.email_service import (
-    generate_and_store_otp,
-    verify_otp as _verify_otp,
-    send_otp_email,
+_EDU_SUFFIXES: tuple[str, ...] = (
+    # ── Country-specific two-segment suffixes (check before single-segment) ──
+    # India
+    ".edu.in", ".ac.in",
+    # United Kingdom
+    ".ac.uk", ".sch.uk",
+    # Australia
+    ".edu.au", ".ac.au",
+    # Singapore
+    ".edu.sg", ".ac.sg",
+    # Malaysia
+    ".edu.my", ".ac.my",
+    # Japan
+    ".ac.jp", ".ed.jp",
+    # South Korea
+    ".ac.kr", ".hs.kr",
+    # Philippines
+    ".edu.ph",
+    # Pakistan
+    ".edu.pk", ".ac.pk",
+    # China (mainland)
+    ".edu.cn",
+    # Hong Kong
+    ".edu.hk", ".ac.hk",
+    # Taiwan
+    ".edu.tw",
+    # New Zealand
+    ".ac.nz", ".school.nz",
+    # South Africa
+    ".ac.za",
+    # Ireland
+    ".edu.ie",
+    # Nigeria
+    ".edu.ng", ".ac.ng",
+    # Kenya
+    ".ac.ke",
+    # Ghana
+    ".edu.gh", ".ac.gh",
+    # Sri Lanka
+    ".ac.lk",
+    # Bangladesh
+    ".edu.bd", ".ac.bd",
+    # Nepal
+    ".edu.np",
+    # Indonesia
+    ".ac.id",
+    # Thailand
+    ".ac.th",
+    # Vietnam
+    ".edu.vn",
+    # Brazil
+    ".edu.br",
+    # Mexico
+    ".edu.mx",
+    # Argentina
+    ".edu.ar",
+    # Colombia
+    ".edu.co",
+    # Netherlands
+    ".edu.nl", ".ac.nl",
+    # Portugal
+    ".edu.pt",
+    # Spain
+    ".edu.es",
+    # Italy
+    ".edu.it",
+    # Russia
+    ".edu.ru",
+    # Turkey
+    ".edu.tr", ".ac.tr",
+    # Israel
+    ".ac.il",
+    # UAE
+    ".ac.ae",
+    # Saudi Arabia
+    ".edu.sa",
+    # Egypt
+    ".edu.eg", ".ac.eg",
+    # Jordan
+    ".edu.jo",
+    # Ethiopia
+    ".edu.et",
+    # Tanzania
+    ".ac.tz",
+    # Uganda
+    ".ac.ug",
+    # Zambia
+    ".ac.zm",
+    # Zimbabwe
+    ".ac.zw",
+    # ── Single-segment generic suffix (check last) ────────────────────────────
+    # .edu is widely used in the US and adopted by many other countries
+    ".edu",
 )
 
 
-class StudentOtpSendRequest(BaseModel):
-    email: str  # institutional email the user wants to verify
-
-
-class StudentOtpVerifyRequest(BaseModel):
-    email: str
-    otp: str   # 6-digit code from the verification email
-
-
-# ── POST /billing/student-otp-send ───────────────────────────────────────────
-
-@router.post("/student-otp-send")
-async def student_otp_send(
-    body: StudentOtpSendRequest,
-    user_id: str = Depends(get_user_id),
-):
+def _is_educational_email(email: str) -> bool:
     """
-    Send a 6-digit OTP to the supplied email address.
-    Any email is accepted — verification proves ownership, not domain membership.
-    Rate-limited by slowapi (inherited from the app limiter).
+    Return True if the email's domain matches a known academic suffix.
+
+    Matching is case-insensitive and suffix-based — no hardcoded university
+    list. Any institution whose domain ends with a recognised educational
+    suffix qualifies (e.g. student@iit.ac.in, s123@ox.ac.uk, me@mit.edu).
     """
-    email = body.email.strip().lower()
-    if not email or "@" not in email:
-        raise HTTPException(status_code=400, detail="Please enter a valid email address.")
-
-    # Generate OTP and store it in memory with a 10-minute TTL
-    otp = generate_and_store_otp(email, user_id)
-
-    # Send the OTP email; if SMTP is unconfigured the call logs and returns False
-    sent = send_otp_email(email, otp)
-    if not sent:
-        log.error("student_otp_email_not_sent", user_id=user_id, email=email)
-        raise HTTPException(
-            status_code=503,
-            detail="Email service is not configured. Please contact support.",
-        )
-
-    log.info("student_otp_sent", user_id=user_id, email=email)
-    return {"ok": True, "email": email}
+    try:
+        domain = email.strip().lower().split("@", 1)[1]
+    except IndexError:
+        return False
+    # A domain like "student.university.edu.au" should still match ".edu.au"
+    return any(domain == suffix.lstrip(".") or domain.endswith(suffix)
+               for suffix in _EDU_SUFFIXES)
 
 
-# ── POST /billing/student-verify ─────────────────────────────────────────────
+# ── GET /billing/student-check ────────────────────────────────────────────────
 
-@router.post("/student-verify")
-async def student_verify(
-    body: StudentOtpVerifyRequest,
+@router.get("/student-check")
+async def student_check(
     user_id: str = Depends(get_user_id),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Verify the OTP and, if correct, activate a 30-day Student Plan trial.
-    The OTP is consumed on success and after too many wrong attempts.
+    Check whether the signed-in user's email belongs to an educational
+    institution. Email is read from our DB (populated at first sign-in) —
+    no extra Clerk API call needed.
     """
-    from datetime import timedelta
+    from app.models.user import User
 
-    email = body.email.strip().lower()
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    email = user.email if user else ""
 
-    # Verify OTP against the in-memory store
-    ok, reason = _verify_otp(email, body.otp, user_id)
-    if not ok:
-        raise HTTPException(status_code=400, detail=reason)
-
-    # Guard against re-activation of an existing trial or active subscription
-    sub = await get_or_create_subscription(db, user_id)
-    if sub.plan == "student" and sub.status == "trialing":
-        raise HTTPException(status_code=400, detail="You already have an active student trial.")
-    if sub.plan == "student" and sub.status == "active":
-        raise HTTPException(status_code=400, detail="You already have an active student subscription.")
-
-    # Activate the 30-day free trial
-    sub.plan = "student"
-    sub.status = "trialing"
-    sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=30)
-    await db.commit()
-
-    log.info("student_trial_activated", user_id=user_id, verified_email=email)
+    eligible = _is_educational_email(email)
     return {
-        "ok": True,
-        "trial_ends": sub.current_period_end.isoformat(),
+        "eligible": eligible,
+        "email": email,
+        "reason": None if eligible else (
+            f"'{email}' does not appear to be an institutional email address. "
+            "Please sign in with your university or college email to access the Student Plan."
+        ),
     }
 
 
-# ── GET /billing/student-check (kept for backward compatibility) ──────────────
-
-@router.get("/student-check")
-async def student_check(
-    clerk_id: str = Depends(get_current_user_id),
-):
-    """
-    Returns the user's primary Clerk email.
-    Domain-based eligibility checks are removed; any email can be verified
-    via the OTP flow (/billing/student-otp-send + /billing/student-verify).
-    """
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.get(
-            f"https://api.clerk.com/v1/users/{clerk_id}",
-            headers={"Authorization": f"Bearer {settings.clerk_secret_key}"},
-        )
-    if resp.status_code != 200:
-        raise HTTPException(status_code=502, detail="Could not fetch your account details.")
-
-    user_data = resp.json()
-    email_addresses = user_data.get("email_addresses", [])
-    primary_id = user_data.get("primary_email_address_id")
-    email = next(
-        (ea["email_address"] for ea in email_addresses if ea["id"] == primary_id),
-        "",
-    )
-    # All emails are now eligible — ownership is proven via OTP
-    return {"eligible": True, "email": email, "reason": None}
-
-
-# ── POST /billing/student-claim (kept for backward compatibility) ─────────────
+# ── POST /billing/student-claim ───────────────────────────────────────────────
 
 @router.post("/student-claim")
 async def student_claim(
@@ -388,14 +417,42 @@ async def student_claim(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Legacy endpoint kept for backward compatibility.
-    New clients should use /student-otp-send → /student-verify instead.
-    This endpoint now returns 400 directing callers to the OTP flow.
+    Activate a 30-day free trial of the Student Plan.
+    Re-checks the domain server-side before granting access — the frontend
+    check is UX only; this is the authoritative gate.
     """
-    raise HTTPException(
-        status_code=400,
-        detail="Please verify your institutional email to activate the Student Plan.",
-    )
+    from datetime import timedelta
+    from app.models.user import User
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    email = user.email if user else ""
+
+    if not _is_educational_email(email):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"'{email}' is not eligible for the Student Plan. "
+                "Please sign in with your university or college email address."
+            ),
+        )
+
+    sub = await get_or_create_subscription(db, user_id)
+    if sub.plan == "student" and sub.status == "trialing":
+        raise HTTPException(status_code=400, detail="You already have an active student trial.")
+    if sub.plan == "student" and sub.status == "active":
+        raise HTTPException(status_code=400, detail="You already have an active student subscription.")
+
+    sub.plan = "student"
+    sub.status = "trialing"
+    sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=30)
+    await db.commit()
+
+    log.info("student_trial_activated", user_id=user_id, email=email)
+    return {
+        "ok": True,
+        "trial_ends": sub.current_period_end.isoformat(),
+    }
 
 
 # ── POST /billing/webhook ─────────────────────────────────────────────────────
