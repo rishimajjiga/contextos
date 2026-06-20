@@ -1,11 +1,12 @@
 import { useEffect, useState, useRef } from "react";
-import { Brain, Trash2, Tag, ChevronDown, ChevronUp, Search, X, AlertCircle, Plus, Zap } from "lucide-react";
+import { Brain, Trash2, Tag, ChevronDown, ChevronUp, Search, X, Plus, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useMemories } from "@/hooks/useMemories";
 import { usePlan } from "@/hooks/usePlan";
 import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/common/EmptyState";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
+import { ErrorAlert } from "@/components/common/ErrorAlert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -54,12 +55,15 @@ export function MemoriesPage() {
 
       {/* Error banner */}
       {error && (
-        <div className="mb-4 flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3">
-          <AlertCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
-          <p className="flex-1 text-sm text-red-300">{error}</p>
-          <button onClick={clearError} className="text-red-400 hover:text-red-300 text-xs underline shrink-0">
-            Dismiss
-          </button>
+        <div className="mb-4">
+          <ErrorAlert
+            message={error}
+            onRetry={() => {
+              clearError();
+              fetchMemories(debouncedQ.trim() ? { q: debouncedQ.trim() } : undefined);
+            }}
+            onDismiss={clearError}
+          />
         </div>
       )}
 

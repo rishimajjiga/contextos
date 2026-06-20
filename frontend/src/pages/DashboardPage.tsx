@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import { useUser } from "@clerk/clerk-react";
-import { FolderKanban, User, ArrowRight, Plus, CheckCircle2, Circle, Chrome, Key, Zap, Brain } from "lucide-react";
+import { FolderKanban, User, ArrowRight, Plus, CheckCircle2, Circle, Chrome, Key, Zap, Brain, Sparkles, Gauge } from "lucide-react";
 import { useProjects } from "@/hooks/useProjects";
 import { useProfile } from "@/hooks/useProfile";
 import { usePlan } from "@/hooks/usePlan";
@@ -28,7 +29,7 @@ function StatCard({
 }) {
   return (
     <Link to={href}>
-      <Card className="hover:border-brand-500/40 transition-colors cursor-pointer">
+      <Card className="h-full bg-surface-1/60 backdrop-blur-md hover:border-brand-500/40 transition-colors cursor-pointer">
         <CardContent className="flex items-center justify-between p-4 sm:p-5">
           <div>
             <p className="text-xs text-muted-foreground mb-1">{label}</p>
@@ -149,12 +150,17 @@ export function DashboardPage() {
   }, [fetchMemories]);
 
   const firstName = user?.firstName || user?.username || "there";
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const memTotal = memories.length;
+  const memLimit = plan.limits.memories;
+  const usagePct = memLimit > 0 ? Math.min(100, Math.round((plan.usage.memories / memLimit) * 100)) : null;
 
   return (
     <div>
       <PageHeader
-        title={`Hey, ${firstName} 👋`}
-        description="Here's what's happening in your workspace."
+        title={`${greeting}, ${firstName} 👋`}
+        description="Welcome back to ContextOS."
       />
 
       {/* Plan usage bar */}
@@ -168,22 +174,27 @@ export function DashboardPage() {
         />
       )}
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 mb-6 sm:mb-8">
-        <StatCard label="Projects" value={projectTotal} icon={FolderKanban} href="/projects" />
-        <StatCard
-          label="Profile"
-          value={profile ? "Complete" : "Incomplete"}
-          icon={User}
-          href="/profile"
-        />
-        <StatCard
-          label="API Keys"
-          value={hasKey ? "Active" : "None"}
-          icon={Key}
-          href="/api-keys"
-        />
-      </div>
+      {/* Metrics */}
+      <motion.div
+        className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 mb-6 sm:mb-8"
+        initial="hidden"
+        animate="show"
+        variants={{ hidden: {}, show: { transition: { staggerChildren: 0.07 } } }}
+      >
+        {[
+          { label: "Memories", value: memTotal, icon: Brain, href: "/memories" },
+          { label: "Projects", value: projectTotal, icon: FolderKanban, href: "/projects" },
+          { label: "Current plan", value: plan.display_name, icon: Sparkles, href: "/plans" },
+          { label: "Usage", value: usagePct === null ? "Unlimited" : `${usagePct}%`, icon: Gauge, href: "/plans" },
+        ].map((m) => (
+          <motion.div
+            key={m.label}
+            variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }}
+          >
+            <StatCard label={m.label} value={m.value} icon={m.icon} href={m.href} />
+          </motion.div>
+        ))}
+      </motion.div>
 
       {/* Recent Projects */}
       <Card>

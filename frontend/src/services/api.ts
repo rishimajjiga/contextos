@@ -75,6 +75,13 @@ apiClient.interceptors.response.use(
       return Promise.reject(e);
     }
 
+    // 5xx — never surface raw Axios/server errors to users.
+    if (error.response.status >= 500) {
+      return Promise.reject(
+        new Error("Something went wrong. Please try again in a few moments.")
+      );
+    }
+
     const rawDetail = error.response?.data?.detail;
     const message =
       typeof rawDetail === "string"
