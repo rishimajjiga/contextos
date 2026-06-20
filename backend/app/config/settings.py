@@ -14,6 +14,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+        populate_by_name=True,
     )
 
     # App
@@ -38,33 +39,28 @@ class Settings(BaseSettings):
     supabase_service_key: str = ""
     supabase_bucket: str = "contextos-documents"
 
-    # CORS — always include the Vercel production URL so env-var parsing issues
-    # can never lock out the frontend.
-    cors_origins: List[str] = [
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "https://contextos-eta.vercel.app",
-    ]
+    # CORS — bound to a plain str so pydantic-settings never JSON-decodes the
+    # CORS_ORIGINS env var (a comma-separated value would otherwise raise a
+    # SettingsError at import time). Parsed into a list by the property below.
+    cors_origins_raw: str = Field(default="", alias="CORS_ORIGINS")
 
-    @field_validator("cors_origins", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, v) -> List[str]:
-        if isinstance(v, str):
-            v_stripped = v.strip()
-            if v_stripped.startswith("[") and v_stripped.endswith("]"):
-                import json
-                try:
-                    return json.loads(v_stripped)
-                except Exception:
-                    pass
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
-        if isinstance(v, list):
-            return v
-        return [
+    @property
+    def cors_origins(self) -> List[str]:
+        defaults = [
             "http://localhost:5173",
             "http://localhost:3000",
             "https://contextos-eta.vercel.app",
         ]
+        v = self.cors_origins_raw.strip()
+        if not v:
+            return defaults
+        if v.startswith("[") and v.endswith("]"):
+            import json
+            try:
+                return json.loads(v)
+            except Exception:
+                pass
+        return [origin.strip() for origin in v.split(",") if origin.strip()]
 
     # Razorpay
     razorpay_key_id: str = ""

@@ -40,4 +40,11 @@ class UserSubscription(Base, UUIDMixin, TimestampMixin):
         DateTime(timezone=True), nullable=True
     )
 
-    # True once the backup PDF has been emailed (prevents 
+    # True once the backup PDF has been emailed (prevents double-sends)
+    backup_sent: Mapped[bool] = mapped_column(default=False, nullable=False)
+
+    # Relationship back to User
+    user: Mapped["User"] = relationship("User", back_populates="subscription")  # noqa: F821
+
+    def __repr__(self) -> str:
+        return f"<UserSubscription user={self.user_id} plan={self.plan} status={self.status}>"
