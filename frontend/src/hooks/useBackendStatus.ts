@@ -14,7 +14,11 @@ export function useBackendStatus(): BackendStatus {
   });
 
   useEffect(() => {
-    const base = import.meta.env.VITE_API_URL || "http://localhost:8000";
+    // Empty base = relative URL, proxied via Vercel to the Railway backend
+    // (same convention as api.ts). Falling back to localhost:8000 made the
+    // deployed site health-check the user's own machine and wrongly report
+    // "Backend not running".
+    const base = import.meta.env.VITE_API_URL || "";
     fetch(`${base}/health`, { method: "GET" })
       .then((res) => {
         if (res.ok) {
@@ -32,7 +36,7 @@ export function useBackendStatus(): BackendStatus {
           checking: false,
           ok: false,
           message:
-            "Cannot reach the backend on port 8000. Start the server with: uvicorn app.main:app --reload",
+            "Cannot reach the backend. Please try again in a moment.",
         });
       });
   }, []);
