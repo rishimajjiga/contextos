@@ -34,8 +34,16 @@ engine = create_async_engine(
 # so that even connections already in the pool get the correct setting.
 @event.listens_for(engine.sync_engine, "connect")
 def on_new_connection(dbapi_connection, connection_record):
-    if hasattr(dbapi_connection, "prepare_threshold"):
-        dbapi_connection.prepare_threshold = 0
+    # SQLAlchemy's async psycopg3 driver hands us an adapter wrapper here, not
+    # the raw connection. prepare_threshold lives on the underlying driver
+    # connection (.driver_connection); setting it on the wrapper raises
+    # AttributeError. asyncpg has no such attribute, so guard with hasattr.
+    raw = getattr(dbapi_connection, "driver_connection", dbapi_connection)
+    if hasattr(raw, "prepare_threshold"):
+        try:
+            raw.prepare_threshold = 0
+        except (AttributeError, TypeError):
+            pass
 
 
 AsyncSessionLocal = async_sessionmaker(
