@@ -3,13 +3,49 @@ import { useNavigate } from "react-router-dom";
 import { useAuth, useUser } from "@clerk/clerk-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { billingService, openRazorpayCheckout, type PlanInfo, type StudentCheckResult } from "@/services/billing.service";
+import {
+  billingService,
+  openRazorpayCheckout,
+  type PlanInfo,
+  type StudentCheckResult,
+  type AllPlanLimits,
+  type PlanLimits,
+  DEFAULT_PLAN_LIMITS,
+} from "@/services/billing.service";
 
 type Billing = "monthly" | "annual";
 
-// ── Plan data (unchanged logic, added emoji) ──────────────────────────────────
+// ── Limit → feature string helpers ───────────────────────────────────────────
+// Single source of truth: values come from GET /billing/plans (backend
+// PLAN_LIMITS). Nothing is hardcoded here except the human-readable labels.
 
-const PLANS = (billing: Billing) => [
+function fmt(n: number, one: string, many: string, unlimited: string): string {
+  if (n === -1) return unlimited;
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+function limitFeatures(lim: PlanLimits): string[] {
+  return [
+    fmt(lim.memories,     "memory",              "memories",              "Unlimited memories"),
+    fmt(lim.projects,     "project",             "projects",              "Unlimited projects"),
+    fmt(lim.daily_inject, "auto-injection / day", "auto-injections / day", "Unlimited auto-inject"),
+    fmt(lim.api_keys,     "API key",             "API keys",              "Unlimited API keys"),
+  ];
+}
+
+// Static per-plan extras: features that are not captured by PLAN_LIMITS
+// (browser integration, team features, institutional email requirement, etc.)
+const PLAN_EXTRA: Record<string, { features: string[]; missing: string[] }> = {
+  free:    { features: ["Chrome extension"],                                                        missing: ["Search", "Team sharing"] },
+  student: { features: ["Chrome extension (all features)", "Verified institutional email required"], missing: ["Team sharing"] },
+  pro:     { features: ["Priority search", "Chrome extension (all features)"],                      missing: ["Team sharing"] },
+  team:    { features: ["Up to 5 seats", "Shared knowledge base", "Priority support"],              missing: [] },
+};
+
+// ── Plan card definitions ─────────────────────────────────────────────────────
+// Pricing / CTA / descriptions stay here; limits come from the API.
+
+const PLANS = (billing: Billing, allLimits: AllPlanLimits) => [
   {
     id: "free" as const,
     name: "Free",
@@ -22,8 +58,8 @@ const PLANS = (billing: Billing) => [
     cta: "Get started free",
     featured: false,
     badge: null,
-    features: ["10 memories", "2 projects", "3 auto-injections / day", "1 API key", "Chrome extension"],
-    missing: ["Search", "Team sharing"],
+    features: [...limitFeatures(allLimits.free),    ...PLAN_EXTRA.free.features],
+    missing:  PLAN_EXTRA.free.missing,
   },
   {
     id: "student" as const,
@@ -37,8 +73,8 @@ const PLANS = (billing: Billing) => [
     cta: "Claim student plan",
     featured: false,
     badge: "1 month free",
-    features: ["200 memories", "5 projects", "Unlimited auto-inject", "3 API keys", "Chrome extension (all features)", "Verified institutional email required"],
-    missing: ["Team sharing"],
+    features: [...limitFeatures(allLimits.student), ...PLAN_EXTRA.student.features],
+    missing:  PLAN_EXTRA.student.missing,
   },
   {
     id: "pro" as const,
@@ -52,8 +88,8 @@ const PLANS = (billing: Billing) => [
     cta: billing === "annual" ? "Get Pro — Annual" : "Upgrade to Pro",
     featured: true,
     badge: billing === "annual" ? "Save ₹1,500" : null,
-    features: ["Unlimited memories", "Unlimited projects", "Unlimited auto-inject", "5 API keys", "Priority search", "Chrome extension (all features)"],
-    missing: ["Team sharing"],
+    features: [...limitFeatures(allLimits.pro),     ...PLAN_EXTRA.pro.features],
+    missing:  PLAN_EXTRA.pro.missing,
   },
   {
     id: "team" as const,
@@ -67,8 +103,8 @@ const PLANS = (billing: Billing) => [
     cta: billing === "annual" ? "Get Team — Annual" : "Upgrade to Team",
     featured: false,
     badge: billing === "annual" ? "Save ₹980" : null,
-    features: ["Unlimited memories", "Unlimited projects", "Up to 5 seats", "Shared knowledge base", "Unlimited API keys", "Priority support"],
-    missing: [],
+    features: [...limitFeatures(allLimits.team),    ...PLAN_EXTRA.team.features],
+    missing:  PLAN_EXTRA.team.missing,
   },
 ];
 
@@ -363,9 +399,18 @@ export function PricingPage() {
   const [showStudentModal, setShowStudentModal] = useState(false);
   const [planInfo, setPlanInfo] = useState<PlanInfo | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  // allLimits starts with the known defaults so cards render immediately;
+  // the backend response overwrites them (same values, but keeps us honest
+  // if PLAN_LIMITS ever changes server-side).
+  const [allLimits, setAllLimits] = useState<AllPlanLimits>(DEFAULT_PLAN_LIMITS);
 
   // currentPlan derived from the richer PlanInfo (same field as before)
   const currentPlan = planInfo?.plan ?? null;
+
+  useEffect(() => {
+    // Fetch authoritative plan limits (public endpoint, no auth needed)
+    billingService.getPlans().then(setAllLimits).catch(() => {/* keep defaults */});
+  }, []);
 
   useEffect(() => {
     if (!isSignedIn) return;
@@ -408,7 +453,7 @@ export function PricingPage() {
     }
   }
 
-  const plans = PLANS(billing);
+  const plans = PLANS(billing, allLimits);
 
   const FAQ_ITEMS = [
     { q: "Can I upgrade anytime?", a: "Yes — upgrades take effect instantly. You're only charged the prorated difference for the remaining billing cycle." },

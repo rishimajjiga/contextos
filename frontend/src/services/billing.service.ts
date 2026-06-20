@@ -19,6 +19,28 @@ export interface PlanInfo {
   grace_period_end: string | null;
 }
 
+/** Quota limits for a single plan. -1 means unlimited. Mirrors backend PLAN_LIMITS. */
+export interface PlanLimits {
+  projects: number;
+  memories: number;
+  api_keys: number;
+  daily_inject: number;
+}
+
+/** All plans returned by GET /billing/plans. */
+export type AllPlanLimits = Record<"free" | "student" | "pro" | "team", PlanLimits>;
+
+/**
+ * Fallback values that match the backend PLAN_LIMITS exactly.
+ * Used while the API call is in-flight so the pricing page is never blank.
+ */
+export const DEFAULT_PLAN_LIMITS: AllPlanLimits = {
+  free:    { projects: 1,  memories: 10, api_keys: 1,  daily_inject: 3  },
+  student: { projects: 5,  memories: 200, api_keys: 3,  daily_inject: -1 },
+  pro:     { projects: -1, memories: -1, api_keys: 5,  daily_inject: -1 },
+  team:    { projects: -1, memories: -1, api_keys: -1, daily_inject: -1 },
+};
+
 export interface StudentCheckResult {
   eligible: boolean;
   email: string;
@@ -33,6 +55,11 @@ export interface SubscribeResponse {
 export const billingService = {
   async getPlan(): Promise<PlanInfo> {
     return request({ method: "GET", url: "/billing/plan" });
+  },
+
+  /** Fetch quota limits for all plans. Public — no auth required. */
+  async getPlans(): Promise<AllPlanLimits> {
+    return request({ method: "GET", url: "/billing/plans" });
   },
 
   async studentCheck(): Promise<StudentCheckResult> {

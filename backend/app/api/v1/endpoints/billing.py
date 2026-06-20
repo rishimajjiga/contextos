@@ -75,6 +75,17 @@ class CancelRequest(BaseModel):
     cancel_at_cycle_end: bool = True
 
 
+# ── GET /billing/plans ────────────────────────────────────────────────────────
+# Public endpoint — no auth required. Returns the canonical PLAN_LIMITS dict
+# so the frontend pricing page always reflects the exact limits the backend
+# enforces, with no duplication.
+
+@router.get("/plans")
+async def get_plans():
+    """Return quota limits for every plan. Used by the pricing / upgrade page."""
+    return PLAN_LIMITS
+
+
 # ── GET /billing/plan ─────────────────────────────────────────────────────────
 
 @router.get("/plan")
