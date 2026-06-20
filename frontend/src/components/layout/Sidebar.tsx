@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, User, Brain, FolderKanban, Users, Key, Settings, X, Search } from "lucide-react";
+import { LayoutDashboard, User, Brain, FolderKanban, Users, Zap, Key, Settings, X, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -9,6 +9,7 @@ const navItems = [
   { href: "/search",    label: "Search",    icon: Search },
   { href: "/projects",  label: "Projects",  icon: FolderKanban },
   { href: "/team",      label: "Team",      icon: Users },
+  { href: "/pricing",   label: "Upgrade",   icon: Zap },
   { href: "/api-keys",  label: "API Keys",  icon: Key },
   { href: "/settings",  label: "Settings",  icon: Settings },
 ];
