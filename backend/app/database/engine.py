@@ -55,18 +55,4 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 
-class Base(DeclarativeBase):
-    """Shared declarative base for all SQLAlchemy models."""
-    pass
-
-
-async def get_db() -> AsyncSession:  # type: ignore[override]
-    """FastAPI dependency that yields an async database session."""
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
+class Base(Declarati

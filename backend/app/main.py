@@ -137,25 +137,4 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-_cors_origins = ["*"]  # open for all origins; auth is enforced via Clerk JWT
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_cors_origins,
-    allow_credentials=False,  # cannot combine wildcard origins with credentials
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-app.add_middleware(LoggingMiddleware)
-
-# Routers
-
-app.include_router(v1_router, prefix="/api/v1")
-
-
-# Health
-
-@app.get("/health", tags=["health"])
-async def health_check():
-    return {"status": "ok", "version": "0.1.0", "env": settings.app_env}
+_cors_origins = 

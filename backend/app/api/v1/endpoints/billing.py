@@ -85,7 +85,22 @@ async def get_plan(
     db: AsyncSession = Depends(get_db),
 ):
     """Return the user's current plan, limits, and usage counts."""
-    return await get_plan_info(db, user_id)
+    try:
+        return await get_plan_info(db, user_id)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log.error(
+            "billing_get_plan_unexpected_error",
+            user_id=user_id,
+            error=str(exc),
+            error_type=type(exc).__name__,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to load your billing plan: {exc}",
+        )
 
 
 # ── POST /billing/subscribe ───────────────────────────────────────────────────
@@ -103,7 +118,7 @@ async def create_subscription(
     if not settings.razorpay_key_id:
         raise HTTPException(status_code=503, detail="Billing not configured.")
 
-    # Map frontend plan key → Razorpay plan ID + resolved plan name stored in DB
+    # Map frontend plan key -> Razorpay plan ID + resolved plan name stored in DB
     plan_map = {
         "pro":         (settings.razorpay_pro_plan_id,         "pro"),
         "pro_annual":  (settings.razorpay_pro_annual_plan_id,  "pro"),
@@ -135,7 +150,7 @@ async def create_subscription(
             },
         })
     except Exception as e:
-        log.error("razorpay_subscribe_error", error=str(e))
+        log.error("razorpay_subscribe_error", user_id=user_id, error=str(e))
         raise HTTPException(status_code=502, detail=f"Razorpay error: {e}")
 
     # Store the subscription ID immediately (status = created, not yet active)
@@ -176,7 +191,7 @@ async def verify_payment(
     try:
         rzp_sub = client.subscription.fetch(body.razorpay_subscription_id)
     except Exception as e:
-        log.error("razorpay_verify_fetch_error", error=str(e))
+        log.error("razorpay_verify_fetch_error", user_id=user_id, error=str(e))
         rzp_sub = {}
 
     notes = rzp_sub.get("notes", {})
@@ -228,7 +243,7 @@ async def cancel_subscription(
             {"cancel_at_cycle_end": 1 if body.cancel_at_cycle_end else 0},
         )
     except Exception as e:
-        log.error("razorpay_cancel_error", error=str(e))
+        log.error("razorpay_cancel_error", user_id=user_id, error=str(e))
         raise HTTPException(status_code=502, detail=f"Razorpay error: {e}")
 
     if not body.cancel_at_cycle_end:
@@ -239,7 +254,6 @@ async def cancel_subscription(
         await db.commit()
 
     return {"ok": True, "cancel_at_cycle_end": body.cancel_at_cycle_end}
-
 
 
 # ── GET /billing/student-check ────────────────────────────────────────────────
@@ -341,7 +355,7 @@ async def razorpay_webhook(
 ):
     """
     Razorpay webhook — receives subscription lifecycle events.
-    Register this URL in Razorpay Dashboard → Webhooks.
+    Register this URL in Razorpay Dashboard -> Webhooks.
     No user auth — Razorpay calls this directly.
     """
     if not settings.razorpay_webhook_secret:

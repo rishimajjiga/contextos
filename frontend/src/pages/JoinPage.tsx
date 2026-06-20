@@ -78,5 +78,4 @@ export function JoinPage() {
         )}
       </div>
     </div>
-  );
-}
+  )

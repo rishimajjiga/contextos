@@ -16,15 +16,8 @@ export function SignInPage() {
             colorText: "hsl(0 0% 95%)",
             colorTextSecondary: "hsl(240 5% 55%)",
             colorInputText: "hsl(0 0% 95%)",
+            // colorNeutral drives the social-button background — dark value keeps
+            // the Google button on-theme instead of showing a light default.
+            colorNeutral: "hsl(240 4% 20%)",
             borderRadius: "0.5rem",
-          },
-          elements: {
-            card: "shadow-none border border-border bg-card",
-            headerTitle: "hidden",
-            headerSubtitle: "hidden",
-          },
-        }}
-      />
-    </div>
-  );
-}
+            f

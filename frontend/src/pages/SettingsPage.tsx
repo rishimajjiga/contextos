@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
 import { toast } from "sonner";
+import { Download } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PlanBadge } from "@/components/common/PlanBadge";
 import { billingService, openRazorpayCheckout, type PlanInfo } from "@/services/billing.service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { apiClient } from "@/services/api";
 
 export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -14,6 +16,7 @@ export function SettingsPage() {
   const [plan, setPlan] = useState<PlanInfo | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [subscribeLoading, setSubscribeLoading] = useState(false);
+  const [downloadLoading, setDownloadLoading] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("upgraded") === "1") {
@@ -54,9 +57,32 @@ export function SettingsPage() {
         },
       );
     } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong.");
+      toast.error(err?.message ?? "Unable to open payment. Please refresh and try again.");
     } finally {
       setSubscribeLoading(false);
+    }
+  }
+
+  async function handleDownload() {
+    setDownloadLoading(true);
+    try {
+      // Stream the PDF response from the backend and trigger a browser download
+      const response = await apiClient.get("/billing/download-backup", {
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(response.data as Blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `contextos-backup-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Your data has been downloaded.");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to generate your backup. Please try again.");
+    } finally {
+      setDownloadLoading(false);
     }
   }
 
@@ -224,31 +250,4 @@ export function SettingsPage() {
                   onClick={() => navigate("/pricing")}
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-semibold transition-colors"
                 >
-                  ⚡ Upgrade plan
-                </button>
-              )}
-              {plan.plan === "student" && !plan.is_trialing && (
-                <button
-                  onClick={() => navigate("/pricing")}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-semibold transition-colors"
-                >
-                  Upgrade to Pro
-                </button>
-              )}
-              {plan.plan !== "free" && (
-                <button
-                  onClick={handleCancel}
-                  disabled={cancelLoading}
-                  className="px-4 py-2 border border-border hover:bg-surface-2 text-muted-foreground rounded-lg text-sm font-medium transition-colors disabled:opacity-60"
-                >
-                  {cancelLoading ? "Cancelling…" : "Cancel subscription"}
-                </button>
-              )}
-            </div>
-
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  );
-}
+   

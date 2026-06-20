@@ -6,7 +6,7 @@ const CACHE_TTL = { list: 30_000, search: 15_000, context: 60_000, projects: 45_
 
 // ── Keep-alive (MV3 service worker) ──────────────────────────────────────────
 chrome.alarms.create("keepAlive", { periodInMinutes: 0.4 });
-chrome.alarms.onAlarm.addListener(() => { flushSaveQueue(); });
+chrome.alarms.onAlarm.addListener(() => {});
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name === "keepAlive") port.onDisconnect.addListener(() => {});
 });
@@ -101,12 +101,6 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
     title: "Save this page to ContextOS",
     contexts: ["page"],
   });
-  // "Open Movable Brain" — opens the floating panel prefilled with selected text
-  chrome.contextMenus.create({
-    id: "open-brain-with-selection",
-    title: "Open Movable Brain",
-    contexts: ["selection"],
-  });
 });
 
 // ── Context menu handler ──────────────────────────────────────────────────────
@@ -136,19 +130,6 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       chrome.action.setBadgeBackgroundColor({ color: "#EF4444" });
       setTimeout(() => chrome.action.setBadgeText({ text: "" }), 3000);
     }
-  }
-
-  if (info.menuItemId === "open-brain-with-selection") {
-    // Tell the content script to open the floating brain panel with prefilled text.
-    // User sees the form and clicks Save manually — nothing is auto-saved here.
-    chrome.tabs.sendMessage(tab.id, {
-      type: "OPEN_PANEL_WITH_SELECTION",
-      text:  info.selectionText || "",
-      title: tab.title         || "",
-    }, function() {
-      if (chrome.runtime.lastError) {} // no content script on this page — ignore
-    });
-    return;
   }
 
   if (info.menuItemId === "save-page" && tab?.url) {
@@ -247,29 +228,6 @@ async function apiRequest(path, method = "GET", body = null, retries = 2) {
 }
 
 // ── Message router ────────────────────────────────────────────────────────────
-// ── Offline save queue ────────────────────────────────────────────────────────
-// When SAVE_MEMORY fails with a network error we queue the payload in
-// chrome.storage.local so it can be retried on the next keepAlive tick.
-
-async function flushSaveQueue() {
-  const { saveQueue = [] } = await new Promise(r => chrome.storage.local.get("saveQueue", r));
-  if (!saveQueue.length) return;
-  const remaining = [];
-  for (const item of saveQueue) {
-    try {
-      const result = await apiRequest("/api/v1/memories", "POST", item);
-      cacheInvalidate("list:", "search:", "context:");
-      await chrome.storage.local.set({ lastSave: Date.now() });
-    } catch (_) {
-      remaining.push(item);  // still offline — keep in queue
-    }
-  }
-  await new Promise(r => chrome.storage.local.set({ saveQueue: remaining }, r));
-}
-
-// Flush any queued saves on extension startup too
-chrome.runtime.onStartup.addListener(flushSaveQueue);
-
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   handleMessage(msg).then(
     (data) => sendResponse({ ok: true,  data }),
@@ -308,37 +266,19 @@ async function handleMessage(msg) {
     }
 
     case "SAVE_MEMORY": {
-      const payload = {
+      const result = await apiRequest("/api/v1/memories", "POST", {
         title:      msg.title,
         content:    msg.content,
         tags:       msg.tags       || [],
         project_id: msg.project_id || null,
-      };
-      try {
-        const result = await apiRequest("/api/v1/memories", "POST", payload);
-        cacheInvalidate("list:", "search:", "context:");
-        // Stamp storage so open website tabs know to refetch
-        await chrome.storage.local.set({ lastSave: Date.now() });
-        return result;
-      } catch (err) {
-        // Queue for retry when network returns
-        if (err.message.includes("NETWORK_ERROR")) {
-          const { saveQueue = [] } = await new Promise(r => chrome.storage.local.get("saveQueue", r));
-          const isDup = saveQueue.some(q => q.title === payload.title && q.content === payload.content);
-          if (!isDup) {
-            saveQueue.push(payload);
-            await new Promise(r => chrome.storage.local.set({ saveQueue }, r));
-          }
-          throw new Error("QUEUED: Unable to sync right now. Will retry automatically.");
-        }
-        throw err;
-      }
+      });
+      cacheInvalidate("list:", "search:", "context:");
+      return result;
     }
 
     case "DELETE_MEMORY": {
       await apiRequest(`/api/v1/memories/${msg.id}`, "DELETE");
       cacheInvalidate("list:", "search:", "context:");
-      await chrome.storage.local.set({ lastSave: Date.now() });
       return { deleted: true };
     }
 
@@ -445,4 +385,5 @@ async function handleMessage(msg) {
       return { saved: true };
     }
 
-    // ── Plan info ──────────────────
+
+    

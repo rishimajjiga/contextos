@@ -72,9 +72,4 @@ export default function App() {
 
       <Route path="/connect-extension" element={<ConnectExtensionPage />} />
       <Route path="/pricing"           element={<PricingPage />} />
-      <Route path="/plans"             element={<PricingPage />} />
-      <Route path="/join/:token"       element={<JoinPage />} />
-      <Route path="*"                  element={<NotFoundPage />} />
-    </Routes>
-  );
-}
+      <Route path="/plans"    

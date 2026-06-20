@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useUser } from "@clerk/clerk-react";
-import { FolderKanban, User, ArrowRight, Plus, CheckCircle2, Circle, Chrome, Key, Zap, Brain, Sparkles, Gauge } from "lucide-react";
+import { FolderKanban, User, ArrowRight, Plus, CheckCircle2, Circle, Chrome, Key, Zap, Brain } from "lucide-react";
 import { useProjects } from "@/hooks/useProjects";
 import { useProfile } from "@/hooks/useProfile";
 import { usePlan } from "@/hooks/usePlan";
@@ -16,64 +16,29 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 
-function StatCard({
+function UsageCard({
   label,
   value,
   icon: Icon,
   href,
 }: {
   label: string;
-  value: number | string;
+  value: string;
   icon: React.ElementType;
   href: string;
 }) {
   return (
     <Link to={href}>
-      <Card className="h-full bg-surface-1/60 backdrop-blur-md hover:border-brand-500/40 transition-colors cursor-pointer">
-        <CardContent className="flex items-center justify-between p-4 sm:p-5">
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">{label}</p>
-            <p className="text-2xl font-bold text-foreground">{value}</p>
-          </div>
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/15">
-            <Icon className="h-5 w-5 text-brand-400" />
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
-  );
-}
-
-function PlanUsageCard({ plan }: { plan: NonNullable<ReturnType<typeof usePlan>["plan"]> }) {
-  const isFree = plan.plan === "free";
-
-  return (
-    <Card className={`mb-6 ${isFree ? "border-brand-500/20 bg-brand-500/5" : "border-border"}`}>
-      <CardContent className="p-4 sm:p-5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Badge variant={isFree ? "secondary" : "default"} className="text-xs">
-              {plan.display_name} plan
-            </Badge>
-            {plan.is_trialing && (
-              <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">Trialing</Badge>
-            )}
-          </div>
-          {isFree && (
-            <Link to="/pricing">
-              <Button size="sm" variant="default" className="gap-1.5 h-7 text-xs">
-                <Zap className="h-3 w-3" /> Upgrade
-              </Button>
-            </Link>
-          )}
+      <div className="group rounded-xl border border-border/60 bg-surface-1/40 hover:border-brand-500/30 hover:bg-surface-1/70 transition-all cursor-pointer p-4 sm:p-5 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wide mb-1.5">{label}</p>
+          <p className="text-xl font-bold text-foreground tabular-nums">{value}</p>
         </div>
-        {isFree && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            Upgrade to Pro for unlimited projects, memories, and API keys.
-          </p>
-        )}
-      </CardContent>
-    </Card>
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-500/10 group-hover:bg-brand-500/18 transition-colors">
+          <Icon className="h-4.5 w-4.5 text-brand-400" />
+        </div>
+      </div>
+    </Link>
   );
 }
 
@@ -152,9 +117,13 @@ export function DashboardPage() {
   const firstName = user?.firstName || user?.username || "there";
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-  const memTotal = memories.length;
   const memLimit = plan.limits.memories;
-  const usagePct = memLimit > 0 ? Math.min(100, Math.round((plan.usage.memories / memLimit) * 100)) : null;
+  const projLimit = plan.limits.projects;
+  const injectLimit = plan.limits.daily_inject;
+
+  const memValue   = `${plan.usage.memories}/${memLimit >= 10000 ? "∞" : memLimit}`;
+  const projValue  = `${plan.usage.projects}/${projLimit >= 1000 ? "∞" : projLimit}`;
+  const injectValue = (injectLimit < 0 || injectLimit >= 10000) ? "∞/day" : `${injectLimit}/day`;
 
   return (
     <div>
@@ -162,9 +131,6 @@ export function DashboardPage() {
         title={`${greeting}, ${firstName} 👋`}
         description="Welcome back to ContextOS."
       />
-
-      {/* Plan usage bar */}
-      <PlanUsageCard plan={plan} />
 
       {!profileLoading && keysLoaded && (
         <OnboardingChecklist
@@ -174,24 +140,23 @@ export function DashboardPage() {
         />
       )}
 
-      {/* Metrics */}
+      {/* Usage metrics */}
       <motion.div
-        className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 mb-6 sm:mb-8"
+        className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4 mb-6 sm:mb-8"
         initial="hidden"
         animate="show"
         variants={{ hidden: {}, show: { transition: { staggerChildren: 0.07 } } }}
       >
         {[
-          { label: "Memories", value: memTotal, icon: Brain, href: "/memories" },
-          { label: "Projects", value: projectTotal, icon: FolderKanban, href: "/projects" },
-          { label: "Current plan", value: plan.display_name, icon: Sparkles, href: "/plans" },
-          { label: "Usage", value: usagePct === null ? "Unlimited" : `${usagePct}%`, icon: Gauge, href: "/plans" },
+          { label: "Memories", value: memValue,    icon: Brain,         href: "/memories" },
+          { label: "Projects", value: projValue,   icon: FolderKanban,  href: "/projects" },
+          { label: "Auto-inject", value: injectValue, icon: Zap,        href: "/pricing" },
         ].map((m) => (
           <motion.div
             key={m.label}
             variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }}
           >
-            <StatCard label={m.label} value={m.value} icon={m.icon} href={m.href} />
+            <UsageCard label={m.label} value={m.value} icon={m.icon} href={m.href} />
           </motion.div>
         ))}
       </motion.div>
@@ -246,58 +211,4 @@ export function DashboardPage() {
               ))}
             </ul>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Recent Memories */}
-      <Card className="mt-6">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Recent memories</CardTitle>
-            <Link to="/memories">
-              <Button variant="ghost" size="sm" className="gap-1 text-xs text-muted-foreground">
-                View all memories <ArrowRight className="h-3 w-3" />
-              </Button>
-            </Link>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {memoriesLoading ? (
-            <SkeletonCard />
-          ) : memories.length === 0 ? (
-            <div className="py-8 text-center">
-              <Brain className="mx-auto h-8 w-8 text-muted-foreground mb-3 opacity-40" />
-              <p className="text-sm text-muted-foreground">No memories yet</p>
-              <p className="text-xs text-muted-foreground mt-1 mb-4">Save your first note, decision, or snippet</p>
-              <Link to="/memories/new">
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Plus className="h-3.5 w-3.5" /> Save a memory
-                </Button>
-              </Link>
-            </div>
-          ) : (
-            <ul className="space-y-1">
-              {memories.slice(0, 5).map((mem) => (
-                <li key={mem.id}>
-                  <Link
-                    to="/memories"
-                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-accent transition-colors"
-                  >
-                    <Brain className="h-4 w-4 text-brand-400 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-foreground truncate">{mem.title}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{truncate(mem.content, 80)}</p>
-                    </div>
-                    <span className="text-[10px] text-muted-foreground shrink-0">
-                      {formatRelativeTime(mem.created_at)}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
+       

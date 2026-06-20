@@ -69,24 +69,41 @@ async def list_memories(
     limit: int = 100,
 ):
     """List the user's saved memories, newest first. Optional ?q= searches title+content."""
-    stmt = (
-        select(Document)
-        .where(Document.user_id == user_id, Document.doc_type == "note")
-        .order_by(desc(Document.created_at))
-        .limit(limit)
-    )
-    if project_id:
-        stmt = stmt.where(Document.project_id == project_id)
-    if q and q.strip():
-        term = f"%{q.strip()}%"
-        stmt = stmt.where(
-            or_(
-                Document.title.ilike(term),
-                Document.content.ilike(term),
-            )
+    try:
+        stmt = (
+            select(Document)
+            .where(Document.user_id == user_id, Document.doc_type == "note")
+            .order_by(desc(Document.created_at))
+            .limit(limit)
         )
-    result = await db.execute(stmt)
-    return [_out(d) for d in result.scalars().all()]
+        if project_id:
+            stmt = stmt.where(Document.project_id == project_id)
+        if q and q.strip():
+            term = f"%{q.strip()}%"
+            stmt = stmt.where(
+                or_(
+                    Document.title.ilike(term),
+                    Document.content.ilike(term),
+                )
+            )
+        result = await db.execute(stmt)
+        return [_out(d) for d in result.scalars().all()]
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log.error(
+            "list_memories_failed",
+            user_id=user_id,
+            q=q,
+            project_id=project_id,
+            error=str(exc),
+            error_type=type(exc).__name__,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to load memories: {exc}",
+        )
 
 
 @router.post("", response_model=MemoryOut, status_code=status.HTTP_201_CREATED)
@@ -153,7 +170,14 @@ async def create_memory(
             await db.commit()
         except Exception as exc2:
             await db.rollback()
-            log.error("create_memory: both INSERT attempts failed", err1=str(exc), err2=str(exc2))
+            log.error(
+                "create_memory_both_inserts_failed",
+                user_id=user_id,
+                project_id=body.project_id,
+                err1=str(exc),
+                err2=str(exc2),
+                exc_info=True,
+            )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to save memory: {exc2}",
@@ -161,24 +185,3 @@ async def create_memory(
 
     # Fetch back the saved row via ORM
     result = await db.execute(select(Document).where(Document.id == note_id))
-    note = result.scalar_one_or_none()
-    if note is None:
-        raise HTTPException(status_code=500, detail="Memory saved but could not be retrieved.")
-    return _out(note)
-
-
-@router.delete("/{memory_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_memory(
-    memory_id: str,
-    user_id: str = Depends(get_user_id),
-    db: AsyncSession = Depends(get_db),
-):
-    """Delete a memory by ID."""
-    result = await db.execute(
-        select(Document).where(Document.id == memory_id, Document.user_id == user_id)
-    )
-    note = result.scalar_one_or_none()
-    if not note:
-        raise HTTPException(status_code=404, detail="Memory not found")
-    await db.delete(note)
-    await db.commit()

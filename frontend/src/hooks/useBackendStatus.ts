@@ -32,14 +32,4 @@ export function useBackendStatus(): BackendStatus {
         }
       })
       .catch(() => {
-        setStatus({
-          checking: false,
-          ok: false,
-          message:
-            "Cannot reach the backend. Please try again in a moment.",
-        });
-      });
-  }, []);
-
-  return status;
-}
+        s
