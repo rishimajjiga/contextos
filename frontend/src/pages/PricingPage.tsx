@@ -423,7 +423,7 @@ export function PricingPage() {
         },
       );
     } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong. Please try again.");
+      toast.error(err?.message ?? "Unable to open payment. Please refresh and try again.");
     } finally {
       setLoading(null);
     }
