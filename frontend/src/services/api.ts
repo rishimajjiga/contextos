@@ -60,7 +60,7 @@ apiClient.interceptors.response.use(
 
     if (!error.response) {
       return Promise.reject(
-        new Error("No internet connection. Please check your network and try again.")
+        new Error("Unable to reach the server. Please try again in a moment.")
       );
     }
 
