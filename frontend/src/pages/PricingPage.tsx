@@ -489,4 +489,464 @@ export function PricingPage() {
         ))}
       </div>
 
-      {/* �
+      {/* ── Page layout ───────────────────────────────────────────────────────── */}
+      <div className="relative max-w-6xl mx-auto px-4 pt-8 pb-24">
+        {showStudentModal && <StudentModal onClose={() => setShowStudentModal(false)} />}
+
+        {/* Back button */}
+        <motion.button
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.4 }}
+          onClick={() => navigate("/dashboard")}
+          className="group flex items-center gap-1.5 text-sm text-white/25 hover:text-white/70 transition-all mb-12"
+        >
+          <svg className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to dashboard
+        </motion.button>
+
+        {/* ── Hero ──────────────────────────────────────────────────────────────── */}
+        <motion.div
+          className="text-center mb-16"
+          initial="hidden"
+          animate="show"
+          variants={heroContainer}
+        >
+          {/* Glowing brain icon */}
+          <motion.div variants={fadeInUp} className="flex justify-center mb-7">
+            <div className="relative">
+              <div
+                className="absolute inset-0 rounded-2xl blur-2xl"
+                style={{ background: "linear-gradient(135deg, #6366f1, #a855f7)", opacity: 0.5 }}
+              />
+              <motion.div
+                animate={{ boxShadow: ["0 0 20px rgba(99,102,241,0.25)", "0 0 40px rgba(168,85,247,0.35)", "0 0 20px rgba(99,102,241,0.25)"] }}
+                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                className="relative w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
+                style={{
+                  background: "linear-gradient(135deg, rgba(99,102,241,0.12), rgba(168,85,247,0.12))",
+                  border: "1px solid rgba(99,102,241,0.25)",
+                  backdropFilter: "blur(12px)",
+                }}
+              >
+                🧠
+              </motion.div>
+            </div>
+          </motion.div>
+
+          <motion.span variants={fadeInUp} className="text-[11px] font-bold tracking-[0.25em] uppercase text-indigo-400/70 block mb-4">
+            Pricing
+          </motion.span>
+
+          <motion.h1
+            variants={fadeInUp}
+            className="text-5xl md:text-6xl font-bold tracking-tight mb-5 leading-none"
+            style={{
+              background: "linear-gradient(135deg, #ffffff 20%, rgba(255,255,255,0.45) 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+            }}
+          >
+            ContextOS Plans
+          </motion.h1>
+
+          <motion.p variants={fadeInUp} className="text-white/35 text-lg max-w-md mx-auto leading-relaxed">
+            Choose the perfect second brain for your workflow.
+          </motion.p>
+        </motion.div>
+
+        {/* ── Billing toggle ─────────────────────────────────────────────────── */}
+        {/* Uses Framer Motion layoutId so the pill smoothly follows the active   */}
+        {/* button regardless of each button's individual width.                  */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, duration: 0.4 }}
+          className="flex justify-center mb-14"
+        >
+          <div
+            className="relative flex items-center p-1 gap-1 rounded-2xl"
+            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
+          >
+            {(["monthly", "annual"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setBilling(mode)}
+                className="relative flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors z-10"
+                style={{
+                  color: billing === mode ? "#fff" : "rgba(255,255,255,0.35)",
+                  minWidth: mode === "annual" ? "148px" : "108px",
+                }}
+              >
+                {/* Animated pill lives inside the active button so layoutId  */}
+                {/* auto-animates it from one button's bounds to the other.   */}
+                {billing === mode && (
+                  <motion.div
+                    layoutId="billing-toggle-pill"
+                    className="absolute inset-0 rounded-xl"
+                    style={{ background: "linear-gradient(135deg, #6366f1, #a855f7)" }}
+                    transition={{ type: "spring", stiffness: 500, damping: 38 }}
+                  />
+                )}
+                <span className="relative z-10">
+                  {mode === "monthly" ? "Monthly" : "Annual"}
+                </span>
+                {mode === "annual" && (
+                  <span
+                    className={`relative z-10 text-[10px] px-2 py-0.5 rounded-full font-bold transition-all duration-300 ${
+                      billing === "annual"
+                        ? "bg-white/20 text-white"
+                        : "bg-emerald-500/15 text-emerald-400"
+                    }`}
+                  >
+                    Save 25%
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* ── Usage section (only when signed in + plan loaded) ─────────────── */}
+        <AnimatePresence>
+          {isSignedIn && planInfo && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.4 }}
+              className="mb-16"
+            >
+              <p className="text-[11px] font-bold tracking-[0.2em] uppercase text-white/20 text-center mb-6">Your usage</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
+
+                {/* Memories */}
+                <div className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-lg">🧠</span>
+                    <span className="text-[10px] text-white/25 font-semibold uppercase tracking-wide">Memories</span>
+                  </div>
+                  <p className="text-2xl font-bold text-white mb-2">
+                    {planInfo.usage.memories.toLocaleString()}
+                    <span className="text-white/20 text-sm font-normal ml-0.5">
+                      /{planInfo.limits.memories >= 10000 ? "∞" : planInfo.limits.memories}
+                    </span>
+                  </p>
+                  <UsageBar used={planInfo.usage.memories} limit={planInfo.limits.memories} color="#6366f1" />
+                </div>
+
+                {/* Projects */}
+                <div className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-lg">📁</span>
+                    <span className="text-[10px] text-white/25 font-semibold uppercase tracking-wide">Projects</span>
+                  </div>
+                  <p className="text-2xl font-bold text-white mb-2">
+                    {planInfo.usage.projects}
+                    <span className="text-white/20 text-sm font-normal ml-0.5">
+                      /{planInfo.limits.projects >= 1000 ? "∞" : planInfo.limits.projects}
+                    </span>
+                  </p>
+                  <UsageBar used={planInfo.usage.projects} limit={planInfo.limits.projects} color="#818cf8" />
+                </div>
+
+                {/* Auto-inject */}
+                <div className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-lg">⚡</span>
+                    <span className="text-[10px] text-white/25 font-semibold uppercase tracking-wide">Auto-inject</span>
+                  </div>
+                  <p className="text-2xl font-bold text-white mb-2">
+                    {planInfo.limits.daily_inject < 0 || planInfo.limits.daily_inject >= 10000 ? "∞" : planInfo.limits.daily_inject}
+                    <span className="text-white/20 text-sm font-normal ml-1">/day</span>
+                  </p>
+                  <div className="h-1.5 rounded-full w-full" style={{ background: "linear-gradient(90deg, rgba(250,204,21,0.3), rgba(234,179,8,0.3))" }} />
+                </div>
+
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Pricing cards ──────────────────────────────────────────────────── */}
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-16"
+          initial="hidden"
+          animate="show"
+          variants={cardContainer}
+        >
+          {plans.map((plan) => {
+            const isCurrent = currentPlan === plan.id;
+            const isPro    = plan.id === "pro";
+            const isStudent = plan.id === "student";
+            const isTeam   = plan.id === "team";
+
+            // ── Inner card body (shared) ──────────────────────────────────────
+            const body = (
+              <div className="p-6 flex flex-col h-full">
+
+                {/* Top badge */}
+                <div className="h-7 mb-4 flex justify-center items-center">
+                  {isCurrent ? (
+                    <span className="text-[11px] font-bold bg-emerald-500/12 text-emerald-400 border border-emerald-500/25 px-3 py-1 rounded-full">✓ Current plan</span>
+                  ) : isPro ? (
+                    <span
+                      className="text-[11px] font-bold px-3 py-1 rounded-full"
+                      style={{ background: "rgba(99,102,241,0.12)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.25)" }}
+                    >
+                      ⭐ Most Popular
+                    </span>
+                  ) : isStudent ? (
+                    <span className="text-[11px] font-bold bg-purple-500/12 text-purple-300 border border-purple-500/25 px-3 py-1 rounded-full">
+                      🎓 Perfect for students
+                    </span>
+                  ) : plan.badge ? (
+                    <span className="text-[11px] font-bold bg-green-500/12 text-green-400 border border-green-500/25 px-3 py-1 rounded-full">
+                      {plan.badge}
+                    </span>
+                  ) : null}
+                </div>
+
+                {/* Plan name + emoji */}
+                <div className="flex items-center gap-2.5 mb-4">
+                  <span className="text-xl">{plan.emoji}</span>
+                  <h3 className="text-base font-bold text-white">{plan.name}</h3>
+                </div>
+
+                {/* Price */}
+                <div className="mb-4">
+                  <div className="flex items-baseline gap-1.5 mb-0.5">
+                    <span className="text-4xl font-bold text-white tracking-tight">{plan.price}</span>
+                    <span className="text-white/30 text-sm">{plan.priceNote}</span>
+                  </div>
+                  <p className="text-white/18 text-xs">{plan.priceUSD}{plan.priceNote !== "forever" ? " / month" : ""}</p>
+                  {plan.annualNote && <p className="text-white/28 text-xs mt-1">{plan.annualNote}</p>}
+                  <p className="text-white/40 text-sm mt-3 leading-relaxed">{plan.description}</p>
+                </div>
+
+                {/* Divider */}
+                <div className="h-px mb-4" style={{ background: "rgba(255,255,255,0.06)" }} />
+
+                {/* Feature list */}
+                <ul className="flex-1 space-y-2 mb-6">
+                  {plan.features.map((f, fi) => (
+                    <motion.li
+                      key={f}
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.35 + fi * 0.04, duration: 0.35 }}
+                      className="flex items-start gap-2.5 text-sm"
+                      style={{ color: "rgba(255,255,255,0.62)" }}
+                    >
+                      <svg
+                        className="w-4 h-4 mt-0.5 shrink-0"
+                        style={{ color: isPro ? "#818cf8" : isStudent ? "#c084fc" : isTeam ? "#818cf8" : "#6366f1" }}
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                      {f}
+                    </motion.li>
+                  ))}
+                  {plan.missing?.map((f) => (
+                    <li key={f} className="flex items-start gap-2.5 text-sm" style={{ color: "rgba(255,255,255,0.18)" }}>
+                      <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                      </svg>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+
+                {/* CTA button */}
+                <motion.button
+                  whileHover={isCurrent ? {} : { scale: 1.02 }}
+                  whileTap={isCurrent ? {}  : { scale: 0.97 }}
+                  onClick={() => !isCurrent && handleCta(plan.id)}
+                  disabled={loading === plan.id || isCurrent}
+                  className="w-full py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  style={
+                    isCurrent
+                      ? { background: "rgba(52,211,153,0.08)", color: "#34d399", border: "1px solid rgba(52,211,153,0.2)", cursor: "default" }
+                      : isPro
+                      ? { background: "linear-gradient(135deg, #6366f1, #a855f7)", color: "#fff", boxShadow: "0 0 24px rgba(99,102,241,0.35), 0 4px 16px rgba(168,85,247,0.2)" }
+                      : isStudent
+                      ? { background: "linear-gradient(135deg, #7c3aed, #a855f7)", color: "#fff", boxShadow: "0 0 20px rgba(124,58,237,0.25)" }
+                      : isTeam
+                      ? { background: "rgba(99,102,241,0.9)", color: "#fff" }
+                      : { background: "transparent", color: "rgba(255,255,255,0.55)", border: "1px solid rgba(255,255,255,0.1)" }
+                  }
+                >
+                  {loading === plan.id ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <motion.span
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 0.75, repeat: Infinity, ease: "linear" }}
+                        style={{ display: "inline-block" }}
+                      >
+                        ⟳
+                      </motion.span>
+                      Opening payment…
+                    </span>
+                  ) : isCurrent ? (
+                    "✓ Active plan"
+                  ) : (
+                    plan.cta
+                  )}
+                </motion.button>
+              </div>
+            );
+
+            // ── Pro card — gradient border + outer glow ───────────────────────
+            if (isPro) {
+              return (
+                <motion.div key={plan.id} variants={cardVariant} className="relative">
+                  {/* Outer glow halo */}
+                  <div
+                    className="absolute -inset-[3px] rounded-[28px] blur-xl opacity-35"
+                    style={{ background: "linear-gradient(135deg, #6366f1, #a855f7)" }}
+                  />
+                  {/* Animated glow pulse */}
+                  <motion.div
+                    className="absolute -inset-[2px] rounded-[27px] blur-sm opacity-20"
+                    style={{ background: "linear-gradient(135deg, #6366f1, #a855f7)" }}
+                    animate={{ opacity: [0.15, 0.35, 0.15] }}
+                    transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                  />
+                  {/* Gradient border */}
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 280, damping: 22 }}
+                    className="relative rounded-3xl p-px"
+                    style={{ background: "linear-gradient(135deg, #6366f1, #a855f7, #818cf8)" }}
+                  >
+                    <div className="h-full flex flex-col" style={{ background: "#0f0f14", borderRadius: "calc(1.5rem - 1px)" }}>
+                      {body}
+                    </div>
+                  </motion.div>
+                </motion.div>
+              );
+            }
+
+            // ── Student card — purple/pink gradient border ────────────────────
+            if (isStudent) {
+              return (
+                <motion.div key={plan.id} variants={cardVariant} className="relative">
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 280, damping: 22 }}
+                    className="relative rounded-3xl p-px"
+                    style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.5), rgba(168,85,247,0.5))" }}
+                  >
+                    <div className="h-full flex flex-col" style={{ background: "#0f0f12", borderRadius: "calc(1.5rem - 1px)" }}>
+                      {body}
+                    </div>
+                  </motion.div>
+                </motion.div>
+              );
+            }
+
+            // ── Default cards (Free, Team) ────────────────────────────────────
+            return (
+              <motion.div
+                key={plan.id}
+                variants={cardVariant}
+                whileHover={{ scale: 1.015 }}
+                transition={{ type: "spring", stiffness: 280, damping: 22 }}
+                className="relative rounded-3xl flex flex-col"
+                style={{
+                  background: "rgba(255,255,255,0.016)",
+                  border: isTeam ? "1px solid rgba(99,102,241,0.2)" : "1px solid rgba(255,255,255,0.07)",
+                }}
+              >
+                {body}
+              </motion.div>
+            );
+          })}
+        </motion.div>
+
+        {/* ── Student email note ─────────────────────────────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.55 }}
+          className="max-w-2xl mx-auto mb-20 rounded-2xl p-5 flex items-start gap-4"
+          style={{ background: "rgba(168,85,247,0.04)", border: "1px solid rgba(168,85,247,0.1)" }}
+        >
+          <span className="text-2xl shrink-0 mt-0.5">🎓</span>
+          <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.38)" }}>
+            <strong style={{ color: "rgba(255,255,255,0.65)" }}>Student plan</strong> requires a college email ending in{" "}
+            <code className="text-purple-400 px-1.5 py-0.5 rounded text-xs" style={{ background: "rgba(168,85,247,0.12)" }}>.edu</code>{" "}
+            or{" "}
+            <code className="text-purple-400 px-1.5 py-0.5 rounded text-xs" style={{ background: "rgba(168,85,247,0.12)" }}>.ac.in</code>.
+            {" "}Includes <strong style={{ color: "rgba(255,255,255,0.65)" }}>1 month free</strong> — no card required to start.
+          </p>
+        </motion.div>
+
+        {/* ── FAQ ───────────────────────────────────────────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.45 }}
+          className="max-w-2xl mx-auto mb-20"
+        >
+          <p className="text-[11px] font-bold tracking-[0.2em] uppercase text-center mb-3" style={{ color: "rgba(255,255,255,0.2)" }}>FAQ</p>
+          <h2 className="text-2xl font-bold text-white text-center mb-10">Common questions</h2>
+
+          <div className="space-y-2">
+            {FAQ_ITEMS.map(({ q, a }, i) => (
+              <div
+                key={i}
+                className="rounded-2xl overflow-hidden"
+                style={{ background: "rgba(255,255,255,0.018)", border: "1px solid rgba(255,255,255,0.06)" }}
+              >
+                <button
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  className="w-full flex items-center justify-between px-5 py-4 text-left gap-3 group"
+                >
+                  <span className="text-sm font-semibold transition-colors" style={{ color: openFaq === i ? "#fff" : "rgba(255,255,255,0.7)" }}>
+                    {q}
+                  </span>
+                  <motion.span
+                    animate={{ rotate: openFaq === i ? 45 : 0 }}
+                    transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                    className="text-xl leading-none shrink-0 font-light transition-colors"
+                    style={{ color: openFaq === i ? "rgba(129,140,248,0.9)" : "rgba(255,255,255,0.2)" }}
+                  >
+                    +
+                  </motion.span>
+                </button>
+                <AnimatePresence initial={false}>
+                  {openFaq === i && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
+                      className="overflow-hidden"
+                    >
+                      <p className="px-5 pb-5 text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.38)" }}>{a}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* ── Footer ────────────────────────────────────────────────────────── */}
+        <div className="text-center">
+          <div className="inline-flex items-center gap-2 text-xs" style={{ color: "rgba(255,255,255,0.18)" }}>
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            Payments secured by Razorpay · UPI, cards, net banking &amp; wallets accepted
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}

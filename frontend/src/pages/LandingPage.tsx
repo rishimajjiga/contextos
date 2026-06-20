@@ -271,4 +271,126 @@ export function LandingPage() {
       </section>
 
       {/* Use cases */}
-      <section className="bord
+      <section className="border-t border-border bg-surface-1 py-16 px-4 sm:py-24 sm:px-6">
+        <div className="mx-auto max-w-5xl">
+          <motion.h2
+            initial="hidden" whileInView="show" viewport={{ once: true }} variants={fadeUp}
+            className="text-center text-3xl font-bold tracking-tight mb-4"
+          >
+            Built for people who create
+          </motion.h2>
+          <motion.p
+            initial="hidden" whileInView="show" viewport={{ once: true }} variants={fadeUp}
+            className="text-center text-muted-foreground mb-16 max-w-xl mx-auto"
+          >
+            Whether you're building products, writing content, or managing research — ContextOS keeps your work organized.
+          </motion.p>
+          <motion.div
+            className="grid gap-4 sm:grid-cols-2 md:grid-cols-3"
+            initial="hidden" whileInView="show" viewport={{ once: true, margin: "-60px" }} variants={stagger}
+          >
+            {[
+              { title: "Developers", desc: "Store architecture decisions, tech stack notes, code snippets, and project context. Pick up any project without digging through Notion or Slack." },
+              { title: "Creators", desc: "Capture ideas the moment they happen. Save prompts, research, and drafts. Build a personal knowledge base that grows with you." },
+              { title: "Teams", desc: "Share a knowledge base that everyone can contribute to. Onboard faster, collaborate better, and never lose institutional knowledge." },
+            ].map(({ title, desc }) => (
+              <motion.div
+                key={title}
+                variants={fadeUp}
+                whileHover={{ y: -6 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                className="rounded-xl border border-border bg-surface-2/60 backdrop-blur-md p-6 transition-colors hover:border-brand-500/50"
+              >
+                <h3 className="font-semibold text-sm mb-2">{title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Pricing teaser */}
+      <section className="py-16 px-4 sm:py-24 sm:px-6">
+        <div className="mx-auto max-w-5xl">
+          <motion.h2
+            initial="hidden" whileInView="show" viewport={{ once: true }} variants={fadeUp}
+            className="text-center text-3xl font-bold tracking-tight mb-4"
+          >
+            Simple pricing
+          </motion.h2>
+          <motion.p
+            initial="hidden" whileInView="show" viewport={{ once: true }} variants={fadeUp}
+            className="text-center text-muted-foreground mb-12 max-w-xl mx-auto"
+          >
+            Start free. Upgrade when you need more.
+          </motion.p>
+          <motion.div
+            className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10"
+            initial="hidden" whileInView="show" viewport={{ once: true, margin: "-60px" }} variants={stagger}
+          >
+            {[
+              { name: "Free", price: "₹0", note: "forever", highlight: false },
+              { name: "Student", price: "₹199", note: "/ month", highlight: false },
+              { name: "Pro", price: "₹499", note: "/ month", highlight: true },
+              { name: "Team", price: "₹1,499", note: "/ month", highlight: false },
+            ].map(({ name, price, note, highlight }) => (
+              <motion.div
+                key={name}
+                variants={fadeUp}
+                whileHover={{ y: -6, scale: 1.02 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                className={`rounded-xl border p-5 text-center backdrop-blur-md ${
+                  highlight ? "border-brand-500 bg-brand-500/10 shadow-lg shadow-brand-500/20" : "border-border bg-surface-2/60"
+                }`}
+              >
+                {highlight && (
+                  <p className="text-[10px] font-semibold text-brand-400 uppercase tracking-wide mb-2">Most popular</p>
+                )}
+                <p className="text-sm font-semibold text-foreground mb-2">{name}</p>
+                <p className="text-2xl font-bold text-foreground">{price}</p>
+                <p className="text-xs text-muted-foreground mt-1">{note}</p>
+              </motion.div>
+            ))}
+          </motion.div>
+          <div className="text-center">
+            <Link to="/pricing">
+              <Button variant="outline" size="lg" className="gap-2">
+                See all plans <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="relative overflow-hidden border-t border-border bg-surface-1 py-16 px-4 sm:py-24 sm:px-6 text-center">
+        <motion.div
+          className="pointer-events-none absolute left-1/2 top-1/2 h-[300px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-500/10 blur-[120px]"
+          animate={{ scale: [1, 1.15, 1], opacity: [0.6, 1, 0.6] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="relative mx-auto max-w-xl"
+          initial="hidden" whileInView="show" viewport={{ once: true }} variants={fadeUp}
+        >
+          <h2 className="text-3xl font-bold tracking-tight mb-4">Stop starting over.</h2>
+          <p className="text-muted-foreground mb-8 text-lg">
+            Build your second brain today. Free to start, no credit card required.
+          </p>
+          <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} className="inline-block">
+            <Link to="/sign-up">
+              <Button size="lg" className="gap-2 px-8 shadow-lg shadow-brand-500/20">
+                Get started free <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </motion.div>
+        </motion.div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-border py-8 px-6 text-center text-xs text-muted-foreground">
+        © {new Date().getFullYear()} ContextOS. Remember everything. Continue anywhere.
+      </footer>
+    </div>
+  );
+}

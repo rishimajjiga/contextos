@@ -149,4 +149,46 @@ export function MemoriesPage() {
                       </div>
                       {!isOpen && (
                         <p className="text-xs text-muted-foreground mt-1 ml-6 line-clamp-1">
-                          {truncate
+                          {truncate(mem.content, 120)}
+                        </p>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => deleteMemory(mem.id)}
+                      className="text-muted-foreground hover:text-destructive transition-colors shrink-0 mt-0.5"
+                      aria-label="Delete memory"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+
+                  {isOpen && (
+                    <div className="mt-3 ml-6">
+                      <pre className="whitespace-pre-wrap text-sm text-foreground font-mono bg-surface-2 rounded-lg p-4 border border-border overflow-x-auto">
+                        {mem.content}
+                      </pre>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 mt-3 ml-6 flex-wrap">
+                    {mem.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-[10px] gap-1">
+                        <Tag className="h-2.5 w-2.5" />
+                        {tag}
+                      </Badge>
+                    ))}
+                    <span className="text-[10px] text-muted-foreground ml-auto">
+                      {formatRelativeTime(mem.created_at)}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

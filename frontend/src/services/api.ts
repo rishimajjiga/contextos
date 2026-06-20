@@ -38,29 +38,10 @@ export class LimitError extends Error {
 
 apiClient.interceptors.response.use(
   (res) => res,
-  async (error: AxiosError<any>) => {
-    const cfg = error.config as any;
-
-    // ── Auto-retry once on transient failures (network error OR 5xx) ──────────
-    // This silently handles Railway cold starts and brief Supabase hiccups.
-    // We mark the config so we never retry more than once per request.
-    if (cfg && !cfg.__retried) {
-      const isTransient = !error.response || error.response.status >= 500;
-      if (isTransient) {
-        cfg.__retried = true;
-        await new Promise((r) => setTimeout(r, 1500));
-        try {
-          return await apiClient.request(cfg);
-        } catch (retryErr) {
-          // Use the retry error for the rest of the handler below
-          error = retryErr as AxiosError<any>;
-        }
-      }
-    }
-
+  (error: AxiosError<any>) => {
     if (!error.response) {
       return Promise.reject(
-        new Error("No internet connection. Please check your network and try again.")
+        new Error("Can't reach the server. Please try again in a moment.")
       );
     }
 
@@ -86,4 +67,33 @@ apiClient.interceptors.response.use(
     }
 
     // 410 Gone — grace period ended, data was deleted
-    if (error.response.status 
+    if (error.response.status === 410 && detail?.code === "DATA_DELETED") {
+      const e: any = new Error(
+        detail.message || "Your data has been permanently deleted."
+      );
+      e.code = "DATA_DELETED";
+      return Promise.reject(e);
+    }
+
+    // 5xx — never surface raw Axios/server errors to users.
+    if (error.response.status >= 500) {
+      return Promise.reject(
+        new Error("Something went wrong. Please try again in a few moments.")
+      );
+    }
+
+    const rawDetail = error.response?.data?.detail;
+    const message =
+      typeof rawDetail === "string"
+        ? rawDetail
+        : Array.isArray(rawDetail)
+        ? "Validation error: " + rawDetail.map((e: any) => e.msg).join("; ")
+        : rawDetail?.message || error.message || "An unexpected error occurred";
+    return Promise.reject(new Error(message));
+  }
+);
+
+export async function request<T>(config: AxiosRequestConfig): Promise<T> {
+  const response = await apiClient.request<T>(config);
+  return response.data;
+}

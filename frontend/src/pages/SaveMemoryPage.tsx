@@ -208,4 +208,10 @@ export function SaveMemoryPage() {
         <p className="text-xs font-semibold text-foreground mb-2">What to save</p>
         <div className="flex flex-wrap gap-2">
           {["Architecture decisions", "API rate limits", "Useful prompts", "Bug fixes", "Research notes", "Code patterns", "Meeting notes"].map((tip) => (
-            <
+            <Badge key={tip} variant="secondary" className="text-[10px] cursor-default">{tip}</Badge>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

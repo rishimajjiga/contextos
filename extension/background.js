@@ -445,4 +445,20 @@ async function handleMessage(msg) {
       return { saved: true };
     }
 
-    // ── Plan info ──────────────────
+    // ── Plan info ─────────────────────────────────────────────────────────────
+    case "GET_PLAN": {
+      return apiRequest("/api/v1/billing/plan");
+    }
+
+    // ── Current user ──────────────────────────────────────────────────────────
+    case "GET_USER_INFO": {
+      return apiRequest("/api/v1/users/me");
+    }
+
+    // ── Cache invalidation (called by website-bridge when website saves) ───────
+    case "INVALIDATE_CACHE": {
+      cacheInvalidate("list:", "search:", "context:", "projects:");
+      return { ok: true };
+    }
+  }
+}

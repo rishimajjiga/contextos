@@ -374,4 +374,6 @@ export function TeamPage() {
           )}
         </>
       )}
-    <
+    </div>
+  );
+}
