@@ -21,6 +21,7 @@ import { ConnectExtensionPage } from "@/pages/ConnectExtensionPage";
 import { PricingPage } from "@/pages/PricingPage";
 import { TeamPage } from "@/pages/TeamPage";
 import { JoinPage } from "@/pages/JoinPage";
+import { PrivacyPage } from "@/pages/PrivacyPage";
 
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 
@@ -74,6 +75,7 @@ export default function App() {
       <Route path="/pricing"           element={<PricingPage />} />
       <Route path="/plans"             element={<PricingPage />} />
       <Route path="/join/:token"       element={<JoinPage />} />
+      <Route path="/privacy"           element={<PrivacyPage />} />
       <Route path="*"                  element={<NotFoundPage />} />
     </Routes>
   );

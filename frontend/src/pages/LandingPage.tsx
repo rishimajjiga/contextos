@@ -387,7 +387,11 @@ export function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-border py-8 px-6 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} ContextOS. Remember everything. Continue anywhere.
+        <p>© {new Date().getFullYear()} ContextOS. Remember everything. Continue anywhere.</p>
+        <div className="flex items-center justify-center gap-4 mt-2">
+          <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
+          <Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link>
+        </div>
       </footer>
     </div>
   );
