@@ -1,1 +1,3 @@
-// Search service removed from MVP. This file is an empty stub.
+/**
+ * search.service.ts
+ * Cached search + suggestions with pro

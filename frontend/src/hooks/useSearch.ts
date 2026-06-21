@@ -1,1 +1,3 @@
-// Search hook removed from MVP. This file is an empty stub.
+/**
+ * useSearchSuggestions
+ * Debounced (150ms) autocomplete
