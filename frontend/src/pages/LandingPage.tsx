@@ -108,9 +108,7 @@ export function LandingPage() {
       <nav className="fixed top-0 inset-x-0 z-50 border-b border-border/50 bg-surface-0/70 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-500">
-              <Cpu className="h-4 w-4 text-white" strokeWidth={2.5} />
-            </div>
+            <img src="/logo_mark.png" alt="ContextOS" className="h-7 w-7 rounded-md" />
             <span className="text-sm font-semibold">ContextOS</span>
           </div>
           <div className="flex items-center gap-4">
