@@ -20,7 +20,7 @@ log = structlog.get_logger()
 # -1 = unlimited
 PLAN_LIMITS = {
     "free":    {"projects": 1,  "memories": 10, "api_keys": 1,  "daily_inject": 3},
-    "student": {"projects": 5,  "memories": 200, "api_keys": 3,  "daily_inject": -1},
+    "student": {"projects": 5,  "memories": 200, "api_keys": 1,  "daily_inject": -1},
     "pro":     {"projects": -1, "memories": -1, "api_keys": 5,  "daily_inject": -1},
     "team":    {"projects": -1, "memories": -1, "api_keys": -1, "daily_inject": -1},
 }
@@ -251,8 +251,12 @@ async def check_api_key_limit(db: AsyncSession, user_id: str) -> None:
                 "limit": limit,
                 "plan": plan,
                 "message": (
-                    f"You've reached the {limit} API key limit on the {PLAN_DISPLAY[plan]} plan. "
-                    "Upgrade to Pro for more API keys."
+                    "You have reached the API key limit for the Student Plan."
+                    if plan == "student"
+                    else (
+                        f"You've reached the {limit} API key limit on the {PLAN_DISPLAY[plan]} plan. "
+                        "Upgrade to Pro for more API keys."
+                    )
                 ),
             },
         )

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Copy, Check, Key, Terminal, Chrome } from "lucide-react";
 import { useApiKeys } from "@/hooks/useApiKeys";
+import { usePlan } from "@/hooks/usePlan";
 import { PageHeader } from "@/components/common/PageHeader";
 import { SkeletonList } from "@/components/common/SkeletonCard";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -242,6 +243,7 @@ function KeyRow({ apiKey, onRevoke }: { apiKey: ApiKey; onRevoke: (id: string) =
 
 export function ApiKeysPage() {
   const { keys, isLoading, newKey, fetchKeys, createKey, revokeKey, dismissNewKey } = useApiKeys();
+  const { plan } = usePlan();
   const [showCreate, setShowCreate] = useState(false);
 
   useEffect(() => { fetchKeys(); }, [fetchKeys]);
@@ -250,17 +252,36 @@ export function ApiKeysPage() {
     await createKey(name);
   };
 
+  const keyLimit = plan.limits.api_keys; // -1 = unlimited
+  const atLimit = keyLimit !== -1 && keys.length >= keyLimit;
+  const limitMessage = plan.plan === "student"
+    ? "You have reached the API key limit for the Student Plan."
+    : `You've reached the ${keyLimit} API key limit on the ${plan.display_name} plan.`;
+
   return (
     <div>
       <PageHeader
         title="API keys"
         description="Keys let the MCP server and browser extension talk to your ContextOS data."
         action={
-          <Button size="sm" className="gap-2" onClick={() => setShowCreate(true)}>
+          <Button
+            size="sm"
+            className="gap-2"
+            onClick={() => setShowCreate(true)}
+            disabled={atLimit}
+            title={atLimit ? limitMessage : undefined}
+          >
             <Plus className="h-3.5 w-3.5" /> New key
           </Button>
         }
       />
+
+      {/* Plan limit banner */}
+      {atLimit && (
+        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400">
+          {limitMessage}
+        </div>
+      )}
 
       {/* How to use */}
       <Card className="mb-6 border-brand-500/20 bg-brand-500/5">
