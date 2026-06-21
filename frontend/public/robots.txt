@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /memories
+Disallow: /projects
+Disallow: /api-keys
+Disallow: /settings
+Disallow: /profile
+Disallow: /team
+Disallow: /search
+
+Sitemap: https://www.usecontextos.com/sitemap.xml
