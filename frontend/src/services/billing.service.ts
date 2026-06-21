@@ -36,7 +36,7 @@ export type AllPlanLimits = Record<"free" | "student" | "pro" | "team", PlanLimi
  */
 export const DEFAULT_PLAN_LIMITS: AllPlanLimits = {
   free:    { projects: 1,  memories: 10, api_keys: 1,  daily_inject: 3  },
-  student: { projects: 5,  memories: 200, api_keys: 3,  daily_inject: -1 },
+  student: { projects: 5,  memories: 200, api_keys: 1,  daily_inject: -1 },
   pro:     { projects: -1, memories: -1, api_keys: 5,  daily_inject: -1 },
   team:    { projects: -1, memories: -1, api_keys: -1, daily_inject: -1 },
 };
