@@ -43,7 +43,7 @@ function SidebarContent({ pathname, onClose }: { pathname: string; onClose?: () 
     <>
       <div className="flex h-14 items-center justify-between px-4 border-b border-border shrink-0">
         <Link to="/dashboard" className="flex items-center gap-2.5" onClick={onClose}>
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-500 text-white text-sm font-bold">C</div>
+          <img src="/logo_mark.png" alt="ContextOS" className="h-7 w-7 rounded-lg" />
           <span className="font-semibold text-sm text-foreground">ContextOS</span>
         </Link>
         {onClose && (

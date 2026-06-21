@@ -73,10 +73,11 @@ body::before{
 }
 .hdr-logo{
   width:32px;height:32px;border-radius:9px;
-  background:rgba(255,255,255,.16);
-  display:flex;align-items:center;justify-content:center;font-size:17px;
-  flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.25);
+  background:transparent;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;overflow:hidden;
 }
+.hdr-logo img{width:32px;height:32px;border-radius:9px;display:block;}
 .hdr-title{font-size:14px;font-weight:800;letter-spacing:-.3px}
 .hdr-sub{font-size:9.5px;opacity:.6;margin-top:1px;letter-spacing:.2px}
 .hdr-status{
@@ -453,7 +454,7 @@ input[type="checkbox"]{
 
   <!-- Header -->
   <div class="header">
-    <div class="hdr-logo">🧠</div>
+    <div class="hdr-logo"><img src="icons/icon128.png" alt="ContextOS" /></div>
     <div>
       <div class="hdr-title">ContextOS</div>
       <div class="hdr-sub">Second Brain</div>

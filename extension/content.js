@@ -472,6 +472,19 @@ function injectStyles() {
     "@keyframes ctxSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}",
     "@keyframes ctxPulse{0%,100%{opacity:0.25;transform:scale(1)}60%{opacity:0;transform:scale(1.35)}}",
     "@keyframes ctxPanelIn{from{opacity:0;transform:translateY(14px) scale(0.95)}to{opacity:1;transform:translateY(0) scale(1)}}",
+
+    // ── Inline suggestion dropdown ─────────────────────────────────────────────
+    "#ctx-suggest-dropdown{position:fixed;background:#0f0f1e;border:1px solid rgba(99,102,241,0.35);border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,0.65),0 0 0 1px rgba(99,102,241,0.08);overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;animation:ctxFadeInDrop 0.14s ease;max-height:320px;overflow-y:auto}",
+    ".ctx-si{display:flex;align-items:center;gap:10px;padding:8px 14px;cursor:pointer;transition:background .1s;font-size:12px;color:rgba(255,255,255,0.82);user-select:none}",
+    ".ctx-si:hover,.ctx-si.ctx-selected{background:rgba(99,102,241,0.18);color:#fff}",
+    ".ctx-si-icon{font-size:13px;flex-shrink:0;width:18px;text-align:center;opacity:0.7}",
+    ".ctx-si-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+    ".ctx-si-kind{font-size:9px;font-weight:700;color:rgba(255,255,255,0.2);flex-shrink:0;text-transform:uppercase;letter-spacing:0.4px}",
+    ".ctx-si-sep{height:1px;background:rgba(255,255,255,0.06);margin:3px 0}",
+    ".ctx-si-header{padding:6px 14px 3px;font-size:9px;font-weight:800;color:rgba(255,255,255,0.25);text-transform:uppercase;letter-spacing:0.5px}",
+    ".ctx-si-footer{padding:5px 14px 7px;display:flex;gap:4px;align-items:center;border-top:1px solid rgba(255,255,255,0.06);font-size:9px;color:rgba(255,255,255,0.22)}",
+    ".ctx-si-footer kbd{background:rgba(255,255,255,0.08);border-radius:3px;padding:1px 5px;font-family:inherit;font-size:9px;color:rgba(255,255,255,0.35)}",
+    "@keyframes ctxFadeInDrop{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}",
   ].join("\n");
   document.head.appendChild(style);
 }
@@ -1523,6 +1536,202 @@ var _suggestEnabled = false;
 var _autoSuggestOn = false;
 var _searchAbortId = 0;
 
+// ── Inline suggestion engine ──────────────────────────────────────────────────
+// LRU cache: 200 entries, 10-min TTL. Cache hits are instant — zero latency.
+
+var _ctxSuggestCache = (function() {
+  var map = new Map();
+  var CAP = 200, TTL = 10 * 60 * 1000;
+  return {
+    get: function(k) {
+      var e = map.get(k);
+      if (!e) return null;
+      if (Date.now() > e.exp) { map.delete(k); return null; }
+      map.delete(k); map.set(k, e); // freshen entry (LRU)
+      return e.v;
+    },
+    set: function(k, v) {
+      map.delete(k);
+      if (map.size >= CAP) map.delete(map.keys().next().value); // evict oldest
+      map.set(k, { v: v, exp: Date.now() + TTL });
+    },
+  };
+})();
+
+// Recent prompts — persisted in localStorage (max 30)
+var _RECENT_KEY  = "ctos_ext_recents";
+var _MAX_RECENTS = 30;
+
+function getRecentPrompts() {
+  try { return JSON.parse(localStorage.getItem(_RECENT_KEY) || "[]"); } catch(_) { return []; }
+}
+function saveRecentPrompt(text) {
+  if (!text || text.length < 6) return;
+  try {
+    var list = getRecentPrompts().filter(function(s) { return s !== text; });
+    list.unshift(text);
+    localStorage.setItem(_RECENT_KEY, JSON.stringify(list.slice(0, _MAX_RECENTS)));
+  } catch(_) {}
+}
+function matchingRecents(query) {
+  var q = query.toLowerCase();
+  return getRecentPrompts().filter(function(s) { return s.toLowerCase().includes(q); }).slice(0, 3);
+}
+
+// ── Dropdown state ────────────────────────────────────────────────────────────
+
+var _sugDropdown = null;
+var _sugItems    = [];
+var _sugSelIdx   = -1;
+var _sugInput    = null;
+
+function hideSuggestDropdown() {
+  if (_sugDropdown) {
+    if (_sugDropdown._outerMd) document.removeEventListener("mousedown", _sugDropdown._outerMd, true);
+    _sugDropdown.remove();
+    _sugDropdown = null;
+  }
+  _sugItems = []; _sugSelIdx = -1; _sugInput = null;
+}
+
+function positionDropdown(dd, input) {
+  var rect = input.getBoundingClientRect();
+  var h    = dd.offsetHeight || 240;
+  var showAbove = (window.innerHeight - rect.bottom < h + 10) && (rect.top > h + 10);
+  dd.style.top  = showAbove ? (rect.top - h - 6) + "px" : (rect.bottom + 6) + "px";
+  dd.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 490)) + "px";
+  dd.style.width = Math.min(Math.max(rect.width, 300), 480) + "px";
+}
+
+function setSugSelIdx(idx) {
+  _sugSelIdx = idx;
+  if (!_sugDropdown) return;
+  _sugDropdown.querySelectorAll(".ctx-si[data-idx]").forEach(function(el) {
+    el.classList.toggle("ctx-selected", parseInt(el.dataset.idx) === idx);
+  });
+}
+
+function acceptSuggestion(idx) {
+  if (idx < 0 || idx >= _sugItems.length) { hideSuggestDropdown(); return; }
+  var item  = _sugItems[idx];
+  var input = _sugInput;
+  hideSuggestDropdown();
+  if (!input) return;
+
+  if (item.type === "recent") {
+    // Replace input text with the full previous prompt
+    if (input.tagName === "TEXTAREA" || input.tagName === "INPUT") {
+      var ns = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value") &&
+               Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+      if (ns) ns.call(input, item.text); else input.value = item.text;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    } else if (input.getAttribute("contenteditable")) {
+      input.focus();
+      document.execCommand("selectAll", false, null);
+      document.execCommand("insertText", false, item.text);
+    }
+  } else {
+    // Inject memory context into the current prompt
+    injectIntoInput(item.text);
+  }
+}
+
+function renderSuggestDropdown(recentItems, memItems, input, accentColor) {
+  hideSuggestDropdown();
+  if (!recentItems.length && !memItems.length) return;
+
+  _sugInput = input;
+  _sugItems = [];
+
+  var dd = document.createElement("div");
+  dd.id  = "ctx-suggest-dropdown";
+  // Apply accent border color inline (overrides the base style's left-border)
+  dd.style.borderLeftColor = accentColor || "#6366F1";
+
+  var html = "";
+
+  if (recentItems.length) {
+    html += '<div class="ctx-si-header">Recent prompts</div>';
+    recentItems.forEach(function(text) {
+      var i = _sugItems.length;
+      _sugItems.push({ type: "recent", text: text });
+      html += '<div class="ctx-si" data-idx="' + i + '">' +
+        '<span class="ctx-si-icon">🕐</span>' +
+        '<span class="ctx-si-text">' + escapeHtml(text.slice(0, 80)) + '</span>' +
+        '<span class="ctx-si-kind">recent</span></div>';
+    });
+  }
+
+  if (memItems.length) {
+    if (recentItems.length) html += '<div class="ctx-si-sep"></div>';
+    html += '<div class="ctx-si-header">From your brain 🧠</div>';
+    memItems.forEach(function(mem) {
+      var i     = _sugItems.length;
+      var label = (mem.title || "Untitled").slice(0, 70);
+      _sugItems.push({ type: "memory", text: mem.content || "", label: label });
+      html += '<div class="ctx-si" data-idx="' + i + '">' +
+        '<span class="ctx-si-icon">📝</span>' +
+        '<span class="ctx-si-text">' + escapeHtml(label) + '</span>' +
+        '<span class="ctx-si-kind">memory</span></div>';
+    });
+  }
+
+  html += '<div class="ctx-si-footer">' +
+    '<kbd>↑↓</kbd>&nbsp;navigate&nbsp;&nbsp;' +
+    '<kbd>↵</kbd>&nbsp;accept&nbsp;&nbsp;' +
+    '<kbd>Tab</kbd>&nbsp;use&nbsp;&nbsp;' +
+    '<kbd>Esc</kbd>&nbsp;close' +
+  '</div>';
+
+  dd.innerHTML = html;
+  document.body.appendChild(dd);
+  _sugDropdown = dd;
+
+  // Position after the browser has painted (offsetHeight available)
+  requestAnimationFrame(function() { if (_sugDropdown === dd) positionDropdown(dd, input); });
+
+  // Item interactions
+  dd.querySelectorAll(".ctx-si[data-idx]").forEach(function(el) {
+    el.onmousedown  = function(e) { e.preventDefault(); acceptSuggestion(parseInt(el.dataset.idx)); };
+    el.onmouseenter = function()  { setSugSelIdx(parseInt(el.dataset.idx)); };
+  });
+
+  // Close on outside click (added after a tick so this open-click doesn't trigger it)
+  var onOutsideMd = function(e) { if (dd && !dd.contains(e.target)) hideSuggestDropdown(); };
+  dd._outerMd = onOutsideMd;
+  setTimeout(function() { document.addEventListener("mousedown", onOutsideMd, true); }, 0);
+}
+
+// ── Keyboard handler (attached to each watched input, capture phase) ──────────
+
+function buildKeydownHandler() {
+  return function(e) {
+    if (!_sugDropdown || !_sugItems.length) return;
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setSugSelIdx(Math.min(_sugSelIdx + 1, _sugItems.length - 1));
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setSugSelIdx(Math.max(_sugSelIdx - 1, -1));
+        break;
+      case "Enter":
+        if (_sugSelIdx >= 0) { e.preventDefault(); e.stopPropagation(); acceptSuggestion(_sugSelIdx); }
+        break;
+      case "Tab":
+        if (_sugItems.length) {
+          e.preventDefault(); e.stopPropagation();
+          acceptSuggestion(_sugSelIdx >= 0 ? _sugSelIdx : 0);
+        }
+        break;
+      case "Escape":
+        if (_sugDropdown) { e.preventDefault(); hideSuggestDropdown(); }
+        break;
+    }
+  };
+}
+
 // ── Input watcher singleton (prevents duplicate intervals / listeners) ───────
 
 var _inputWatcher = { active: false, cleanup: null };
@@ -1536,6 +1745,7 @@ function stopInputWatcher() {
   clearTimeout(_suggestionDebounce);
   _suggestionDebounce = null;
   _searchAbortId++;
+  hideSuggestDropdown();
 }
 
 function watchInputForSuggestions(platform) {
@@ -1612,44 +1822,68 @@ function attachInputWatcher(platform) {
       clearTimeout(_suggestionDebounce);
       _suggestionDebounce = setTimeout(async function() {
         if (!_autoSuggestOn) return;
-        var text = "";
-        if (input.tagName === "TEXTAREA" || input.tagName === "INPUT") {
-          text = input.value || "";
-        } else {
-          text = input.innerText || input.textContent || "";
-        }
-        text = text.trim();
-        if (text.length < 8) return;
-        showSearchingIndicator(accentColor);
 
+        // Read current input text
+        var text = (input.tagName === "TEXTAREA" || input.tagName === "INPUT")
+          ? (input.value || "")
+          : (input.innerText || input.textContent || "");
+        text = text.trim();
+
+        // Minimum length check
+        if (text.length < 4) { hideSuggestDropdown(); hideSearchingIndicator(); return; }
+
+        // ── Extract keyword query ─────────────────────────────────────────────
         var STOP = new Set(["what","this","that","with","have","from","they","will","been","were","when","your","more","also","some","than","then","which","about","into","their","there","would","could","should","these","those","other","after","before","first","over","under","just","like","make","only","know","take","where","does","dont","how","why","can","the","and","for","are","but","not","you","all","any","its","use","was","had","has","her","him","his","she","may","our","out","who","did","get","let","new","now","per","put","see","set","two","way","yet"]);
         var lastSentence = text.split(/[.!?\n]/).filter(Boolean).pop() || text;
         var words = lastSentence.split(/\s+/).filter(function(w) {
-          return w.length >= 3 && !STOP.has(w.toLowerCase().replace(/[^a-z]/g,""));
+          return w.length >= 3 && !STOP.has(w.toLowerCase().replace(/[^a-z]/g, ""));
         });
-
         var query;
         if (words.length >= 1) {
           query = words.slice(-5).join(" ");
         } else {
           var raw = text.split(/\s+/).filter(Boolean);
-          if (raw.length < 3) return;
+          if (raw.length < 2) { hideSuggestDropdown(); return; }
           query = raw.slice(-4).join(" ");
         }
-        if (query === _lastSuggestedQuery) { hideSearchingIndicator(); return; }
+
+        // ── Recents (instant — no network) ────────────────────────────────────
+        var recents = matchingRecents(query);
+
+        // ── LRU cache check (instant — no debounce delay) ─────────────────────
+        var cacheKey = query.toLowerCase();
+        var cached   = _ctxSuggestCache.get(cacheKey);
+        if (cached !== null) {
+          hideSearchingIndicator();
+          renderSuggestDropdown(recents, cached, input, accentColor);
+          return;
+        }
+
+        // Show recents immediately while waiting for the network
+        if (recents.length) renderSuggestDropdown(recents, [], input, accentColor);
+
+        // Deduplicate in-flight requests for the same query
+        if (query === _lastSuggestedQuery) return;
         _lastSuggestedQuery = query;
 
+        // ── Network request (cancelled on next keystroke via abortId) ─────────
         var abortId = ++_searchAbortId;
+        showSearchingIndicator(accentColor);
         try {
-          var data = await sendMessage("SEARCH_MEMORY", { query: query, limit: 3 });
+          var data    = await sendMessage("SEARCH_MEMORY", { query: query, limit: 5 });
           if (abortId !== _searchAbortId || !_autoSuggestOn) return;
           var results = Array.isArray(data) ? data : (data.results || []);
+          _ctxSuggestCache.set(cacheKey, results);   // prime LRU for next time
           hideSearchingIndicator();
-          if (results.length > 0) showSuggestionToast(results, accentColor);
+          renderSuggestDropdown(recents, results, input, accentColor);
         } catch (e) {
-          if (abortId === _searchAbortId) hideSearchingIndicator();
+          if (abortId === _searchAbortId) {
+            hideSearchingIndicator();
+            // Graceful degradation: keep showing recents, never show an error
+            if (!recents.length) hideSuggestDropdown();
+          }
         }
-      }, 1800);
+      }, 150); // 150 ms debounce (was 1800 ms)
     };
   }
 
@@ -1657,9 +1891,22 @@ function attachInputWatcher(platform) {
     if (!input || watched.has(input)) return false;
     watched.add(input);
 
-    var onType = buildTypingHandler(input);
+    var onType    = buildTypingHandler(input);
+    var onKeyDown = buildKeydownHandler();
+
     input.addEventListener("input", onType);
     input.addEventListener("compositionend", onType);
+    // capture phase so we intercept ArrowDown/Tab before the host site handles them
+    input.addEventListener("keydown", onKeyDown, true);
+    // Save typed text as a recent prompt when user leaves the field
+    input.addEventListener("blur", function() {
+      var txt = (input.tagName === "TEXTAREA" || input.tagName === "INPUT")
+        ? (input.value || "")
+        : (input.innerText || input.textContent || "");
+      saveRecentPrompt(txt.trim());
+      // Delay so dropdown item mousedown fires before the close
+      setTimeout(hideSuggestDropdown, 200);
+    });
 
     if (input.getAttribute && input.getAttribute("contenteditable")) {
       var mo = new MutationObserver(function() {
