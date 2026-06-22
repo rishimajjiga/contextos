@@ -168,19 +168,19 @@ function StudentModal({ onClose }: { onClose: () => void }) {
               transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }}
               className="inline-block text-2xl mb-3 opacity-50"
             >⟳</motion.div>
-            <p className="text-sm text-foreground/30">Checking eligibility…</p>
+            <p className="text-sm text-foreground/60">Checking eligibility…</p>
           </div>
         );
 
       case "not-signed-in":
         return (
           <div className="space-y-4">
-            <p className="text-sm text-foreground/40 leading-relaxed">
+            <p className="text-sm text-foreground/70 leading-relaxed">
               Please sign in to activate your student plan.
             </p>
             <button
               onClick={() => navigate("/sign-in")}
-              className="w-full py-3 bg-green-600 hover:bg-green-500 text-foreground rounded-xl text-sm font-semibold transition-all"
+              className="w-full py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-semibold transition-all"
             >
               Sign In
             </button>
@@ -194,14 +194,14 @@ function StudentModal({ onClose }: { onClose: () => void }) {
               <span className="text-red-600 text-xl mt-0.5">✗</span>
               <div>
                 <p className="text-sm font-semibold text-red-600">Could not check eligibility</p>
-                <p className="text-xs text-foreground/40 mt-1">Please try again in a moment.</p>
+                <p className="text-xs text-foreground/70 mt-1">Please try again in a moment.</p>
               </div>
             </div>
             <div className="flex gap-3">
               <button onClick={onClose} className="flex-1 py-3 border border-foreground/10 hover:bg-foreground/5 text-foreground rounded-xl text-sm font-medium transition-all">Close</button>
               <button
                 onClick={() => { setPhase("loading"); billingService.studentCheck().then(r => { setCheckResult(r); setPhase(r.eligible ? "eligible" : "ineligible"); }).catch(() => setPhase("check-error")); }}
-                className="flex-1 py-3 bg-green-600 hover:bg-green-500 text-foreground rounded-xl text-sm font-semibold transition-all"
+                className="flex-1 py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-semibold transition-all"
               >Try Again</button>
             </div>
           </div>
@@ -214,18 +214,18 @@ function StudentModal({ onClose }: { onClose: () => void }) {
               <span className="text-green-700 text-xl mt-0.5">✓</span>
               <div>
                 <p className="text-sm font-semibold text-green-700">You're eligible!</p>
-                <p className="text-xs text-foreground/40 mt-1">
+                <p className="text-xs text-foreground/70 mt-1">
                   Your institutional email qualifies you for 1 month free on the Student Plan.
                 </p>
               </div>
             </div>
             <button
               onClick={handleClaim}
-              className="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 text-foreground rounded-xl text-sm font-semibold transition-all hover:scale-[1.01] active:scale-[0.99]"
+              className="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 text-white rounded-xl text-sm font-semibold transition-all hover:scale-[1.01] active:scale-[0.99]"
             >
               Activate 1 month free →
             </button>
-            <p className="text-center text-xs text-foreground/25">No card required to start your trial.</p>
+            <p className="text-center text-xs text-foreground/50">No card required to start your trial.</p>
           </div>
         );
 
@@ -236,12 +236,12 @@ function StudentModal({ onClose }: { onClose: () => void }) {
               <span className="text-amber-600 text-xl mt-0.5">✗</span>
               <div>
                 <p className="text-sm font-semibold text-amber-600">Not eligible</p>
-                <p className="text-xs text-foreground/40 mt-1 leading-relaxed">
+                <p className="text-xs text-foreground/70 mt-1 leading-relaxed">
                   {checkResult?.reason ?? "Your login email doesn't appear to be from a recognised educational institution."}
                 </p>
               </div>
             </div>
-            <p className="text-xs text-foreground/30 leading-relaxed text-center">
+            <p className="text-xs text-foreground/60 leading-relaxed text-center">
               The Student Plan requires a verified institutional email (.edu, .ac.in, .ac.uk, etc.).<br/>
               Sign in with your university email to qualify.
             </p>
@@ -257,7 +257,7 @@ function StudentModal({ onClose }: { onClose: () => void }) {
               transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }}
               className="inline-block text-2xl mb-3 opacity-50"
             >⟳</motion.div>
-            <p className="text-sm text-foreground/30">Activating your trial…</p>
+            <p className="text-sm text-foreground/60">Activating your trial…</p>
           </div>
         );
 
@@ -268,12 +268,12 @@ function StudentModal({ onClose }: { onClose: () => void }) {
               <span className="text-red-600 text-xl mt-0.5">✗</span>
               <div>
                 <p className="text-sm font-semibold text-red-600">Something went wrong</p>
-                <p className="text-xs text-foreground/40 mt-1">{errorMsg}</p>
+                <p className="text-xs text-foreground/70 mt-1">{errorMsg}</p>
               </div>
             </div>
             <div className="flex gap-3">
               <button onClick={onClose} className="flex-1 py-3 border border-foreground/10 hover:bg-foreground/5 text-foreground rounded-xl text-sm font-medium transition-all">Close</button>
-              <button onClick={() => { setErrorMsg(""); setPhase("eligible"); }} className="flex-1 py-3 bg-green-600 hover:bg-green-500 text-foreground rounded-xl text-sm font-semibold transition-all">Try Again</button>
+              <button onClick={() => { setErrorMsg(""); setPhase("eligible"); }} className="flex-1 py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-semibold transition-all">Try Again</button>
             </div>
           </div>
         );
@@ -284,7 +284,7 @@ function StudentModal({ onClose }: { onClose: () => void }) {
             <div className="rounded-xl border border-green-500/25 bg-green-500/8 p-5 text-center">
               <p className="text-3xl mb-3">🎉</p>
               <p className="text-sm font-semibold text-green-700 mb-1">Trial activated!</p>
-              <p className="text-xs text-foreground/40 leading-relaxed">
+              <p className="text-xs text-foreground/70 leading-relaxed">
                 Your free month runs until{" "}
                 <strong className="text-foreground/70">
                   {trialEnds
@@ -296,7 +296,7 @@ function StudentModal({ onClose }: { onClose: () => void }) {
             </div>
             <button
               onClick={() => navigate("/dashboard")}
-              className="w-full py-3 bg-green-600 hover:bg-green-500 text-foreground rounded-xl text-sm font-semibold transition-all hover:scale-[1.01] active:scale-[0.99]"
+              className="w-full py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-semibold transition-all hover:scale-[1.01] active:scale-[0.99]"
             >
               Go to dashboard →
             </button>
@@ -321,18 +321,18 @@ function StudentModal({ onClose }: { onClose: () => void }) {
               <div className="flex items-center gap-3">
                 <div
                   className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                  style={{ background: "linear-gradient(135deg, rgba(79,148,55,0.2), rgba(115,177,79,0.2))", border: "1px solid rgba(79,148,55,0.3)" }}
+                  style={{ background: "linear-gradient(135deg, rgba(79,148,55,0.55), rgba(115,177,79,0.55))", border: "1px solid rgba(79,148,55,0.3)" }}
                 >
                   🎓
                 </div>
                 <div>
                   <h2 className="text-base font-semibold text-foreground">Student Plan</h2>
-                  <p className="text-xs text-foreground/30">Verified by your institution email</p>
+                  <p className="text-xs text-foreground/60">Verified by your institution email</p>
                 </div>
               </div>
               <button
                 onClick={onClose}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-foreground/30 hover:text-foreground hover:bg-foreground/5 transition-all text-lg leading-none"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-foreground/60 hover:text-foreground hover:bg-foreground/5 transition-all text-lg leading-none"
               >×</button>
             </div>
 
@@ -523,7 +523,7 @@ export function PricingPage() {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4 }}
           onClick={() => navigate("/dashboard")}
-          className="group flex items-center gap-1.5 text-sm text-foreground/25 hover:text-foreground/70 transition-all mb-12"
+          className="group flex items-center gap-1.5 text-sm text-foreground/50 hover:text-foreground/70 transition-all mb-12"
         >
           <svg className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -546,7 +546,7 @@ export function PricingPage() {
                 style={{ background: "linear-gradient(135deg, #4f9437, #73b14f)", opacity: 0.5 }}
               />
               <motion.div
-                animate={{ boxShadow: ["0 0 20px rgba(79,148,55,0.25)", "0 0 40px rgba(115,177,79,0.35)", "0 0 20px rgba(79,148,55,0.25)"] }}
+                animate={{ boxShadow: ["0 0 20px rgba(79,148,55,0.25)", "0 0 40px rgba(115,177,79,0.72)", "0 0 20px rgba(79,148,55,0.25)"] }}
                 transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
                 className="relative w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
                 style={{
@@ -576,7 +576,7 @@ export function PricingPage() {
             ContextOS Plans
           </motion.h1>
 
-          <motion.p variants={fadeInUp} className="text-foreground/35 text-lg max-w-md mx-auto leading-relaxed">
+          <motion.p variants={fadeInUp} className="text-foreground/65 text-lg max-w-md mx-auto leading-relaxed">
             Choose the perfect second brain for your workflow.
           </motion.p>
         </motion.div>
@@ -600,7 +600,7 @@ export function PricingPage() {
                 onClick={() => setBilling(mode)}
                 className="relative flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors z-10"
                 style={{
-                  color: billing === mode ? "#fff" : "rgba(45,70,35,0.35)",
+                  color: billing === mode ? "#fff" : "rgba(45,70,35,0.72)",
                   minWidth: mode === "annual" ? "148px" : "108px",
                 }}
               >
@@ -643,18 +643,18 @@ export function PricingPage() {
               transition={{ duration: 0.4 }}
               className="mb-16"
             >
-              <p className="text-[11px] font-bold tracking-[0.2em] uppercase text-foreground/20 text-center mb-6">Your usage</p>
+              <p className="text-[11px] font-bold tracking-[0.2em] uppercase text-foreground/45 text-center mb-6">Your usage</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
 
                 {/* Memories */}
                 <div className="rounded-2xl p-4" style={{ background: "rgba(45,70,35,0.02)", border: "1px solid rgba(45,70,35,0.06)" }}>
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-lg">🧠</span>
-                    <span className="text-[10px] text-foreground/25 font-semibold uppercase tracking-wide">Memories</span>
+                    <span className="text-[10px] text-foreground/50 font-semibold uppercase tracking-wide">Memories</span>
                   </div>
                   <p className="text-2xl font-bold text-foreground mb-2">
                     {planInfo.usage.memories.toLocaleString()}
-                    <span className="text-foreground/20 text-sm font-normal ml-0.5">
+                    <span className="text-foreground/45 text-sm font-normal ml-0.5">
                       /{planInfo.limits.memories >= 10000 ? "∞" : planInfo.limits.memories}
                     </span>
                   </p>
@@ -665,11 +665,11 @@ export function PricingPage() {
                 <div className="rounded-2xl p-4" style={{ background: "rgba(45,70,35,0.02)", border: "1px solid rgba(45,70,35,0.06)" }}>
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-lg">📁</span>
-                    <span className="text-[10px] text-foreground/25 font-semibold uppercase tracking-wide">Projects</span>
+                    <span className="text-[10px] text-foreground/50 font-semibold uppercase tracking-wide">Projects</span>
                   </div>
                   <p className="text-2xl font-bold text-foreground mb-2">
                     {planInfo.usage.projects}
-                    <span className="text-foreground/20 text-sm font-normal ml-0.5">
+                    <span className="text-foreground/45 text-sm font-normal ml-0.5">
                       /{planInfo.limits.projects >= 1000 ? "∞" : planInfo.limits.projects}
                     </span>
                   </p>
@@ -680,11 +680,11 @@ export function PricingPage() {
                 <div className="rounded-2xl p-4" style={{ background: "rgba(45,70,35,0.02)", border: "1px solid rgba(45,70,35,0.06)" }}>
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-lg">⚡</span>
-                    <span className="text-[10px] text-foreground/25 font-semibold uppercase tracking-wide">Auto-inject</span>
+                    <span className="text-[10px] text-foreground/50 font-semibold uppercase tracking-wide">Auto-inject</span>
                   </div>
                   <p className="text-2xl font-bold text-foreground mb-2">
                     {planInfo.limits.daily_inject < 0 || planInfo.limits.daily_inject >= 10000 ? "∞" : planInfo.limits.daily_inject}
-                    <span className="text-foreground/20 text-sm font-normal ml-1">/day</span>
+                    <span className="text-foreground/45 text-sm font-normal ml-1">/day</span>
                   </p>
                   <div className="h-1.5 rounded-full w-full" style={{ background: "linear-gradient(90deg, rgba(250,204,21,0.3), rgba(234,179,8,0.3))" }} />
                 </div>
@@ -743,11 +743,11 @@ export function PricingPage() {
                 <div className="mb-4">
                   <div className="flex items-baseline gap-1.5 mb-0.5">
                     <span className="text-4xl font-bold text-foreground tracking-tight">{plan.price}</span>
-                    <span className="text-foreground/30 text-sm">{plan.priceNote}</span>
+                    <span className="text-foreground/60 text-sm">{plan.priceNote}</span>
                   </div>
-                  <p className="text-foreground/18 text-xs">{plan.priceUSD}{plan.priceNote !== "forever" ? " / month" : ""}</p>
-                  {plan.annualNote && <p className="text-foreground/28 text-xs mt-1">{plan.annualNote}</p>}
-                  <p className="text-foreground/40 text-sm mt-3 leading-relaxed">{plan.description}</p>
+                  <p className="text-foreground/45 text-xs">{plan.priceUSD}{plan.priceNote !== "forever" ? " / month" : ""}</p>
+                  {plan.annualNote && <p className="text-foreground/55 text-xs mt-1">{plan.annualNote}</p>}
+                  <p className="text-foreground/70 text-sm mt-3 leading-relaxed">{plan.description}</p>
                 </div>
 
                 {/* Divider */}
@@ -762,7 +762,7 @@ export function PricingPage() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.35 + fi * 0.04, duration: 0.35 }}
                       className="flex items-start gap-2.5 text-sm"
-                      style={{ color: "rgba(45,70,35,0.62)" }}
+                      style={{ color: "rgba(45,70,35,0.92)" }}
                     >
                       <svg
                         className="w-4 h-4 mt-0.5 shrink-0"
@@ -775,7 +775,7 @@ export function PricingPage() {
                     </motion.li>
                   ))}
                   {plan.missing?.map((f) => (
-                    <li key={f} className="flex items-start gap-2.5 text-sm" style={{ color: "rgba(45,70,35,0.18)" }}>
+                    <li key={f} className="flex items-start gap-2.5 text-sm" style={{ color: "rgba(45,70,35,0.5)" }}>
                       <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
                       </svg>
@@ -793,14 +793,14 @@ export function PricingPage() {
                   className="w-full py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   style={
                     isCurrent
-                      ? { background: "rgba(52,211,153,0.08)", color: "#2e7d32", border: "1px solid rgba(52,211,153,0.2)", cursor: "default" }
+                      ? { background: "rgba(52,211,153,0.08)", color: "#2e7d32", border: "1px solid rgba(52,211,153,0.55)", cursor: "default" }
                       : isPro
-                      ? { background: "linear-gradient(135deg, #4f9437, #73b14f)", color: "#fff", boxShadow: "0 0 24px rgba(79,148,55,0.35), 0 4px 16px rgba(115,177,79,0.2)" }
+                      ? { background: "linear-gradient(135deg, #4f9437, #73b14f)", color: "#fff", boxShadow: "0 0 24px rgba(79,148,55,0.72), 0 4px 16px rgba(115,177,79,0.55)" }
                       : isStudent
                       ? { background: "linear-gradient(135deg, #2f6b34, #73b14f)", color: "#fff", boxShadow: "0 0 20px rgba(47,107,52,0.25)" }
                       : isTeam
                       ? { background: "rgba(79,148,55,0.9)", color: "#fff" }
-                      : { background: "transparent", color: "rgba(45,70,35,0.55)", border: "1px solid rgba(45,70,35,0.1)" }
+                      : { background: "transparent", color: "rgba(45,70,35,0.85)", border: "1px solid rgba(45,70,35,0.1)" }
                   }
                 >
                   {loading === plan.id ? (
@@ -882,7 +882,7 @@ export function PricingPage() {
                 className="relative rounded-3xl flex flex-col"
                 style={{
                   background: "rgba(45,70,35,0.016)",
-                  border: isTeam ? "1px solid rgba(79,148,55,0.2)" : "1px solid rgba(45,70,35,0.07)",
+                  border: isTeam ? "1px solid rgba(79,148,55,0.55)" : "1px solid rgba(45,70,35,0.07)",
                 }}
               >
                 {body}
@@ -900,10 +900,10 @@ export function PricingPage() {
           style={{ background: "rgba(115,177,79,0.04)", border: "1px solid rgba(115,177,79,0.1)" }}
         >
           <span className="text-2xl shrink-0 mt-0.5">🎓</span>
-          <p className="text-sm leading-relaxed" style={{ color: "rgba(45,70,35,0.38)" }}>
-            <strong style={{ color: "rgba(45,70,35,0.65)" }}>Student plan</strong> eligibility is checked automatically from your login email.
+          <p className="text-sm leading-relaxed" style={{ color: "rgba(45,70,35,0.72)" }}>
+            <strong style={{ color: "rgba(45,70,35,0.92)" }}>Student plan</strong> eligibility is checked automatically from your login email.
             Sign in with your university or college email to qualify.
-            {" "}Includes <strong style={{ color: "rgba(45,70,35,0.65)" }}>1 month free</strong> — no card required to start.
+            {" "}Includes <strong style={{ color: "rgba(45,70,35,0.92)" }}>1 month free</strong> — no card required to start.
           </p>
         </motion.div>
 
@@ -914,7 +914,7 @@ export function PricingPage() {
           transition={{ delay: 0.45 }}
           className="max-w-2xl mx-auto mb-20"
         >
-          <p className="text-[11px] font-bold tracking-[0.2em] uppercase text-center mb-3" style={{ color: "rgba(45,70,35,0.2)" }}>FAQ</p>
+          <p className="text-[11px] font-bold tracking-[0.2em] uppercase text-center mb-3" style={{ color: "rgba(45,70,35,0.55)" }}>FAQ</p>
           <h2 className="text-2xl font-bold text-foreground text-center mb-10">Common questions</h2>
 
           <div className="space-y-2">
@@ -928,14 +928,14 @@ export function PricingPage() {
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
                   className="w-full flex items-center justify-between px-5 py-4 text-left gap-3 group"
                 >
-                  <span className="text-sm font-semibold transition-colors" style={{ color: openFaq === i ? "#fff" : "rgba(45,70,35,0.7)" }}>
+                  <span className="text-sm font-semibold transition-colors" style={{ color: openFaq === i ? "#fff" : "rgba(45,70,35,0.9)" }}>
                     {q}
                   </span>
                   <motion.span
                     animate={{ rotate: openFaq === i ? 45 : 0 }}
                     transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
                     className="text-xl leading-none shrink-0 font-light transition-colors"
-                    style={{ color: openFaq === i ? "rgba(111,174,84,0.9)" : "rgba(45,70,35,0.2)" }}
+                    style={{ color: openFaq === i ? "rgba(111,174,84,0.9)" : "rgba(45,70,35,0.55)" }}
                   >
                     +
                   </motion.span>
@@ -949,7 +949,7 @@ export function PricingPage() {
                       transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
                       className="overflow-hidden"
                     >
-                      <p className="px-5 pb-5 text-sm leading-relaxed" style={{ color: "rgba(45,70,35,0.38)" }}>{a}</p>
+                      <p className="px-5 pb-5 text-sm leading-relaxed" style={{ color: "rgba(45,70,35,0.72)" }}>{a}</p>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -960,7 +960,7 @@ export function PricingPage() {
 
         {/* ── Footer ────────────────────────────────────────────────────────── */}
         <div className="text-center">
-          <div className="inline-flex items-center gap-2 text-xs" style={{ color: "rgba(45,70,35,0.18)" }}>
+          <div className="inline-flex items-center gap-2 text-xs" style={{ color: "rgba(45,70,35,0.5)" }}>
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
