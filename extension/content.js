@@ -538,6 +538,10 @@ function injectFAB(platform) {
           '<textarea id="ctx-save-content" rows="4" style="width:100%;box-sizing:border-box;background:rgba(45, 70, 35,0.06);border:1px solid rgba(45, 70, 35, 0.32);border-radius:9px;color:#1c2e1d;font-family:inherit;font-size:12px;outline:none;padding:8px 11px;resize:vertical;margin-bottom:8px;transition:border-color .15s" placeholder="Content…"></textarea>' +
           '<button id="ctx-quick-save-btn" style="width:100%;background:linear-gradient(135deg,#4f9437,#5fa83f);border:none;border-radius:10px;color:#fff;font-family:inherit;font-size:12px;font-weight:700;padding:10px;cursor:pointer;transition:opacity .15s">💾 Save to Brain</button>' +
           '<div id="ctx-save-status" style="font-size:11px;min-height:16px;margin-top:6px;text-align:center"></div>' +
+          '<div style="height:1px;background:rgba(45,70,35,0.12);margin:14px 0 10px"></div>' +
+          '<div style="font-size:11px;font-weight:700;color:rgba(45,70,35,0.4);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px">Save full chat</div>' +
+          '<button id="ctx-save-conv-btn" style="width:100%;background:#ffffff;border:1.5px solid rgba(79,148,55,0.5);border-radius:10px;color:#2f6b34;font-family:inherit;font-size:12px;font-weight:700;padding:10px;cursor:pointer;transition:opacity .15s">💬 Save Conversation</button>' +
+          '<div id="ctx-save-conv-status" style="font-size:11px;min-height:16px;margin-top:6px;text-align:center"></div>' +
         '</div>' +
       '</div>' +
       // Memories tab
@@ -2315,3 +2319,123 @@ try {
     });
   }
 } catch (_) {}
+
+// ── Save Entire Conversation (additive) ────────────────────────────────────────
+// One-click capture of the full visible conversation. Runs ONLY on explicit click
+// (no observers, no polling). Platform-specific extraction with a raw fallback so
+// future / unknown AI tools still work. Reuses the existing SAVE_MEMORY pipeline.
+
+function ctxConvTitle(name) {
+  var t = (document.title || "").trim();
+  t = t.replace(/\s*[-–|·]\s*(ChatGPT|OpenAI|Claude|Gemini|Google|Perplexity|Grok|Copilot|Mistral)\b.*$/i, "")
+       .replace(/^(ChatGPT|Claude|Gemini|Perplexity|Grok)\s*[-–|·]\s*/i, "")
+       .trim();
+  if (!t || t.length < 2) t = name + " conversation";
+  return t.slice(0, 120);
+}
+
+function ctxExtractConversation() {
+  var p = (typeof getPlatform === "function") ? getPlatform() : null;
+  var name = (p && p.name) ? p.name : "AI";
+  var host = location.hostname.replace(/^www\./, "");
+  var msgs = [];
+  function add(role, el) {
+    if (!el) return;
+    var t = (el.innerText || el.textContent || "").replace(/ /g, " ").trim();
+    if (t) msgs.push({ role: role, text: t });
+  }
+
+  try {
+    if (/chatgpt\.com|openai\.com/.test(host)) {
+      // ChatGPT — each turn carries an explicit author role
+      document.querySelectorAll("[data-message-author-role]").forEach(function (el) {
+        add(el.getAttribute("data-message-author-role") === "user" ? "User" : "Assistant", el);
+      });
+    } else if (/claude\.ai/.test(host)) {
+      // Claude — user bubbles + assistant message blocks, read in document order
+      document.querySelectorAll('[data-testid="user-message"], .font-claude-message').forEach(function (el) {
+        add(el.matches('[data-testid="user-message"]') ? "User" : "Assistant", el);
+      });
+    } else if (/gemini\.google\.com/.test(host)) {
+      // Gemini — custom <user-query> / <model-response> elements
+      document.querySelectorAll("user-query, model-response").forEach(function (el) {
+        add((el.tagName || "").toLowerCase() === "user-query" ? "User" : "Assistant", el);
+      });
+    } else if (/grok\.com|x\.com/.test(host)) {
+      // Grok — best-effort by message bubbles + alignment heuristic
+      document.querySelectorAll('[class*="message-bubble"], [data-testid*="message"]').forEach(function (el) {
+        var cls = (el.className && el.className.toString) ? el.className.toString() : "";
+        add(/user|from-user|justify-end|items-end|self-end/.test(cls) ? "User" : "Assistant", el);
+      });
+    }
+  } catch (_) {}
+
+  // Fallback (Perplexity / future tools / anything that changed its DOM):
+  // capture the chat container's text as one ordered block — still complete & searchable.
+  if (msgs.length < 2) {
+    var raw = (typeof getPageText === "function") ? getPageText() : (document.body.innerText || "").slice(0, 8000);
+    raw = (raw || "").trim();
+    msgs = raw ? [{ role: "Conversation", text: raw }] : [];
+  }
+
+  return { platform: name, title: ctxConvTitle(name), messages: msgs, capturedAt: new Date().toISOString() };
+}
+
+function ctxSaveConversation(btn) {
+  var statusEl = document.getElementById("ctx-save-conv-status");
+  function setStatus(txt, color) { if (statusEl) { statusEl.textContent = txt || ""; statusEl.style.color = color || ""; } }
+  var orig = btn ? btn.textContent : "💬 Save Conversation";
+  if (btn) { btn.disabled = true; btn.textContent = "Capturing…"; }
+
+  var conv = null;
+  try { conv = ctxExtractConversation(); } catch (_) {}
+  if (!conv || !conv.messages || !conv.messages.length) {
+    setStatus("No conversation found on this page.", "#dc2626");
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+    return;
+  }
+
+  var slug = conv.platform.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  var header =
+    "Platform: " + conv.platform + "\n" +
+    "Title: " + conv.title + "\n" +
+    "Captured: " + conv.capturedAt.slice(0, 10) + "\n" +
+    "Messages: " + conv.messages.length + "\n\n" +
+    "────────────────────\n\n";
+  var body = conv.messages.map(function (m) { return m.role + ":\n" + m.text; }).join("\n\n");
+  var content = header + body;
+  if (content.length > MAX_CHARS) content = content.slice(0, MAX_CHARS - 16) + "\n… [truncated]";
+
+  var tags = ["conversation", "chat"];
+  if (slug) tags.push(slug);
+
+  if (btn) btn.textContent = "Saving…";
+  try { if (typeof ctxStatusToast === "function") ctxStatusToast(navigator.onLine ? "saving" : "offline"); } catch (_) {}
+
+  sendMessage("SAVE_MEMORY", { title: conv.title, content: content, tags: tags }).then(function () {
+    try { _panelMemCache = null; } catch (_) {}
+    setStatus("✓ Conversation saved to your brain.", "#15803d");
+    try { if (typeof ctxStatusToast === "function") ctxStatusToast("saved"); } catch (_) {}
+    setTimeout(function () { if (btn) { btn.disabled = false; btn.textContent = orig; } setStatus(""); }, 2200);
+  }).catch(function (err) {
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+    try {
+      if (!navigator.onLine) ctxStatusToast("offline");
+      else if (typeof isLimitError === "function" && isLimitError(err)) ctxStatusToast("limit");
+      else if (typeof ctxIsAuthError === "function" && ctxIsAuthError(err)) ctxStatusToast("signin");
+      else if (typeof ctxStatusToast === "function") ctxStatusToast("error", { retry: function () { ctxSaveConversation(btn); } });
+    } catch (_) {}
+    setStatus((typeof friendlyPanelError === "function" ? friendlyPanelError(err) : "") || "Failed to save conversation.", "#dc2626");
+  });
+}
+
+// Delegated, capture-phase click handler — no per-render binding, fully additive.
+document.addEventListener("click", function (e) {
+  var t = e.target;
+  if (!t || !t.closest) return;
+  var b = t.closest("#ctx-save-conv-btn");
+  if (!b) return;
+  e.preventDefault();
+  e.stopPropagation();
+  ctxSaveConversation(b);
+}, true);
