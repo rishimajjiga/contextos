@@ -346,8 +346,8 @@ function injectStyles() {
     "#ctx-fab{position:fixed;bottom:20px;right:20px;z-index:2147483646;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:block!important;background:none!important;border:none!important;box-shadow:none!important;padding:0!important;margin:0!important}",
 
     // ── Brain button
-    "#ctx-fab-btn{width:40px;height:40px;border-radius:13px;background:linear-gradient(145deg,#4f9437 0%,#5fa83f 50%,#5fa83f 100%);border:none;cursor:grab;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 3px 14px rgba(79, 148, 55,0.5);transition:transform .18s,box-shadow .18s;position:relative;user-select:none;line-height:1}",
-    "#ctx-fab-btn::after{content:'';position:absolute;inset:-4px;border-radius:17px;background:linear-gradient(145deg,#4f9437,#5fa83f);opacity:0.22;animation:ctxPulse 2.4s ease-in-out infinite;pointer-events:none}",
+    "#ctx-fab-btn{width:34px;height:34px;border-radius:11px;background:#ffffff;border:1.5px solid rgba(79, 148, 55,0.5);cursor:grab;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 12px rgba(79, 148, 55,0.30);transition:transform .18s,box-shadow .18s;position:relative;user-select:none;line-height:1;padding:0}",
+    "#ctx-fab-btn::after{content:'';position:absolute;inset:-4px;border-radius:15px;background:linear-gradient(145deg,#4f9437,#5fa83f);opacity:0.22;animation:ctxPulse 2.4s ease-in-out infinite;pointer-events:none}",
     "#ctx-fab-btn:hover{transform:scale(1.1);box-shadow:0 8px 32px rgba(79, 148, 55,0.7),0 0 0 0 rgba(115, 177, 79,0)}",
     "#ctx-fab-btn:active{cursor:grabbing;transform:scale(0.96)}",
 
@@ -569,7 +569,7 @@ function injectFAB(platform) {
       '</div>' +
     '</div>' +
     // ── Brain FAB button
-    '<button id="ctx-fab-btn" title="ContextOS · drag to move">🧠</button>';
+    '<button id="ctx-fab-btn" title="ContextOS · drag to move"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#4f9437" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg></button>';
 
   document.body.appendChild(fab);
 
@@ -847,9 +847,11 @@ function initSaveTab() {
     }
     saveBtn.disabled = true; saveBtn.textContent = "Saving…";
     statusEl.textContent = ""; statusEl.style.color = "";
+    ctxStatusToast(navigator.onLine ? "saving" : "offline");
     try {
       await sendMessage("SAVE_MEMORY", { title: title, content: content, doc_type: "note", tags: [] });
       _panelMemCache = null; // bust cache so memories tab refreshes
+      ctxStatusToast("saved");
       saveBtn.textContent = "✓ Saved!";
       saveBtn.style.background = "#10B981";
       if (titleEl)   titleEl.value   = "";
@@ -866,6 +868,10 @@ function initSaveTab() {
       }, 2000);
     } catch(err) {
       saveBtn.disabled = false; saveBtn.textContent = "💾 Save to Brain";
+      if (!navigator.onLine) ctxStatusToast("offline");
+      else if (isLimitError(err)) ctxStatusToast("limit");
+      else if (ctxIsAuthError(err)) ctxStatusToast("signin");
+      else ctxStatusToast("error", { retry: function(){ if (!saveBtn.disabled) saveBtn.click(); } });
       if (isLimitError(err)) {
         showLimitError(statusEl);
       } else {
@@ -1405,6 +1411,7 @@ function showSaveDialog(defaultContent) {
       }
       status.textContent = "Saving…";
       status.style.color = "#6B7280";
+      ctxStatusToast(navigator.onLine ? "saving" : "offline");
 
       try {
         await sendMessage("SAVE_MEMORY", {
@@ -1414,6 +1421,7 @@ function showSaveDialog(defaultContent) {
           tags:    tags,
         });
         _lastSuggestedQuery = "";
+        ctxStatusToast("saved");
         // Show success screen
         var modalBody = dialog.querySelector(".ctx-modal");
         modalBody.innerHTML =
@@ -1427,6 +1435,10 @@ function showSaveDialog(defaultContent) {
         }
         setTimeout(function() { dialog.remove(); }, 1800);
       } catch (err) {
+        if (!navigator.onLine) ctxStatusToast("offline");
+        else if (isLimitError(err)) ctxStatusToast("limit");
+        else if (ctxIsAuthError(err)) ctxStatusToast("signin");
+        else ctxStatusToast("error", { retry: function(){ var b=dialog.querySelector("#ctx-dlg-save"); if (b) b.click(); } });
         if (isLimitError(err)) {
           showLimitError(status);
         } else {
@@ -2172,3 +2184,91 @@ function init() {
 }
 
 init();
+
+// ── Lightweight status notifications (additive — does not alter existing flows) ─
+// Save → show status → disappear. Compact, non-blocking, white + green theme.
+var _ctxToastEl = null, _ctxToastTimer = null, _ctxOfflineActive = false;
+
+function _ctxToastCSS() {
+  if (document.getElementById("ctx-status-toast-css")) return;
+  var st = document.createElement("style");
+  st.id = "ctx-status-toast-css";
+  st.textContent =
+    "#ctx-status-toast{position:fixed;right:20px;bottom:66px;z-index:2147483647;" +
+    "display:flex;align-items:center;gap:8px;max-width:240px;padding:8px 12px;" +
+    "border-radius:12px;background:#ffffff;border:1px solid rgba(79,148,55,0.28);" +
+    "box-shadow:0 6px 22px rgba(45,80,35,0.18);" +
+    "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;" +
+    "font-size:12.5px;font-weight:600;color:#1c2e1d;line-height:1.2;" +
+    "opacity:0;transform:translateY(8px);transition:opacity .25s ease,transform .25s ease}" +
+    "#ctx-status-toast.ctx-st-show{opacity:1;transform:translateY(0)}" +
+    "#ctx-status-toast .ctx-st-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}" +
+    "#ctx-status-toast .ctx-st-spin{display:inline-block;width:13px;height:13px;border-radius:50%;" +
+    "border:2px solid rgba(79,148,55,0.25);border-top-color:#4f9437;" +
+    "animation:ctxSpin .7s linear infinite;flex-shrink:0}" +
+    "#ctx-status-toast .ctx-st-btn{margin-left:2px;border:none;border-radius:8px;cursor:pointer;" +
+    "font-family:inherit;font-size:11px;font-weight:700;padding:4px 10px;white-space:nowrap;" +
+    "background:linear-gradient(135deg,#4f9437,#5fa83f);color:#fff}" +
+    "#ctx-status-toast .ctx-st-btn:hover{opacity:.9}";
+  (document.head || document.documentElement).appendChild(st);
+}
+
+function _ctxDismissToast() {
+  if (_ctxToastTimer) { clearTimeout(_ctxToastTimer); _ctxToastTimer = null; }
+  var el = _ctxToastEl;
+  if (!el) return;
+  _ctxToastEl = null;
+  el.classList.remove("ctx-st-show");
+  setTimeout(function(){ if (el && el.parentNode) el.parentNode.removeChild(el); }, 280);
+}
+
+function ctxStatusToast(state, opts) {
+  opts = opts || {};
+  try { _ctxToastCSS(); } catch(_) { return; }
+  if (_ctxToastTimer) { clearTimeout(_ctxToastTimer); _ctxToastTimer = null; }
+
+  var cfg = ({
+    saving:  { lead:'<span class="ctx-st-spin"></span>', text:"Saving…", ttl:0 },
+    saved:   { lead:'<span>🧠</span>',         text:"Saved",        ttl:2400 },
+    error:   { lead:'<span class="ctx-st-dot" style="background:#dc2626"></span>', text:"Failed", ttl:6000, btn:"Retry" },
+    offline: { lead:'<span class="ctx-st-dot" style="background:#9aa39a"></span>', text:"Offline", ttl:0 },
+    signin:  { lead:'<span class="ctx-st-dot" style="background:#4f9437"></span>', text:"Sign in required", ttl:7000, btn:"Sign In" },
+    limit:   { lead:'<span class="ctx-st-dot" style="background:#b45309"></span>', text:"Limit reached", ttl:7000, btn:"Upgrade" }
+  })[state];
+  if (!cfg) return;
+
+  if (!_ctxToastEl) {
+    _ctxToastEl = document.createElement("div");
+    _ctxToastEl.id = "ctx-status-toast";
+    (document.body || document.documentElement).appendChild(_ctxToastEl);
+  }
+  var el = _ctxToastEl;
+  el.innerHTML = cfg.lead + '<span class="ctx-st-text">' + cfg.text + '</span>' +
+    (cfg.btn ? '<button class="ctx-st-btn">' + cfg.btn + '</button>' : '');
+  requestAnimationFrame(function(){ if (_ctxToastEl === el) el.classList.add("ctx-st-show"); });
+
+  var btn = el.querySelector(".ctx-st-btn");
+  if (btn) {
+    btn.onclick = function(e){
+      e.stopPropagation();
+      if (state === "error" && typeof opts.retry === "function") { _ctxDismissToast(); opts.retry(); }
+      else if (state === "signin") { getWebAppUrl("/sign-in").then(function(u){ window.open(u, "_blank"); }); _ctxDismissToast(); }
+      else if (state === "limit")  { getWebAppUrl("/pricing").then(function(u){ window.open(u, "_blank"); }); _ctxDismissToast(); }
+    };
+  }
+
+  if (state === "offline") {
+    _ctxOfflineActive = true;
+    var onBack = function(){ window.removeEventListener("online", onBack); if (_ctxOfflineActive){ _ctxOfflineActive = false; _ctxDismissToast(); } };
+    window.addEventListener("online", onBack);
+  } else {
+    _ctxOfflineActive = false;
+  }
+
+  if (cfg.ttl > 0) _ctxToastTimer = setTimeout(_ctxDismissToast, cfg.ttl);
+}
+
+function ctxIsAuthError(err) {
+  var m = ((err && (err.message || err)) || "").toString().toLowerCase();
+  return /401|403|unauthor|not connected|sign[\s-]?in|no api key|invalid.*key|\btoken\b/.test(m);
+}
