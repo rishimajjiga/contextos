@@ -2326,8 +2326,6 @@ try {
 // thread once, collecting unique messages in order, then restoring scroll. No
 // observers, no continuous monitoring. Saves via the existing SAVE_MEMORY pipeline.
 
-function ctxSleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
-
 function ctxConvTitle(name) {
   var t = (document.title || "").trim();
   t = t.replace(/\s*[-\u2013|\u00b7]\s*(ChatGPT|OpenAI|Claude|Gemini|Google|Perplexity|Grok|Copilot|Mistral)\b.*$/i, "")
@@ -2354,57 +2352,26 @@ function ctxExtractVisible() {
   return out;
 }
 
-function ctxFindScroller() {
-  var m = document.querySelector('[data-message-author-role], [data-testid="user-message"], .font-claude-message, user-query, model-response, [class*="message-bubble"]');
-  var el = m ? m.parentElement : null;
-  while (el && el !== document.body && el !== document.documentElement) {
-    try { var st = getComputedStyle(el); if (/(auto|scroll)/.test(st.overflowY) && el.scrollHeight > el.clientHeight + 60) return el; } catch(_){}
-    el = el.parentElement;
-  }
-  return null;
-}
-
-async function ctxCollectScrolling(extractFn) {
-  var sc = ctxFindScroller();
-  var gT=function(){ return sc?sc.scrollTop:(window.scrollY||document.documentElement.scrollTop||0); };
-  var sT=function(v){ if(sc) sc.scrollTop=v; else window.scrollTo(0,v); };
-  var vh=function(){ return sc?sc.clientHeight:window.innerHeight; };
-  var mx=function(){ return sc?(sc.scrollHeight-sc.clientHeight):(document.documentElement.scrollHeight-window.innerHeight); };
-  var orig=gT(), seen=Object.create(null), ordered=[];
-  function grab(){ extractFn().forEach(function(msg){ var k=msg.role+"|"+msg.text.length+"|"+msg.text.slice(0,160); if(!seen[k]){ seen[k]=true; ordered.push(msg);} }); }
-  sT(0); await ctxSleep(180); grab();
-  var steps=0, stale=0, prev=-1;
-  while (steps < 60) {
-    var cur=gT(), max=mx();
-    if (cur >= max-4) { grab(); break; }
-    sT(Math.min(max, cur + vh()*0.85));
-    await ctxSleep(130);
-    var before=ordered.length; grab();
-    stale = (ordered.length===before) ? stale+1 : 0;
-    if (stale>=2 && gT() >= mx()-4) break;
-    if (gT()===prev && stale>=2) break;
-    prev=gT(); steps++;
-  }
-  sT(orig);
-  return ordered;
-}
-
-async function ctxScrollThroughAll() {
-  var sc = ctxFindScroller(); if(!sc) return;
-  var orig=sc.scrollTop;
-  for (var i=0;i<40;i++){ var cur=sc.scrollTop, max=sc.scrollHeight-sc.clientHeight; if(cur>=max-4) break; sc.scrollTop=Math.min(max,cur+sc.clientHeight*0.9); await ctxSleep(110); if(sc.scrollTop===cur) break; }
-  sc.scrollTop=orig;
-}
-
 async function ctxExtractConversation() {
+  // Invisible capture: read the already-rendered DOM in ONE pass. These platforms
+  // render the full conversation in the DOM while it is open, so no scrolling or
+  // page movement is needed. The user keeps reading/typing, uninterrupted.
   var p = (typeof getPlatform==="function")?getPlatform():null;
   var name = (p&&p.name)?p.name:"AI";
   var host = location.hostname.replace(/^www\./, "");
   var structured = /chatgpt\.com|openai\.com|claude\.ai|gemini\.google\.com|grok\.com|x\.com/.test(host);
   var msgs = [];
-  if (structured) { try { msgs = await ctxCollectScrolling(ctxExtractVisible); } catch(_){ try{ msgs = ctxExtractVisible(); }catch(__){ msgs=[]; } } }
-  if (!msgs || msgs.length < 2) {
-    try { await ctxScrollThroughAll(); } catch(_){}
+  if (structured) {
+    try {
+      var seen = Object.create(null);
+      ctxExtractVisible().forEach(function(m){
+        var k = m.role + "|" + m.text.length + "|" + m.text.slice(0,160);
+        if (!seen[k]) { seen[k] = true; msgs.push(m); }   // de-dupe, preserve order
+      });
+    } catch(_){ msgs = []; }
+  }
+  if (!msgs.length) {
+    // Fallback (Perplexity / future tools): capture the chat container text once, no scroll.
     var chatEl = (p && typeof findElement==="function") ? findElement(p.chatSelectors) : null;
     var raw = ((chatEl ? chatEl.innerText : document.body.innerText) || "").trim();
     msgs = raw ? [{ role:"Conversation", text: raw }] : [];
