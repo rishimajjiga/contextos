@@ -2194,20 +2194,20 @@ function _ctxToastCSS() {
   var st = document.createElement("style");
   st.id = "ctx-status-toast-css";
   st.textContent =
-    "#ctx-status-toast{position:fixed;right:20px;bottom:66px;z-index:2147483647;" +
-    "display:flex;align-items:center;gap:8px;max-width:240px;padding:8px 12px;" +
-    "border-radius:12px;background:#ffffff;border:1px solid rgba(79,148,55,0.28);" +
-    "box-shadow:0 6px 22px rgba(45,80,35,0.18);" +
+    "#ctx-status-toast{position:fixed;right:16px;bottom:60px;z-index:2147483647;" +
+    "display:flex;align-items:center;gap:6px;max-width:200px;padding:5px 9px;" +
+    "border-radius:9px;background:rgba(255,255,255,0.92);border:1px solid rgba(79,148,55,0.18);" +
+    "box-shadow:0 3px 12px rgba(45,80,35,0.12);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);" +
     "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;" +
-    "font-size:12.5px;font-weight:600;color:#1c2e1d;line-height:1.2;" +
-    "opacity:0;transform:translateY(8px);transition:opacity .25s ease,transform .25s ease}" +
-    "#ctx-status-toast.ctx-st-show{opacity:1;transform:translateY(0)}" +
-    "#ctx-status-toast .ctx-st-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}" +
-    "#ctx-status-toast .ctx-st-spin{display:inline-block;width:13px;height:13px;border-radius:50%;" +
+    "font-size:11px;font-weight:600;color:rgba(28,46,29,0.85);line-height:1.15;" +
+    "opacity:0;transform:translateY(5px);transition:opacity .18s ease,transform .18s ease}" +
+    "#ctx-status-toast.ctx-st-show{opacity:0.95;transform:translateY(0)}" +
+    "#ctx-status-toast .ctx-st-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}" +
+    "#ctx-status-toast .ctx-st-spin{display:inline-block;width:11px;height:11px;border-radius:50%;" +
     "border:2px solid rgba(79,148,55,0.25);border-top-color:#4f9437;" +
     "animation:ctxSpin .7s linear infinite;flex-shrink:0}" +
-    "#ctx-status-toast .ctx-st-btn{margin-left:2px;border:none;border-radius:8px;cursor:pointer;" +
-    "font-family:inherit;font-size:11px;font-weight:700;padding:4px 10px;white-space:nowrap;" +
+    "#ctx-status-toast .ctx-st-btn{margin-left:2px;border:none;border-radius:7px;cursor:pointer;" +
+    "font-family:inherit;font-size:10px;font-weight:700;padding:3px 8px;white-space:nowrap;" +
     "background:linear-gradient(135deg,#4f9437,#5fa83f);color:#fff}" +
     "#ctx-status-toast .ctx-st-btn:hover{opacity:.9}";
   (document.head || document.documentElement).appendChild(st);
@@ -2229,11 +2229,11 @@ function ctxStatusToast(state, opts) {
 
   var cfg = ({
     saving:  { lead:'<span class="ctx-st-spin"></span>', text:"Saving…", ttl:0 },
-    saved:   { lead:'<span>🧠</span>',         text:"Saved",        ttl:2400 },
-    error:   { lead:'<span class="ctx-st-dot" style="background:#dc2626"></span>', text:"Failed", ttl:6000, btn:"Retry" },
+    saved:   { lead:'<span>🧠</span>',         text:"Saved",        ttl:1400 },
+    error:   { lead:'<span class="ctx-st-dot" style="background:#dc2626"></span>', text:"Failed", ttl:4000, btn:"Retry" },
     offline: { lead:'<span class="ctx-st-dot" style="background:#9aa39a"></span>', text:"Offline", ttl:0 },
-    signin:  { lead:'<span class="ctx-st-dot" style="background:#4f9437"></span>', text:"Sign in required", ttl:7000, btn:"Sign In" },
-    limit:   { lead:'<span class="ctx-st-dot" style="background:#b45309"></span>', text:"Limit reached", ttl:7000, btn:"Upgrade" }
+    signin:  { lead:'<span class="ctx-st-dot" style="background:#4f9437"></span>', text:"Sign in required", ttl:5000, btn:"Sign In" },
+    limit:   { lead:'<span class="ctx-st-dot" style="background:#b45309"></span>', text:"Limit reached", ttl:5000, btn:"Upgrade" }
   })[state];
   if (!cfg) return;
 
