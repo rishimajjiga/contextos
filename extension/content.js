@@ -2352,31 +2352,107 @@ function ctxExtractVisible() {
   return out;
 }
 
-async function ctxExtractConversation() {
-  // Invisible capture: read the already-rendered DOM in ONE pass. These platforms
-  // render the full conversation in the DOM while it is open, so no scrolling or
-  // page movement is needed. The user keeps reading/typing, uninterrupted.
-  var p = (typeof getPlatform==="function")?getPlatform():null;
-  var name = (p&&p.name)?p.name:"AI";
+function ctxFmtTs(ts) {
+  if (ts == null || ts === "") return "";
+  try {
+    var d = (typeof ts === "number") ? new Date(ts * 1000) : new Date(ts);
+    if (isNaN(d.getTime())) return "";
+    return d.toISOString().replace("T", " ").slice(0, 16) + " UTC";
+  } catch (_) { return ""; }
+}
+
+// Same-origin JSON helper (sends the site's own cookies; no scrolling, no UI).
+async function ctxFetchJSON(url, opts) {
+  try {
+    var r = await fetch(url, Object.assign({ credentials: "include" }, opts || {}));
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (_) { return null; }
+}
+
+// ChatGPT: read the complete conversation from its backend API (active branch).
+async function ctxFetchChatGPT() {
+  var m = location.pathname.match(/\/c\/([\w-]{8,})/);
+  if (!m) return null;
+  var sess = await ctxFetchJSON("/api/auth/session");
+  var token = sess && sess.accessToken;
+  if (!token) return null;
+  var data = await ctxFetchJSON("/backend-api/conversation/" + m[1], { headers: { Authorization: "Bearer " + token } });
+  if (!data || !data.mapping) return null;
+  var map = data.mapping, cur = data.current_node, chain = [], guard = 0;
+  while (cur && guard++ < 100000) { var node = map[cur]; if (!node) break; if (node.message) chain.push(node.message); cur = node.parent; }
+  chain.reverse(); // root -> leaf = chronological, exactly as displayed
+  var out = [];
+  chain.forEach(function (msg) {
+    var role = msg.author && msg.author.role;
+    if (role !== "user" && role !== "assistant") return;
+    var c = msg.content || {};
+    if (c.content_type && c.content_type !== "text" && c.content_type !== "multimodal_text") return;
+    var parts = c.parts || [];
+    var text = parts.map(function (x) { return (typeof x === "string") ? x : (x && x.text ? x.text : ""); }).join("\n").trim();
+    if (!text) return;
+    out.push({ role: role === "user" ? "User" : "Assistant", text: text, ts: msg.create_time || null });
+  });
+  return out;
+}
+
+// Claude: read the complete conversation from its organizations API.
+async function ctxFetchClaude() {
+  var m = location.pathname.match(/\/chat\/([\w-]{8,})/);
+  if (!m) return null;
+  var org = (document.cookie.match(/(?:^|;\s*)lastActiveOrg=([^;]+)/) || [])[1];
+  if (!org) { var orgs = await ctxFetchJSON("/api/organizations"); if (orgs && orgs.length) org = orgs[0].uuid; }
+  if (!org) return null;
+  var data = await ctxFetchJSON("/api/organizations/" + org + "/chat_conversations/" + m[1] + "?tree=True&rendering_mode=raw");
+  if (!data || !data.chat_messages) return null;
+  var out = [];
+  data.chat_messages.forEach(function (mm) {
+    var role = mm.sender === "human" ? "User" : "Assistant";
+    var text = "";
+    if (typeof mm.text === "string" && mm.text) text = mm.text;
+    else if (mm.content) { text = (Array.isArray(mm.content) ? mm.content : [mm.content]).map(function (c) { return c && typeof c.text === "string" ? c.text : (typeof c === "string" ? c : ""); }).join("\n").trim(); }
+    if (!text) return;
+    out.push({ role: role, text: text, ts: mm.created_at || null });
+  });
+  return out;
+}
+
+// No-scroll DOM capture (fallback / non-API platforms). Single pass, no movement.
+function ctxExtractDomMsgs() {
+  var p = (typeof getPlatform === "function") ? getPlatform() : null;
   var host = location.hostname.replace(/^www\./, "");
   var structured = /chatgpt\.com|openai\.com|claude\.ai|gemini\.google\.com|grok\.com|x\.com/.test(host);
   var msgs = [];
   if (structured) {
     try {
       var seen = Object.create(null);
-      ctxExtractVisible().forEach(function(m){
-        var k = m.role + "|" + m.text.length + "|" + m.text.slice(0,160);
-        if (!seen[k]) { seen[k] = true; msgs.push(m); }   // de-dupe, preserve order
+      ctxExtractVisible().forEach(function (m) {
+        var k = m.role + "|" + m.text.length + "|" + m.text.slice(0, 160);
+        if (!seen[k]) { seen[k] = true; msgs.push(m); } // de-dupe, preserve order
       });
-    } catch(_){ msgs = []; }
+    } catch (_) { msgs = []; }
   }
   if (!msgs.length) {
-    // Fallback (Perplexity / future tools): capture the chat container text once, no scroll.
-    var chatEl = (p && typeof findElement==="function") ? findElement(p.chatSelectors) : null;
+    var chatEl = (p && typeof findElement === "function") ? findElement(p.chatSelectors) : null;
     var raw = ((chatEl ? chatEl.innerText : document.body.innerText) || "").trim();
-    msgs = raw ? [{ role:"Conversation", text: raw }] : [];
+    msgs = raw ? [{ role: "Conversation", text: raw }] : [];
   }
-  return { platform:name, title: ctxConvTitle(name), messages: msgs, capturedAt: new Date().toISOString() };
+  return msgs;
+}
+
+async function ctxExtractConversation() {
+  // Prefer the platform's own API: complete (even very long chats), invisible, no
+  // scrolling, with real timestamps. Fall back to a single no-scroll DOM pass.
+  var p = (typeof getPlatform === "function") ? getPlatform() : null;
+  var name = (p && p.name) ? p.name : "AI";
+  var host = location.hostname.replace(/^www\./, "");
+  var msgs = null;
+  try {
+    if (/chatgpt\.com|openai\.com/.test(host)) msgs = await ctxFetchChatGPT();
+    else if (/claude\.ai/.test(host)) msgs = await ctxFetchClaude();
+  } catch (_) { msgs = null; }
+  if (!msgs || !msgs.length) msgs = ctxExtractDomMsgs();
+  return { platform: name, title: ctxConvTitle(name), messages: msgs || [], capturedAt: new Date().toISOString() };
 }
 
 // Split a conversation into backend-sized parts ONLY at message boundaries, so code
@@ -2414,7 +2490,7 @@ function ctxSaveConversation(btn) {
     var slug = conv.platform.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
     var header = "Platform: "+conv.platform+"\nTitle: "+conv.title+"\nCaptured: "+conv.capturedAt.slice(0,10)+"\nMessages: "+conv.messages.length+"\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n";
     // One block per message -> we only split between messages, never inside one.
-    var blocks = conv.messages.map(function(m){ return m.role+":\n"+m.text; });
+    var blocks = conv.messages.map(function(m){ var ts=(typeof ctxFmtTs==="function"&&m.ts)?ctxFmtTs(m.ts):""; return m.role+(ts?" ["+ts+"]":"")+":\n"+m.text; });
     var chunks = ctxChunkBlocks(blocks, CTX_CONV_CHUNK);
     var N = chunks.length;
     var convId = (slug||"chat")+"-"+Date.now().toString(36);
