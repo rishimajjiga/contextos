@@ -2272,3 +2272,46 @@ function ctxIsAuthError(err) {
   var m = ((err && (err.message || err)) || "").toString().toLowerCase();
   return /401|403|unauthor|not connected|sign[\s-]?in|no api key|invalid.*key|\btoken\b/.test(m);
 }
+
+// ── Floating-brain state synchronization (additive, event-driven) ──────────────
+// Keeps the floating brain in sync with the latest saved context, plan/limit, and
+// sign-in state — without polling and without altering existing flows.
+// Triggers come from signals the background already emits:
+//   • storage.local.lastSave  → stamped after EVERY successful save (all paths/tabs)
+//   • storage.sync.apiKey/apiUrl → changes when sign-in / connection changes
+var _ctxSyncCooldown = null;
+function ctxBrainSync() {
+  if (_ctxSyncCooldown) return;        // coalesce bursts (leading-edge), keep CPU minimal
+  _ctxSyncCooldown = setTimeout(function () { _ctxSyncCooldown = null; }, 120);
+  try {
+    // Invalidate caches so nothing renders stale.
+    _panelMemCache = null;
+    _panelProjCache = null;
+
+    // Live-refresh the floating panel if it's open (only the visible tab).
+    var panel = document.getElementById("ctx-panel");
+    if (panel && panel.classList.contains("ctx-open")) {
+      if (_activeTab === "memories" && typeof loadPanelMemories === "function") loadPanelMemories();
+      else if (_activeTab === "projects" && typeof loadPanelProjects === "function") loadPanelProjects();
+    }
+
+    // Live-refresh the sidebar if it's open (preserve the user's current query).
+    var sb = document.getElementById("ctx-sidebar");
+    if (sb && sb.classList.contains("ctx-sidebar-open") && typeof loadMemories === "function") {
+      var qi = document.getElementById("ctx-search-input");
+      loadMemories(qi && qi.value ? qi.value : "");
+    }
+  } catch (_) {}
+}
+
+try {
+  if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.onChanged) {
+    chrome.storage.onChanged.addListener(function (changes, area) {
+      if (!changes) return;
+      // New save (selection / drag / right-click / quick-save) — same tab or other tabs.
+      if (area === "local" && changes.lastSave) { ctxBrainSync(); return; }
+      // Sign-in / connection change → reflect immediately.
+      if (area === "sync" && (changes.apiKey || changes.apiUrl)) { ctxBrainSync(); }
+    });
+  }
+} catch (_) {}
