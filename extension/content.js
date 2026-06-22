@@ -343,13 +343,16 @@ function injectStyles() {
   style.id = "ctx-styles";
   style.textContent = [
     // ── FAB container
-    "#ctx-fab{position:fixed;bottom:20px;right:20px;z-index:2147483646;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:block!important;background:none!important;border:none!important;box-shadow:none!important;padding:0!important;margin:0!important}",
+    "#ctx-fab{position:fixed;bottom:58px;right:20px;z-index:2147483646;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:block!important;background:none!important;border:none!important;box-shadow:none!important;padding:0!important;margin:0!important}",
 
     // ── Brain button
     "#ctx-fab-btn{width:34px;height:34px;border-radius:11px;background:#ffffff;border:1.5px solid rgba(79, 148, 55,0.5);cursor:grab;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 12px rgba(79, 148, 55,0.30);transition:transform .18s,box-shadow .18s;position:relative;user-select:none;line-height:1;padding:0}",
     "#ctx-fab-btn::after{content:'';position:absolute;inset:-4px;border-radius:15px;background:linear-gradient(145deg,#4f9437,#5fa83f);opacity:0.22;animation:ctxPulse 2.4s ease-in-out infinite;pointer-events:none}",
     "#ctx-fab-btn:hover{transform:scale(1.1);box-shadow:0 8px 32px rgba(79, 148, 55,0.7),0 0 0 0 rgba(115, 177, 79,0)}",
     "#ctx-fab-btn:active{cursor:grabbing;transform:scale(0.96)}",
+    "#ctx-save-conv-btn{position:absolute;top:calc(100% + 10px);right:0;display:flex;align-items:center;gap:5px;white-space:nowrap;background:#ffffff;border:1.5px solid rgba(79, 148, 55,0.5);border-radius:999px;color:#2f6b34;font-family:inherit;font-size:11px;font-weight:700;padding:6px 11px;cursor:pointer;box-shadow:0 3px 12px rgba(79, 148, 55,0.28);transition:transform .15s,box-shadow .15s,opacity .15s;line-height:1;z-index:2147483646}",
+    "#ctx-save-conv-btn:hover{transform:translateY(1px);box-shadow:0 5px 16px rgba(79, 148, 55,0.4)}",
+    "#ctx-save-conv-btn:disabled{opacity:0.6;cursor:default}",
 
     // ── Panel
     "#ctx-panel{position:absolute;right:0;width:330px;background:#f7faf2;border:1px solid rgba(45, 70, 35, 0.32);border-radius:20px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,0.7),0 0 0 1px rgba(79, 148, 55,0.15),inset 0 1px 0 rgba(45, 70, 35,0.06);display:none;flex-direction:column;max-height:500px}",
@@ -510,7 +513,7 @@ function injectFAB(platform) {
 
   var fab = document.createElement("div");
   fab.id = "ctx-fab";
-  fab.style.cssText = "position:fixed;bottom:20px;right:20px;z-index:2147483646;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+  fab.style.cssText = "position:fixed;bottom:58px;right:20px;z-index:2147483646;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
 
   fab.innerHTML =
     // ── Floating panel
@@ -538,10 +541,6 @@ function injectFAB(platform) {
           '<textarea id="ctx-save-content" rows="4" style="width:100%;box-sizing:border-box;background:rgba(45, 70, 35,0.06);border:1px solid rgba(45, 70, 35, 0.32);border-radius:9px;color:#1c2e1d;font-family:inherit;font-size:12px;outline:none;padding:8px 11px;resize:vertical;margin-bottom:8px;transition:border-color .15s" placeholder="Content…"></textarea>' +
           '<button id="ctx-quick-save-btn" style="width:100%;background:linear-gradient(135deg,#4f9437,#5fa83f);border:none;border-radius:10px;color:#fff;font-family:inherit;font-size:12px;font-weight:700;padding:10px;cursor:pointer;transition:opacity .15s">💾 Save to Brain</button>' +
           '<div id="ctx-save-status" style="font-size:11px;min-height:16px;margin-top:6px;text-align:center"></div>' +
-          '<div style="height:1px;background:rgba(45,70,35,0.12);margin:14px 0 10px"></div>' +
-          '<div style="font-size:11px;font-weight:700;color:rgba(45,70,35,0.4);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px">Save full chat</div>' +
-          '<button id="ctx-save-conv-btn" style="width:100%;background:#ffffff;border:1.5px solid rgba(79,148,55,0.5);border-radius:10px;color:#2f6b34;font-family:inherit;font-size:12px;font-weight:700;padding:10px;cursor:pointer;transition:opacity .15s">💬 Save Conversation</button>' +
-          '<div id="ctx-save-conv-status" style="font-size:11px;min-height:16px;margin-top:6px;text-align:center"></div>' +
         '</div>' +
       '</div>' +
       // Memories tab
@@ -573,7 +572,8 @@ function injectFAB(platform) {
       '</div>' +
     '</div>' +
     // ── Brain FAB button
-    '<button id="ctx-fab-btn" title="ContextOS · drag to move"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#4f9437" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg></button>';
+    '<button id="ctx-fab-btn" title="ContextOS · drag to move"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#4f9437" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg></button>' +
+    '<button id="ctx-save-conv-btn" title="Save the whole conversation to ContextOS">💬 Save chat</button>';
 
   document.body.appendChild(fab);
 
@@ -2320,122 +2320,147 @@ try {
   }
 } catch (_) {}
 
-// ── Save Entire Conversation (additive) ────────────────────────────────────────
-// One-click capture of the full visible conversation. Runs ONLY on explicit click
-// (no observers, no polling). Platform-specific extraction with a raw fallback so
-// future / unknown AI tools still work. Reuses the existing SAVE_MEMORY pipeline.
+// ---- Save Entire Conversation (additive, full-capture) ------------------------
+// One-click capture of the COMPLETE conversation. Runs ONLY on explicit click.
+// Defeats message virtualization (ChatGPT/Claude/Gemini) by scrolling through the
+// thread once, collecting unique messages in order, then restoring scroll. No
+// observers, no continuous monitoring. Saves via the existing SAVE_MEMORY pipeline.
+
+function ctxSleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
 
 function ctxConvTitle(name) {
   var t = (document.title || "").trim();
-  t = t.replace(/\s*[-–|·]\s*(ChatGPT|OpenAI|Claude|Gemini|Google|Perplexity|Grok|Copilot|Mistral)\b.*$/i, "")
-       .replace(/^(ChatGPT|Claude|Gemini|Perplexity|Grok)\s*[-–|·]\s*/i, "")
-       .trim();
+  t = t.replace(/\s*[-\u2013|\u00b7]\s*(ChatGPT|OpenAI|Claude|Gemini|Google|Perplexity|Grok|Copilot|Mistral)\b.*$/i, "")
+       .replace(/^(ChatGPT|Claude|Gemini|Perplexity|Grok)\s*[-\u2013|\u00b7]\s*/i, "").trim();
   if (!t || t.length < 2) t = name + " conversation";
-  return t.slice(0, 120);
+  return t.slice(0, 200);
 }
 
-function ctxExtractConversation() {
-  var p = (typeof getPlatform === "function") ? getPlatform() : null;
-  var name = (p && p.name) ? p.name : "AI";
+function ctxExtractVisible() {
   var host = location.hostname.replace(/^www\./, "");
-  var msgs = [];
-  function add(role, el) {
-    if (!el) return;
-    var t = (el.innerText || el.textContent || "").replace(/ /g, " ").trim();
-    if (t) msgs.push({ role: role, text: t });
-  }
-
+  var out = [];
+  function add(role, el){ if(!el) return; var x=(el.innerText||el.textContent||"").replace(/\u00a0/g," ").trim(); if(x) out.push({role:role,text:x}); }
   try {
     if (/chatgpt\.com|openai\.com/.test(host)) {
-      // ChatGPT — each turn carries an explicit author role
-      document.querySelectorAll("[data-message-author-role]").forEach(function (el) {
-        add(el.getAttribute("data-message-author-role") === "user" ? "User" : "Assistant", el);
-      });
+      document.querySelectorAll("[data-message-author-role]").forEach(function(el){ add(el.getAttribute("data-message-author-role")==="user"?"User":"Assistant", el); });
     } else if (/claude\.ai/.test(host)) {
-      // Claude — user bubbles + assistant message blocks, read in document order
-      document.querySelectorAll('[data-testid="user-message"], .font-claude-message').forEach(function (el) {
-        add(el.matches('[data-testid="user-message"]') ? "User" : "Assistant", el);
-      });
+      document.querySelectorAll('[data-testid="user-message"], .font-claude-message').forEach(function(el){ add(el.matches('[data-testid="user-message"]')?"User":"Assistant", el); });
     } else if (/gemini\.google\.com/.test(host)) {
-      // Gemini — custom <user-query> / <model-response> elements
-      document.querySelectorAll("user-query, model-response").forEach(function (el) {
-        add((el.tagName || "").toLowerCase() === "user-query" ? "User" : "Assistant", el);
-      });
+      document.querySelectorAll("user-query, model-response").forEach(function(el){ add((el.tagName||"").toLowerCase()==="user-query"?"User":"Assistant", el); });
     } else if (/grok\.com|x\.com/.test(host)) {
-      // Grok — best-effort by message bubbles + alignment heuristic
-      document.querySelectorAll('[class*="message-bubble"], [data-testid*="message"]').forEach(function (el) {
-        var cls = (el.className && el.className.toString) ? el.className.toString() : "";
-        add(/user|from-user|justify-end|items-end|self-end/.test(cls) ? "User" : "Assistant", el);
-      });
+      document.querySelectorAll('[class*="message-bubble"], [data-testid*="message"]').forEach(function(el){ var cls=(el.className&&el.className.toString)?el.className.toString():""; add(/user|from-user|justify-end|items-end|self-end/.test(cls)?"User":"Assistant", el); });
     }
-  } catch (_) {}
-
-  // Fallback (Perplexity / future tools / anything that changed its DOM):
-  // capture the chat container's text as one ordered block — still complete & searchable.
-  if (msgs.length < 2) {
-    var raw = (typeof getPageText === "function") ? getPageText() : (document.body.innerText || "").slice(0, 8000);
-    raw = (raw || "").trim();
-    msgs = raw ? [{ role: "Conversation", text: raw }] : [];
-  }
-
-  return { platform: name, title: ctxConvTitle(name), messages: msgs, capturedAt: new Date().toISOString() };
+  } catch(_){}
+  return out;
 }
 
-function ctxSaveConversation(btn) {
-  var statusEl = document.getElementById("ctx-save-conv-status");
-  function setStatus(txt, color) { if (statusEl) { statusEl.textContent = txt || ""; statusEl.style.color = color || ""; } }
-  var orig = btn ? btn.textContent : "💬 Save Conversation";
-  if (btn) { btn.disabled = true; btn.textContent = "Capturing…"; }
-
-  var conv = null;
-  try { conv = ctxExtractConversation(); } catch (_) {}
-  if (!conv || !conv.messages || !conv.messages.length) {
-    setStatus("No conversation found on this page.", "#dc2626");
-    if (btn) { btn.disabled = false; btn.textContent = orig; }
-    return;
+function ctxFindScroller() {
+  var m = document.querySelector('[data-message-author-role], [data-testid="user-message"], .font-claude-message, user-query, model-response, [class*="message-bubble"]');
+  var el = m ? m.parentElement : null;
+  while (el && el !== document.body && el !== document.documentElement) {
+    try { var st = getComputedStyle(el); if (/(auto|scroll)/.test(st.overflowY) && el.scrollHeight > el.clientHeight + 60) return el; } catch(_){}
+    el = el.parentElement;
   }
+  return null;
+}
 
-  var slug = conv.platform.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  var header =
-    "Platform: " + conv.platform + "\n" +
-    "Title: " + conv.title + "\n" +
-    "Captured: " + conv.capturedAt.slice(0, 10) + "\n" +
-    "Messages: " + conv.messages.length + "\n\n" +
-    "────────────────────\n\n";
-  var body = conv.messages.map(function (m) { return m.role + ":\n" + m.text; }).join("\n\n");
-  var content = header + body;
-  if (content.length > MAX_CHARS) content = content.slice(0, MAX_CHARS - 16) + "\n… [truncated]";
+async function ctxCollectScrolling(extractFn) {
+  var sc = ctxFindScroller();
+  var gT=function(){ return sc?sc.scrollTop:(window.scrollY||document.documentElement.scrollTop||0); };
+  var sT=function(v){ if(sc) sc.scrollTop=v; else window.scrollTo(0,v); };
+  var vh=function(){ return sc?sc.clientHeight:window.innerHeight; };
+  var mx=function(){ return sc?(sc.scrollHeight-sc.clientHeight):(document.documentElement.scrollHeight-window.innerHeight); };
+  var orig=gT(), seen=Object.create(null), ordered=[];
+  function grab(){ extractFn().forEach(function(msg){ var k=msg.role+"|"+msg.text.length+"|"+msg.text.slice(0,160); if(!seen[k]){ seen[k]=true; ordered.push(msg);} }); }
+  sT(0); await ctxSleep(180); grab();
+  var steps=0, stale=0, prev=-1;
+  while (steps < 60) {
+    var cur=gT(), max=mx();
+    if (cur >= max-4) { grab(); break; }
+    sT(Math.min(max, cur + vh()*0.85));
+    await ctxSleep(130);
+    var before=ordered.length; grab();
+    stale = (ordered.length===before) ? stale+1 : 0;
+    if (stale>=2 && gT() >= mx()-4) break;
+    if (gT()===prev && stale>=2) break;
+    prev=gT(); steps++;
+  }
+  sT(orig);
+  return ordered;
+}
 
-  var tags = ["conversation", "chat"];
-  if (slug) tags.push(slug);
+async function ctxScrollThroughAll() {
+  var sc = ctxFindScroller(); if(!sc) return;
+  var orig=sc.scrollTop;
+  for (var i=0;i<40;i++){ var cur=sc.scrollTop, max=sc.scrollHeight-sc.clientHeight; if(cur>=max-4) break; sc.scrollTop=Math.min(max,cur+sc.clientHeight*0.9); await ctxSleep(110); if(sc.scrollTop===cur) break; }
+  sc.scrollTop=orig;
+}
 
-  if (btn) btn.textContent = "Saving…";
-  try { if (typeof ctxStatusToast === "function") ctxStatusToast(navigator.onLine ? "saving" : "offline"); } catch (_) {}
+async function ctxExtractConversation() {
+  var p = (typeof getPlatform==="function")?getPlatform():null;
+  var name = (p&&p.name)?p.name:"AI";
+  var host = location.hostname.replace(/^www\./, "");
+  var structured = /chatgpt\.com|openai\.com|claude\.ai|gemini\.google\.com|grok\.com|x\.com/.test(host);
+  var msgs = [];
+  if (structured) { try { msgs = await ctxCollectScrolling(ctxExtractVisible); } catch(_){ try{ msgs = ctxExtractVisible(); }catch(__){ msgs=[]; } } }
+  if (!msgs || msgs.length < 2) {
+    try { await ctxScrollThroughAll(); } catch(_){}
+    var chatEl = (p && typeof findElement==="function") ? findElement(p.chatSelectors) : null;
+    var raw = ((chatEl ? chatEl.innerText : document.body.innerText) || "").trim();
+    msgs = raw ? [{ role:"Conversation", text: raw }] : [];
+  }
+  return { platform:name, title: ctxConvTitle(name), messages: msgs, capturedAt: new Date().toISOString() };
+}
 
-  sendMessage("SAVE_MEMORY", { title: conv.title, content: content, tags: tags }).then(function () {
-    try { _panelMemCache = null; } catch (_) {}
-    setStatus("✓ Conversation saved to your brain.", "#15803d");
-    try { if (typeof ctxStatusToast === "function") ctxStatusToast("saved"); } catch (_) {}
-    setTimeout(function () { if (btn) { btn.disabled = false; btn.textContent = orig; } setStatus(""); }, 2200);
-  }).catch(function (err) {
-    if (btn) { btn.disabled = false; btn.textContent = orig; }
-    try {
-      if (!navigator.onLine) ctxStatusToast("offline");
-      else if (typeof isLimitError === "function" && isLimitError(err)) ctxStatusToast("limit");
-      else if (typeof ctxIsAuthError === "function" && ctxIsAuthError(err)) ctxStatusToast("signin");
-      else if (typeof ctxStatusToast === "function") ctxStatusToast("error", { retry: function () { ctxSaveConversation(btn); } });
-    } catch (_) {}
-    setStatus((typeof friendlyPanelError === "function" ? friendlyPanelError(err) : "") || "Failed to save conversation.", "#dc2626");
+var CTX_CONV_MAX = 180000;
+var CTX_CONV_LABEL = "💬 Save chat";
+
+function ctxSaveConversation(btn) {
+  if (!btn) btn = document.getElementById("ctx-save-conv-btn");
+  function reset(d){ setTimeout(function(){ if(btn){ btn.disabled=false; btn.textContent=CTX_CONV_LABEL; } }, d||0); }
+  if (btn){ btn.disabled=true; btn.textContent="Capturing\u2026"; }
+
+  ctxExtractConversation().then(function(conv){
+    if (!conv || !conv.messages || !conv.messages.length) {
+      if(btn) btn.textContent="No chat found";
+      try { if(typeof ctxStatusToast==="function") ctxStatusToast("error"); } catch(_){}
+      reset(1800); return;
+    }
+    var slug = conv.platform.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+    var header = "Platform: "+conv.platform+"\nTitle: "+conv.title+"\nCaptured: "+conv.capturedAt.slice(0,10)+"\nMessages: "+conv.messages.length+"\n\n────────────────────\n\n";
+    var body = conv.messages.map(function(m){ return m.role+":\n"+m.text; }).join("\n\n");
+    var content = header + body;
+    if (content.length > CTX_CONV_MAX) content = content.slice(0, CTX_CONV_MAX-16) + "\n… [truncated]";
+    var tags = ["conversation","chat"]; if(slug) tags.push(slug);
+
+    if(btn) btn.textContent="Saving\u2026";
+    try { if(typeof ctxStatusToast==="function") ctxStatusToast(navigator.onLine?"saving":"offline"); } catch(_){}
+
+    sendMessage("SAVE_MEMORY", { title: conv.title, content: content, tags: tags }).then(function(){
+      try { _panelMemCache = null; } catch(_){}
+      if(btn) btn.textContent="✓ Saved";
+      try { if(typeof ctxStatusToast==="function") ctxStatusToast("saved"); } catch(_){}
+      reset(2000);
+    }).catch(function(err){
+      try {
+        if(!navigator.onLine) ctxStatusToast("offline");
+        else if(typeof isLimitError==="function" && isLimitError(err)) ctxStatusToast("limit");
+        else if(typeof ctxIsAuthError==="function" && ctxIsAuthError(err)) ctxStatusToast("signin");
+        else if(typeof ctxStatusToast==="function") ctxStatusToast("error", { retry: function(){ ctxSaveConversation(btn); } });
+      } catch(_){}
+      if(btn) btn.textContent="Failed";
+      reset(2000);
+    });
+  }).catch(function(){
+    if(btn) btn.textContent="Failed";
+    try { if(typeof ctxStatusToast==="function") ctxStatusToast("error"); } catch(_){}
+    reset(2000);
   });
 }
 
-// Delegated, capture-phase click handler — no per-render binding, fully additive.
-document.addEventListener("click", function (e) {
-  var t = e.target;
-  if (!t || !t.closest) return;
-  var b = t.closest("#ctx-save-conv-btn");
-  if (!b) return;
-  e.preventDefault();
-  e.stopPropagation();
+document.addEventListener("click", function(e){
+  var t=e.target; if(!t||!t.closest) return;
+  var b=t.closest("#ctx-save-conv-btn"); if(!b) return;
+  e.preventDefault(); e.stopPropagation();
   ctxSaveConversation(b);
 }, true);
