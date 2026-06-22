@@ -267,6 +267,24 @@ function HeroIllustration() {
   );
 }
 
+function HeroVisual() {
+  // Prefers the real hero image at /hero-brain.png (drop a PNG with that name
+  // into frontend/public/). Falls back to the built-in SVG illustration so the
+  // page never shows a broken image.
+  const [imgOk, setImgOk] = useState(true);
+  if (!imgOk) return <HeroIllustration />;
+  return (
+    <motion.img
+      src="/hero-brain.png"
+      alt="ContextOS — your second brain connected to every AI tool"
+      onError={() => setImgOk(false)}
+      className="mx-auto w-full max-w-[560px] drop-shadow-[0_24px_50px_rgba(45,90,35,0.18)]"
+      animate={{ y: [0, -12, 0] }}
+      transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+    />
+  );
+}
+
 export function LandingPage() {
   return (
     <div className="min-h-screen bg-surface-0 text-foreground">
@@ -368,7 +386,7 @@ export function LandingPage() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
           >
-            <HeroIllustration />
+            <HeroVisual />
           </motion.div>
         </div>
       </section>
