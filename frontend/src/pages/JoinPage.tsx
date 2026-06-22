@@ -69,7 +69,7 @@ export function JoinPage() {
 
         {status === "error" && (
           <>
-            <h1 className="mb-2 text-lg font-semibold text-red-400">Invite error</h1>
+            <h1 className="mb-2 text-lg font-semibold text-red-600">Invite error</h1>
             <p className="mb-6 text-sm text-text-secondary">{errorMsg}</p>
             <Button variant="outline" onClick={() => navigate("/dashboard")} className="w-full">
               Go to Dashboard

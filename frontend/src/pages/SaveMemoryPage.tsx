@@ -98,17 +98,17 @@ export function SaveMemoryPage() {
       )}
       {!backend.checking && !backend.ok && (
         <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 flex items-start gap-3">
-          <AlertCircle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+          <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-medium text-amber-300">Backend not running</p>
-            <p className="text-xs text-amber-300/80 mt-0.5">{backend.message}</p>
+            <p className="text-sm font-medium text-amber-700">Backend not running</p>
+            <p className="text-xs text-amber-700/80 mt-0.5">{backend.message}</p>
           </div>
         </div>
       )}
 
       {/* API error */}
       {error && (
-        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300 flex justify-between items-center">
+        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600 flex justify-between items-center">
           <span>{error}</span>
           <button onClick={clearError} className="underline text-xs ml-3">Dismiss</button>
         </div>

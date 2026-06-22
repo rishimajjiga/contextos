@@ -72,7 +72,7 @@ export function UpgradeModal({ resource, limit, plan, onClose }: Props) {
           <ul className="space-y-2">
             {["Unlimited projects", "Unlimited memories", "5 API keys", "Unlimited auto-inject"].map((f) => (
               <li key={f} className="flex items-center gap-2 text-text-primary">
-                <svg className="w-4 h-4 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-green-700 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
                 {f}
@@ -84,7 +84,7 @@ export function UpgradeModal({ resource, limit, plan, onClose }: Props) {
         <button
           onClick={handleUpgrade}
           disabled={loading}
-          className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold text-sm transition-all disabled:opacity-60 mb-3"
+          className="w-full py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl font-semibold text-sm transition-all disabled:opacity-60 mb-3"
         >
           {loading ? "Opening payment..." : "Upgrade to Pro - Rs.499/month"}
         </button>

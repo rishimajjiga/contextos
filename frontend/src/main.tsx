@@ -25,14 +25,14 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <App />
         <Toaster
           position="bottom-right"
-          theme="dark"
+          theme="light"
           richColors
           closeButton
           toastOptions={{
             style: {
-              background: "hsl(240 5% 10%)",
-              border: "1px solid hsl(240 5% 18%)",
-              color: "hsl(0 0% 95%)",
+              background: "hsl(96 50% 99%)",
+              border: "1px solid hsl(102 24% 83%)",
+              color: "hsl(130 28% 13%)",
             },
           }}
         />

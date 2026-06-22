@@ -70,12 +70,12 @@ function Blobs() {
         transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
-        className="absolute top-20 right-1/4 h-[420px] w-[420px] rounded-full bg-fuchsia-500/15 blur-[130px]"
+        className="absolute top-20 right-1/4 h-[420px] w-[420px] rounded-full bg-green-500/15 blur-[130px]"
         animate={{ x: [0, -50, 30, 0], y: [0, 30, 50, 0], scale: [1, 0.9, 1.1, 1] }}
         transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
-        className="absolute bottom-0 left-1/3 h-[360px] w-[360px] rounded-full bg-indigo-500/15 blur-[120px]"
+        className="absolute bottom-0 left-1/3 h-[360px] w-[360px] rounded-full bg-green-500/15 blur-[120px]"
         animate={{ x: [0, 40, -40, 0], y: [0, -30, 20, 0] }}
         transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
       />

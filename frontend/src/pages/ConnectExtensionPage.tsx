@@ -48,22 +48,23 @@ export function ConnectExtensionPage() {
   const wrap: React.CSSProperties = {
     minHeight: "100vh", display: "flex", alignItems: "center",
     justifyContent: "center", padding: "1.5rem",
-    background: "hsl(240 5% 4%)",
+    background: "hsl(96 33% 95%)",
   };
   const card: React.CSSProperties = {
-    background: "hsl(240 5% 7%)", border: "1px solid hsl(240 5% 16%)",
-    borderRadius: "1rem", padding: "2.5rem 2rem",
+    background: "hsl(96 50% 99%)", border: "1px solid hsl(102 24% 83%)",
+    borderRadius: "1.25rem", padding: "2.5rem 2rem",
     maxWidth: "420px", width: "100%", textAlign: "center",
+    boxShadow: "0 2px 10px -3px rgba(45,80,35,0.08), 0 16px 40px -18px rgba(45,80,35,0.16)",
   };
 
   return (
     <div style={wrap}>
       <div style={card}>
         <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>🧠</div>
-        <h1 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#f2f2f2", marginBottom: "0.25rem" }}>
+        <h1 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#1c2e1d", marginBottom: "0.25rem" }}>
           ContextOS
         </h1>
-        <p style={{ fontSize: "0.8rem", color: "#888", marginBottom: "1.5rem" }}>
+        <p style={{ fontSize: "0.8rem", color: "#5a6b58", marginBottom: "1.5rem" }}>
           Chrome Extension Setup
         </p>
 
@@ -73,31 +74,31 @@ export function ConnectExtensionPage() {
             afterSignInUrl="/connect-extension"
             appearance={{
               variables: {
-                colorPrimary: "#6366f1",
-                colorBackground: "hsl(240 5% 7%)",
-                colorInputBackground: "hsl(240 4% 14%)",
-                colorText: "hsl(0 0% 95%)",
-                colorTextSecondary: "hsl(240 5% 55%)",
-                colorInputText: "hsl(0 0% 95%)",
-                borderRadius: "0.5rem",
+                colorPrimary: "#4f9437",
+                colorBackground: "hsl(96 50% 99%)",
+                colorInputBackground: "hsl(100 33% 97%)",
+                colorText: "hsl(130 28% 13%)",
+                colorTextSecondary: "hsl(125 14% 38%)",
+                colorInputText: "hsl(130 28% 13%)",
+                borderRadius: "0.75rem",
               },
             }}
           />
         )}
 
         {stage === "loading" && (
-          <p style={{ color: "#888" }}>Checking your account...</p>
+          <p style={{ color: "#5a6b58" }}>Checking your account...</p>
         )}
 
         {stage === "connecting" && (
-          <p style={{ color: "#888" }}>Connecting your extension...</p>
+          <p style={{ color: "#5a6b58" }}>Connecting your extension...</p>
         )}
 
         {stage === "success" && (
           <div>
             <div style={{ fontSize: "2rem", marginBottom: "0.75rem" }}>✓</div>
-            <p style={{ color: "#34d399", fontWeight: 700 }}>Connected!</p>
-            <p style={{ color: "#888", fontSize: "0.8rem", marginTop: "0.5rem" }}>
+            <p style={{ color: "#2e7d32", fontWeight: 700 }}>Connected!</p>
+            <p style={{ color: "#5a6b58", fontSize: "0.8rem", marginTop: "0.5rem" }}>
               This window will close automatically.
             </p>
           </div>
@@ -106,13 +107,13 @@ export function ConnectExtensionPage() {
         {stage === "error" && (
           <div>
             <div style={{ fontSize: "2rem", marginBottom: "0.75rem" }}>⚠️</div>
-            <p style={{ color: "#f87171", fontWeight: 700 }}>Connection failed</p>
-            <p style={{ color: "#888", fontSize: "0.8rem", margin: "0.5rem 0 1rem" }}>{errorMsg}</p>
+            <p style={{ color: "#dc2626", fontWeight: 700 }}>Connection failed</p>
+            <p style={{ color: "#5a6b58", fontSize: "0.8rem", margin: "0.5rem 0 1rem" }}>{errorMsg}</p>
             <button
               onClick={() => { didConnect.current = false; setStage("connecting"); connectExtension(); }}
               style={{
-                padding: "0.6rem 1.25rem", background: "#6366f1", color: "#fff",
-                border: "none", borderRadius: "0.5rem", cursor: "pointer", fontWeight: 700,
+                padding: "0.6rem 1.25rem", background: "#4f9437", color: "#fff",
+                border: "none", borderRadius: "999px", cursor: "pointer", fontWeight: 700,
               }}
             >
               Try Again

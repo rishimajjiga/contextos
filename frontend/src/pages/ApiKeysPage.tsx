@@ -70,7 +70,7 @@ function NewKeyModal({
 
         <div className="space-y-5 mt-1">
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-            <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+            <p className="text-xs font-medium text-amber-600 dark:text-amber-600">
               Copy this key now — it won't be shown again.
             </p>
           </div>
@@ -278,7 +278,7 @@ export function ApiKeysPage() {
 
       {/* Plan limit banner */}
       {atLimit && (
-        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400">
+        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-600">
           {limitMessage}
         </div>
       )}

@@ -144,7 +144,7 @@ export function SettingsPage() {
               <div className="flex items-center gap-2">
                 <PlanBadge plan={plan.plan} />
                 {plan.is_trialing && (
-                  <span className="inline-flex items-center border border-green-500/30 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-green-600/10 text-green-400">
+                  <span className="inline-flex items-center border border-green-500/30 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-green-600/10 text-green-700">
                     Trial
                   </span>
                 )}
@@ -158,7 +158,7 @@ export function SettingsPage() {
               <div className="rounded-lg border border-green-500/30 bg-green-500/8 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-green-400 mb-1">
+                    <p className="text-sm font-semibold text-green-700 mb-1">
                       🎓 Free trial — {daysLeft} day{daysLeft !== 1 ? "s" : ""} left
                     </p>
                     <p className="text-xs text-muted-foreground">
@@ -217,7 +217,7 @@ export function SettingsPage() {
             {/* Student plan details card */}
             {plan.plan === "student" && (
               <div className="rounded-lg border border-green-500/25 bg-green-500/5 p-4 space-y-2">
-                <p className="text-sm font-medium text-green-400">🎓 Student Plan</p>
+                <p className="text-sm font-medium text-green-700">🎓 Student Plan</p>
                 <ul className="text-xs text-muted-foreground space-y-1">
                   <li>• 100 memories, 3 projects, 3 API keys</li>
                   <li>• Unlimited auto-inject</li>
@@ -226,8 +226,8 @@ export function SettingsPage() {
                 </ul>
                 <p className="text-xs text-muted-foreground pt-1 border-t border-green-500/20">
                   Verified via{" "}
-                  <code className="text-green-400 bg-green-500/10 px-1 rounded">.edu</code> or{" "}
-                  <code className="text-green-400 bg-green-500/10 px-1 rounded">.ac.in</code> email.
+                  <code className="text-green-700 bg-green-500/10 px-1 rounded">.edu</code> or{" "}
+                  <code className="text-green-700 bg-green-500/10 px-1 rounded">.ac.in</code> email.
                   Need more? Upgrade to Pro for 500 memories and unlimited projects.
                 </p>
               </div>
@@ -248,7 +248,7 @@ export function SettingsPage() {
               {plan.plan === "free" && (
                 <button
                   onClick={() => navigate("/pricing")}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-semibold transition-colors"
+                  className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm font-semibold transition-colors"
                 >
                   ⚡ Upgrade plan
                 </button>
@@ -256,7 +256,7 @@ export function SettingsPage() {
               {plan.plan === "student" && !plan.is_trialing && (
                 <button
                   onClick={() => navigate("/pricing")}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-semibold transition-colors"
+                  className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm font-semibold transition-colors"
                 >
                   Upgrade to Pro
                 </button>
@@ -287,7 +287,7 @@ export function SettingsPage() {
           </p>
           {plan?.is_in_grace_period && (
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/8 p-3">
-              <p className="text-xs text-amber-400 leading-relaxed">
+              <p className="text-xs text-amber-600 leading-relaxed">
                 ⚠ Your subscription has expired. Download your data before it is cleaned up after
                 the grace period ends.
               </p>

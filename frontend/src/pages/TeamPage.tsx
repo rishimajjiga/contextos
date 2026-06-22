@@ -154,10 +154,10 @@ export function TeamPage() {
       {/* Server down notice */}
       {serverDown && (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 flex items-start gap-3">
-          <AlertCircle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+          <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-medium text-amber-300">Backend not reachable</p>
-            <p className="text-xs text-amber-300/80 mt-0.5">
+            <p className="text-sm font-medium text-amber-700">Backend not reachable</p>
+            <p className="text-xs text-amber-700/80 mt-0.5">
               Make sure the backend server is running on port 8000, then{" "}
               <button
                 className="underline font-medium"
@@ -172,7 +172,7 @@ export function TeamPage() {
       )}
 
       {showUpgrade && (
-        <div className="rounded-2xl border border-purple-500/30 bg-purple-500/5 p-6 text-center space-y-4">
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6 text-center space-y-4">
           <div className="text-3xl">👥</div>
           <h3 className="text-lg font-semibold text-foreground">Team plan required</h3>
           <p className="text-sm text-muted-foreground max-w-sm mx-auto">
@@ -197,9 +197,9 @@ export function TeamPage() {
       )}
 
       {error && (
-        <div className="rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3 text-sm text-red-300 flex items-center justify-between">
+        <div className="rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3 text-sm text-red-600 flex items-center justify-between">
           <span>{error}</span>
-          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300 ml-3">
+          <button onClick={() => setError(null)} className="text-red-600 hover:text-red-600 ml-3">
             <X className="h-4 w-4" />
           </button>
         </div>

@@ -40,7 +40,7 @@ function GracePeriodBanner() {
 
   return (
     <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 flex items-center justify-between gap-4 text-sm flex-wrap">
-      <span className="text-amber-700 dark:text-amber-300">
+      <span className="text-amber-700 dark:text-amber-700">
         Your subscription has expired. Data is read-only and will be{" "}
         <strong>permanently deleted on {deleteDate}</strong>.
         Download your backup now or renew to keep it.
@@ -55,7 +55,7 @@ function GracePeriodBanner() {
         </button>
         <Link
           to="/pricing"
-          className="px-3 py-1 border border-amber-500 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 rounded-md font-medium text-xs transition-colors"
+          className="px-3 py-1 border border-amber-500 text-amber-700 dark:text-amber-700 hover:bg-amber-500/20 rounded-md font-medium text-xs transition-colors"
         >
           Renew Plan
         </Link>

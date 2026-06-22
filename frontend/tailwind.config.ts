@@ -50,26 +50,27 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // ContextOS brand colors
+        // ContextOS brand colors — botanical leaf green
         brand: {
-          50:  "#f0f4ff",
-          100: "#e0e9ff",
-          200: "#c7d7fe",
-          300: "#a5b8fc",
-          400: "#818cf8",
-          500: "#6366f1",
-          600: "#4f46e5",
-          700: "#4338ca",
-          800: "#3730a3",
-          900: "#312e81",
-          950: "#1e1b4b",
+          50:  "#f1f8ec",
+          100: "#ddeece",
+          200: "#bfdda6",
+          300: "#9ac978",
+          400: "#73b14f",
+          500: "#4f9437",
+          600: "#3d7a2b",
+          700: "#316023",
+          800: "#294e20",
+          900: "#23411d",
+          950: "#0f2410",
         },
+        // Light sage surfaces (lighter index = whiter panel; deeper = hover/raised)
         surface: {
-          0:   "#09090b",
-          1:   "#0f0f12",
-          2:   "#141418",
-          3:   "#1c1c22",
-          4:   "#26262f",
+          0:   "#eef3e7",
+          1:   "#f7faf2",
+          2:   "#e7efdd",
+          3:   "#dde8d0",
+          4:   "#d2e0c2",
         },
       },
       borderRadius: {
@@ -79,7 +80,14 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["Inter var", "Inter", "system-ui", "sans-serif"],
+        display: ["Fraunces", "Inter var", "Inter", "serif"],
+        serif: ["Fraunces", "Georgia", "serif"],
         mono: ["JetBrains Mono", "Fira Code", "monospace"],
+      },
+      boxShadow: {
+        soft: "0 1px 2px rgba(45,70,35,0.04), 0 8px 24px -10px rgba(45,80,35,0.12)",
+        card: "0 2px 10px -3px rgba(45,80,35,0.08), 0 16px 40px -18px rgba(45,80,35,0.16)",
+        glow: "0 10px 34px -8px rgba(79,148,55,0.38)",
       },
       keyframes: {
         "accordion-down": {
@@ -112,7 +120,13 @@ const config: Config = {
       },
       backgroundImage: {
         shimmer:
-          "linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.05) 50%, transparent 75%)",
+          "linear-gradient(90deg, transparent 25%, rgba(45,80,35,0.06) 50%, transparent 75%)",
+        "sage-gradient":
+          "linear-gradient(180deg, #d7e7c6 0%, #e6f0da 55%, #f3f8ec 100%)",
+        "hero-gradient":
+          "radial-gradient(120% 90% at 50% -10%, #d4e8bf 0%, #e6f0da 45%, #f3f8ec 100%)",
+        "leaf-gradient":
+          "linear-gradient(135deg, #4f9437, #5fa83f)",
       },
     },
   },
