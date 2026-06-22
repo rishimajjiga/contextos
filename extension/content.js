@@ -2430,7 +2430,7 @@ function ctxSaveConversation(btn) {
     var header = "Platform: "+conv.platform+"\nTitle: "+conv.title+"\nCaptured: "+conv.capturedAt.slice(0,10)+"\nMessages: "+conv.messages.length+"\n\n────────────────────\n\n";
     var body = conv.messages.map(function(m){ return m.role+":\n"+m.text; }).join("\n\n");
     var content = header + body;
-    if (content.length > CTX_CONV_MAX) content = content.slice(0, CTX_CONV_MAX-16) + "\n… [truncated]";
+    // Unlimited conversation saving — no client-side truncation (backend content is unbounded TEXT).
     var tags = ["conversation","chat"]; if(slug) tags.push(slug);
 
     if(btn) btn.textContent="Saving\u2026";

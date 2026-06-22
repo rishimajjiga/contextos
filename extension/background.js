@@ -14,6 +14,7 @@ chrome.runtime.onConnect.addListener((port) => {
 // ── Response cache ────────────────────────────────────────────────────────────
 const _cache = new Map();
 const _inflight = new Map();
+let _epoch = 0; // bumped on every invalidation so in-flight fetches can't re-cache stale data
 
 function cacheGet(key) {
   const e = _cache.get(key);
@@ -23,15 +24,22 @@ function cacheGet(key) {
 }
 function cacheSet(key, data, ttl) { _cache.set(key, { data, expiry: Date.now() + ttl }); }
 function cacheInvalidate(...prefixes) {
+  _epoch++;
   for (const key of _cache.keys())
     if (prefixes.some(p => key.startsWith(p))) _cache.delete(key);
+  // Also drop matching in-flight fetches so the next request starts fresh.
+  for (const key of _inflight.keys())
+    if (prefixes.some(p => key.startsWith(p))) _inflight.delete(key);
 }
 
 async function deduped(key, fetcher) {
   const hit = cacheGet(key);
   if (hit !== null) return hit;
   if (_inflight.has(key)) return _inflight.get(key);
-  const p = fetcher().finally(() => _inflight.delete(key));
+  const startEpoch = _epoch;
+  const p = fetcher()
+    .then((data) => { if (_epoch !== startEpoch) _cache.delete(key); return data; })
+    .finally(() => _inflight.delete(key));
   _inflight.set(key, p);
   return p;
 }
