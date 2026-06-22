@@ -11,14 +11,14 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(20, 20, 40, 0.96);
-  border: 1px solid rgba(99, 102, 241, 0.55);
+  background: rgba(247, 250, 242, 0.96);
+  border: 1px solid rgba(79, 148, 55, 0.55);
   border-radius: 999px;
   padding: 8px 14px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 13px;
-  color: #fff;
+  color:#1c2e1d;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   animation: ctx-chip-in 0.2s ease;
@@ -31,10 +31,10 @@
 }
 
 #ctx-suggestion-inject {
-  background: #6366F1;
+  background: #4f9437;
   border: none;
   border-radius: 999px;
-  color: #fff;
+  color:#fff;
   font-size: 12px;
   font-weight: 600;
   padding: 4px 12px;
@@ -43,13 +43,13 @@
 }
 
 #ctx-suggestion-inject:hover {
-  background: #4F46E5;
+  background: #3d7a2b;
 }
 
 #ctx-suggestion-dismiss {
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(45, 70, 35, 0.45);
   font-size: 14px;
   cursor: pointer;
   padding: 0 2px;
@@ -58,7 +58,7 @@
 }
 
 #ctx-suggestion-dismiss:hover {
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(45, 70, 35, 0.9);
 }
 
 /* ── Memory Picker Panel ──────────────────────────────────────────────────── */
@@ -71,12 +71,12 @@
   z-index: 2147483647;
   width: 380px;
   max-width: calc(100vw - 32px);
-  background: rgba(18, 18, 35, 0.97);
-  border: 1px solid rgba(99, 102, 241, 0.4);
+  background: rgba(247, 250, 242, 0.97);
+  border: 1px solid rgba(79, 148, 55, 0.4);
   border-radius: 14px;
   box-shadow: 0 8px 36px rgba(0, 0, 0, 0.55);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  color: #fff;
+  color:#1c2e1d;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   overflow: hidden;
@@ -92,14 +92,14 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: rgba(255, 255, 255, 0.55);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(45, 70, 35, 0.55);
+  border-bottom: 1px solid rgba(45, 70, 35, 0.08);
 }
 
 .ctx-picker-close {
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(45, 70, 35, 0.4);
   font-size: 14px;
   cursor: pointer;
   padding: 0 2px;
@@ -107,7 +107,7 @@
   transition: color 0.15s;
 }
 
-.ctx-picker-close:hover { color: rgba(255, 255, 255, 0.9); }
+.ctx-picker-close:hover { color: rgba(45, 70, 35, 0.9); }
 
 .ctx-picker-list {
   padding: 6px 0;
@@ -118,13 +118,13 @@
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(45, 70, 35, 0.06);
   transition: background 0.12s;
 }
 
 .ctx-picker-item:last-child { border-bottom: none; }
 
-.ctx-picker-item:hover { background: rgba(255, 255, 255, 0.04); }
+.ctx-picker-item:hover { background: rgba(45, 70, 35, 0.04); }
 
 .ctx-picker-item-info {
   flex: 1;
@@ -134,7 +134,7 @@
 .ctx-picker-title {
   font-size: 13px;
   font-weight: 600;
-  color: #fff;
+  color:#1c2e1d;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -142,7 +142,7 @@
 
 .ctx-picker-preview {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(45, 70, 35, 0.45);
   margin-top: 2px;
   white-space: nowrap;
   overflow: hidden;
@@ -150,10 +150,10 @@
 }
 
 .ctx-picker-inject-one {
-  background: rgba(99, 102, 241, 0.18);
-  border: 1px solid rgba(99, 102, 241, 0.45);
+  background: rgba(79, 148, 55, 0.18);
+  border: 1px solid rgba(79, 148, 55, 0.45);
   border-radius: 8px;
-  color: #a5b4fc;
+  color: #2f6b34;
   font-size: 11px;
   font-weight: 600;
   padding: 4px 10px;
@@ -164,21 +164,21 @@
 }
 
 .ctx-picker-inject-one:hover {
-  background: #6366F1;
-  color: #fff;
+  background: #4f9437;
+  color:#fff;
 }
 
 .ctx-picker-footer {
   padding: 8px 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(45, 70, 35, 0.08);
 }
 
 #ctx-picker-inject-all {
   width: 100%;
-  background: #6366F1;
+  background: #4f9437;
   border: none;
   border-radius: 8px;
-  color: #fff;
+  color:#fff;
   font-size: 12px;
   font-weight: 700;
   padding: 8px;
@@ -186,7 +186,7 @@
   transition: background 0.15s;
 }
 
-#ctx-picker-inject-all:hover { background: #4F46E5; }
+#ctx-picker-inject-all:hover { background: #3d7a2b; }
 
 /* ── Floating Action Bar (legacy — overridden by content.js inline styles) ── */
 
@@ -198,8 +198,8 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: #1a1a2e;
-  border: 1px solid rgba(255,255,255,0.12);
+  background: #f7faf2;
+  border: 1px solid rgba(45, 70, 35,0.12);
   border-radius: 12px;
   padding: 10px 12px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.4);
@@ -210,7 +210,7 @@
 .ctx-fab-label {
   font-size: 11px;
   font-weight: 700;
-  color: rgba(255,255,255,0.5);
+  color: rgba(45, 70, 35,0.5);
   letter-spacing: 0.5px;
   text-transform: uppercase;
   user-select: none;
@@ -219,9 +219,9 @@
 
 .ctx-fab-btn {
   background: transparent;
-  border: 1px solid rgba(255,255,255,0.2);
+  border: 1px solid rgba(45, 70, 35,0.2);
   border-radius: 8px;
-  color: #fff;
+  color:#1c2e1d;
   font-size: 12px;
   font-weight: 600;
   padding: 7px 10px;
@@ -232,7 +232,7 @@
 }
 
 .ctx-fab-btn:hover {
-  background: rgba(255,255,255,0.1);
+  background: rgba(45, 70, 35,0.1);
   transform: translateY(-1px);
 }
 
@@ -257,8 +257,8 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: #1e1e2e;
-  border: 1px solid rgba(255,255,255,0.12);
+  background: #f7faf2;
+  border: 1px solid rgba(45, 70, 35,0.12);
   border-radius: 16px;
   width: 480px;
   max-width: 92vw;
@@ -271,24 +271,24 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  background: rgba(255,255,255,0.04);
+  background: rgba(45, 70, 35,0.04);
   font-size: 15px;
   font-weight: 700;
-  color: #fff;
+  color:#1c2e1d;
   padding-left: 16px;
 }
 
 .ctx-close-btn {
   background: none;
   border: none;
-  color: rgba(255,255,255,0.4);
+  color: rgba(45, 70, 35,0.4);
   cursor: pointer;
   font-size: 16px;
   padding: 4px;
   transition: color 0.15s;
 }
 
-.ctx-close-btn:hover { color: #fff; }
+.ctx-close-btn:hover { color:#1c2e1d; }
 
 .ctx-modal-body {
   padding: 20px;
@@ -300,7 +300,7 @@
 .ctx-modal-body label {
   font-size: 12px;
   font-weight: 600;
-  color: rgba(255,255,255,0.5);
+  color: rgba(45, 70, 35,0.5);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-top: 4px;
@@ -308,10 +308,10 @@
 
 .ctx-modal-body input,
 .ctx-modal-body textarea {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(45, 70, 35,0.06);
+  border: 1px solid rgba(45, 70, 35,0.1);
   border-radius: 8px;
-  color: #fff;
+  color:#1c2e1d;
   font-size: 13px;
   padding: 10px 12px;
   width: 100%;
@@ -323,7 +323,7 @@
 
 .ctx-modal-body input:focus,
 .ctx-modal-body textarea:focus {
-  border-color: rgba(255,255,255,0.3);
+  border-color: rgba(45, 70, 35,0.3);
 }
 
 .ctx-modal-body textarea {
@@ -342,14 +342,14 @@
   justify-content: flex-end;
   gap: 10px;
   padding: 16px 20px;
-  background: rgba(255,255,255,0.03);
+  background: rgba(45, 70, 35,0.03);
 }
 
 .ctx-btn-cancel {
   background: transparent;
-  border: 1px solid rgba(255,255,255,0.15);
+  border: 1px solid rgba(45, 70, 35,0.15);
   border-radius: 8px;
-  color: rgba(255,255,255,0.6);
+  color: rgba(45, 70, 35,0.6);
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
@@ -357,12 +357,12 @@
   transition: all 0.15s;
 }
 
-.ctx-btn-cancel:hover { background: rgba(255,255,255,0.06); }
+.ctx-btn-cancel:hover { background: rgba(45, 70, 35,0.06); }
 
 .ctx-btn-save {
   border: none;
   border-radius: 8px;
-  color: #fff;
+  color:#fff;
   cursor: pointer;
   font-size: 13px;
   font-weight: 700;
@@ -381,8 +381,8 @@
   right: -400px;
   width: 360px;
   height: 100vh;
-  background: #1e1e2e;
-  border-left: 1px solid rgba(255,255,255,0.1);
+  background: #f7faf2;
+  border-left: 1px solid rgba(45, 70, 35,0.1);
   z-index: 2147483646;
   display: flex;
   flex-direction: column;
@@ -402,20 +402,20 @@
   padding: 16px 20px;
   font-size: 15px;
   font-weight: 700;
-  color: #fff;
+  color:#1c2e1d;
   flex-shrink: 0;
 }
 
 .ctx-sidebar-close {
   background: none;
   border: none;
-  color: rgba(255,255,255,0.4);
+  color: rgba(45, 70, 35,0.4);
   cursor: pointer;
   font-size: 18px;
   transition: color 0.15s;
 }
 
-.ctx-sidebar-close:hover { color: #fff; }
+.ctx-sidebar-close:hover { color:#1c2e1d; }
 
 .ctx-sidebar-search {
   display: flex;
@@ -426,23 +426,23 @@
 
 .ctx-sidebar-search input {
   flex: 1;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(45, 70, 35,0.06);
+  border: 1px solid rgba(45, 70, 35,0.1);
   border-radius: 8px;
-  color: #fff;
+  color:#1c2e1d;
   font-size: 13px;
   padding: 8px 12px;
   outline: none;
 }
 
-.ctx-sidebar-search input::placeholder { color: rgba(255,255,255,0.3); }
+.ctx-sidebar-search input::placeholder { color: rgba(45, 70, 35,0.3); }
 
-.ctx-sidebar-search input:focus { border-color: rgba(255,255,255,0.25); }
+.ctx-sidebar-search input:focus { border-color: rgba(45, 70, 35,0.25); }
 
 #ctx-search-btn {
   border: none;
   border-radius: 8px;
-  color: #fff;
+  color:#fff;
   cursor: pointer;
   font-size: 12px;
   font-weight: 700;
@@ -460,8 +460,8 @@
 }
 
 .ctx-memory-card {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(45, 70, 35,0.05);
+  border: 1px solid rgba(45, 70, 35,0.08);
   border-radius: 10px;
   padding: 12px;
   display: flex;
@@ -470,18 +470,18 @@
   transition: background 0.15s;
 }
 
-.ctx-memory-card:hover { background: rgba(255,255,255,0.08); }
+.ctx-memory-card:hover { background: rgba(45, 70, 35,0.08); }
 
 .ctx-memory-title {
   font-size: 13px;
   font-weight: 700;
-  color: #fff;
+  color:#1c2e1d;
   line-height: 1.4;
 }
 
 .ctx-memory-preview {
   font-size: 12px;
-  color: rgba(255,255,255,0.5);
+  color: rgba(45, 70, 35,0.5);
   line-height: 1.5;
 }
 
@@ -492,9 +492,9 @@
 }
 
 .ctx-tag {
-  background: rgba(255,255,255,0.08);
+  background: rgba(45, 70, 35,0.08);
   border-radius: 4px;
-  color: rgba(255,255,255,0.5);
+  color: rgba(45, 70, 35,0.5);
   font-size: 10px;
   font-weight: 600;
   padding: 2px 6px;
@@ -510,10 +510,10 @@
 
 .ctx-inject-btn, .ctx-copy-btn {
   flex: 1;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(45, 70, 35,0.06);
+  border: 1px solid rgba(45, 70, 35,0.1);
   border-radius: 6px;
-  color: rgba(255,255,255,0.7);
+  color: rgba(45, 70, 35,0.7);
   cursor: pointer;
   font-size: 11px;
   font-weight: 600;
@@ -522,12 +522,12 @@
   font-family: inherit;
 }
 
-.ctx-inject-btn:hover { background: rgba(99,102,241,0.3); border-color: #6366F1; color: #fff; }
-.ctx-copy-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.ctx-inject-btn:hover { background: rgba(79, 148, 55,0.3); border-color: #4f9437; color:#1c2e1d; }
+.ctx-copy-btn:hover { background: rgba(45, 70, 35,0.1); color:#1c2e1d; }
 
 .ctx-loading, .ctx-empty, .ctx-error {
   text-align: center;
-  color: rgba(255,255,255,0.4);
+  color: rgba(45, 70, 35,0.4);
   font-size: 13px;
   padding: 24px 0;
 }
@@ -540,10 +540,10 @@
   position: fixed;
   bottom: 100px;
   right: 24px;
-  background: #1a1a2e;
-  border: 1px solid rgba(255,255,255,0.15);
+  background: #f7faf2;
+  border: 1px solid rgba(45, 70, 35,0.15);
   border-radius: 10px;
-  color: #fff;
+  color:#1c2e1d;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 13px;
   font-weight: 600;

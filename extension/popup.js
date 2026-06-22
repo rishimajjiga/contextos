@@ -526,7 +526,7 @@ saveContent.addEventListener("input", () => {
   const pct = Math.min(100, (len / 4000) * 100);
   charFill.style.width = `${pct}%`;
   charCount.textContent = `${len} / 4000`;
-  charFill.style.background = len > 4000 ? "#EF4444" : len > 3500 ? "#F59E0B" : "#6366F1";
+  charFill.style.background = len > 4000 ? "#EF4444" : len > 3500 ? "#F59E0B" : "#4f9437";
   charCount.className = "char-count" + (len > 4000 ? " over" : len > 3500 ? " warn" : "");
 });
 
