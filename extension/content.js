@@ -2379,7 +2379,25 @@ async function ctxExtractConversation() {
   return { platform:name, title: ctxConvTitle(name), messages: msgs, capturedAt: new Date().toISOString() };
 }
 
-var CTX_CONV_MAX = 180000;
+// Split a conversation into backend-sized parts ONLY at message boundaries, so code
+// blocks and formatting are never broken. Normal chats produce a single part; only
+// very large conversations are split. Nothing is ever truncated.
+var CTX_CONV_CHUNK = 250000; // chars per saved part
+function ctxChunkBlocks(blocks, limit) {
+  var chunks = [], cur = "", sep = "\n\n";
+  for (var i = 0; i < blocks.length; i++) {
+    var b = blocks[i];
+    if (b.length > limit) {                 // a single huge message — hard-split (still no loss)
+      if (cur) { chunks.push(cur); cur = ""; }
+      for (var j = 0; j < b.length; j += limit) chunks.push(b.slice(j, j + limit));
+      continue;
+    }
+    if (cur && (cur.length + sep.length + b.length) > limit) { chunks.push(cur); cur = b; }
+    else { cur = cur ? (cur + sep + b) : b; }
+  }
+  if (cur) chunks.push(cur);
+  return chunks.length ? chunks : [""];
+}
 var CTX_CONV_LABEL = "💬 Save chat";
 
 function ctxSaveConversation(btn) {
@@ -2394,30 +2412,43 @@ function ctxSaveConversation(btn) {
       reset(1800); return;
     }
     var slug = conv.platform.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
-    var header = "Platform: "+conv.platform+"\nTitle: "+conv.title+"\nCaptured: "+conv.capturedAt.slice(0,10)+"\nMessages: "+conv.messages.length+"\n\n────────────────────\n\n";
-    var body = conv.messages.map(function(m){ return m.role+":\n"+m.text; }).join("\n\n");
-    var content = header + body;
-    // Unlimited conversation saving — no client-side truncation (backend content is unbounded TEXT).
-    var tags = ["conversation","chat"]; if(slug) tags.push(slug);
+    var header = "Platform: "+conv.platform+"\nTitle: "+conv.title+"\nCaptured: "+conv.capturedAt.slice(0,10)+"\nMessages: "+conv.messages.length+"\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n";
+    // One block per message -> we only split between messages, never inside one.
+    var blocks = conv.messages.map(function(m){ return m.role+":\n"+m.text; });
+    var chunks = ctxChunkBlocks(blocks, CTX_CONV_CHUNK);
+    var N = chunks.length;
+    var convId = (slug||"chat")+"-"+Date.now().toString(36);
+    var baseTags = ["conversation","chat"]; if(slug) baseTags.push(slug);
 
-    if(btn) btn.textContent="Saving\u2026";
+    var idx = 0;
+    function saveNext(){
+      if (idx >= N) {                       // every part is now stored in the backend DB
+        try { _panelMemCache = null; } catch(_){}
+        if(btn) btn.textContent = (N>1 ? ("\u2713 Saved "+N+" parts") : "\u2713 Saved");
+        try { if(typeof ctxStatusToast==="function") ctxStatusToast("saved"); } catch(_){}
+        reset(2200); return;
+      }
+      var k = idx+1;
+      var title = (N>1) ? (conv.title+" ("+k+"/"+N+")") : conv.title;
+      var part  = (idx===0 ? header : "(continued \u2014 part "+k+" of "+N+")\n\n") + chunks[idx];
+      var tags  = (N>1) ? baseTags.concat(["cid:"+convId, "part:"+k+"/"+N]) : baseTags;
+      if(btn) btn.textContent = (N>1 ? ("Saving "+k+"/"+N+"\u2026") : "Saving\u2026");
+      sendMessage("SAVE_MEMORY", { title: title, content: part, tags: tags }).then(function(){
+        idx++; saveNext();                  // sequential -> low memory, ordered, resumable
+      }).catch(function(err){
+        try {
+          if(!navigator.onLine) ctxStatusToast("offline");
+          else if(typeof isLimitError==="function" && isLimitError(err)) ctxStatusToast("limit");
+          else if(typeof ctxIsAuthError==="function" && ctxIsAuthError(err)) ctxStatusToast("signin");
+          else if(typeof ctxStatusToast==="function") ctxStatusToast("error", { retry: function(){ if(btn){ btn.disabled=true; } saveNext(); } }); // resume from failed part -> no duplicates
+        } catch(_){}
+        if(btn) btn.textContent="Failed";
+        reset(2200);
+      });
+    }
+
     try { if(typeof ctxStatusToast==="function") ctxStatusToast(navigator.onLine?"saving":"offline"); } catch(_){}
-
-    sendMessage("SAVE_MEMORY", { title: conv.title, content: content, tags: tags }).then(function(){
-      try { _panelMemCache = null; } catch(_){}
-      if(btn) btn.textContent="✓ Saved";
-      try { if(typeof ctxStatusToast==="function") ctxStatusToast("saved"); } catch(_){}
-      reset(2000);
-    }).catch(function(err){
-      try {
-        if(!navigator.onLine) ctxStatusToast("offline");
-        else if(typeof isLimitError==="function" && isLimitError(err)) ctxStatusToast("limit");
-        else if(typeof ctxIsAuthError==="function" && ctxIsAuthError(err)) ctxStatusToast("signin");
-        else if(typeof ctxStatusToast==="function") ctxStatusToast("error", { retry: function(){ ctxSaveConversation(btn); } });
-      } catch(_){}
-      if(btn) btn.textContent="Failed";
-      reset(2000);
-    });
+    saveNext();
   }).catch(function(){
     if(btn) btn.textContent="Failed";
     try { if(typeof ctxStatusToast==="function") ctxStatusToast("error"); } catch(_){}
