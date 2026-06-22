@@ -93,7 +93,7 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: rgba(45, 70, 35, 0.55);
-  border-bottom: 1px solid rgba(45, 70, 35, 0.08);
+  border-bottom: 1px solid rgba(45, 70, 35, 0.32);
 }
 
 .ctx-picker-close {
@@ -118,7 +118,7 @@
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
-  border-bottom: 1px solid rgba(45, 70, 35, 0.06);
+  border-bottom: 1px solid rgba(45, 70, 35, 0.32);
   transition: background 0.12s;
 }
 
@@ -170,7 +170,7 @@
 
 .ctx-picker-footer {
   padding: 8px 14px;
-  border-top: 1px solid rgba(45, 70, 35, 0.08);
+  border-top: 1px solid rgba(45, 70, 35, 0.32);
 }
 
 #ctx-picker-inject-all {
@@ -199,7 +199,7 @@
   flex-direction: column;
   gap: 6px;
   background: #f7faf2;
-  border: 1px solid rgba(45, 70, 35,0.12);
+  border: 1px solid rgba(45, 70, 35, 0.32);
   border-radius: 12px;
   padding: 10px 12px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.4);
@@ -219,7 +219,7 @@
 
 .ctx-fab-btn {
   background: transparent;
-  border: 1px solid rgba(45, 70, 35,0.2);
+  border: 1px solid rgba(45, 70, 35, 0.32);
   border-radius: 8px;
   color:#1c2e1d;
   font-size: 12px;
@@ -258,7 +258,7 @@
   left: 50%;
   transform: translate(-50%, -50%);
   background: #f7faf2;
-  border: 1px solid rgba(45, 70, 35,0.12);
+  border: 1px solid rgba(45, 70, 35, 0.32);
   border-radius: 16px;
   width: 480px;
   max-width: 92vw;
@@ -309,7 +309,7 @@
 .ctx-modal-body input,
 .ctx-modal-body textarea {
   background: rgba(45, 70, 35,0.06);
-  border: 1px solid rgba(45, 70, 35,0.1);
+  border: 1px solid rgba(45, 70, 35, 0.32);
   border-radius: 8px;
   color:#1c2e1d;
   font-size: 13px;
@@ -347,7 +347,7 @@
 
 .ctx-btn-cancel {
   background: transparent;
-  border: 1px solid rgba(45, 70, 35,0.15);
+  border: 1px solid rgba(45, 70, 35, 0.32);
   border-radius: 8px;
   color: rgba(45, 70, 35,0.6);
   cursor: pointer;
@@ -382,7 +382,7 @@
   width: 360px;
   height: 100vh;
   background: #f7faf2;
-  border-left: 1px solid rgba(45, 70, 35,0.1);
+  border-left: 1px solid rgba(45, 70, 35, 0.32);
   z-index: 2147483646;
   display: flex;
   flex-direction: column;
@@ -427,7 +427,7 @@
 .ctx-sidebar-search input {
   flex: 1;
   background: rgba(45, 70, 35,0.06);
-  border: 1px solid rgba(45, 70, 35,0.1);
+  border: 1px solid rgba(45, 70, 35, 0.32);
   border-radius: 8px;
   color:#1c2e1d;
   font-size: 13px;
@@ -461,7 +461,7 @@
 
 .ctx-memory-card {
   background: rgba(45, 70, 35,0.05);
-  border: 1px solid rgba(45, 70, 35,0.08);
+  border: 1px solid rgba(45, 70, 35, 0.32);
   border-radius: 10px;
   padding: 12px;
   display: flex;
@@ -511,7 +511,7 @@
 .ctx-inject-btn, .ctx-copy-btn {
   flex: 1;
   background: rgba(45, 70, 35,0.06);
-  border: 1px solid rgba(45, 70, 35,0.1);
+  border: 1px solid rgba(45, 70, 35, 0.32);
   border-radius: 6px;
   color: rgba(45, 70, 35,0.7);
   cursor: pointer;
@@ -541,7 +541,7 @@
   bottom: 100px;
   right: 24px;
   background: #f7faf2;
-  border: 1px solid rgba(45, 70, 35,0.15);
+  border: 1px solid rgba(45, 70, 35, 0.32);
   border-radius: 10px;
   color:#1c2e1d;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;

@@ -31,8 +31,8 @@
     --destructive: 0 72% 48%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 102 24% 83%;           /* soft sage border */
-    --input: 102 24% 86%;
+    --border: 124 18% 58%;           /* defined sage border — premium, visible lines */
+    --input: 124 18% 60%;
     --ring: 108 44% 40%;
 
     --radius: 0.85rem;
