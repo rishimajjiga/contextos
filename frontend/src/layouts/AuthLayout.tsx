@@ -7,9 +7,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
       {/* Header */}
       <header className="border-b border-border px-6 py-4">
         <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-500">
-            <span className="text-xs font-bold text-white">C</span>
-          </div>
+          <img src="/logo_mark.png" alt="ContextOS" className="h-7 w-7 rounded-md" />
           <span className="text-sm font-semibold text-foreground">ContextOS</span>
         </Link>
       </header>
