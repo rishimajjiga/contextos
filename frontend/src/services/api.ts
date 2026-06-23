@@ -16,8 +16,12 @@ export function setTokenGetter(fn: () => Promise<string | null>) {
 
 apiClient.interceptors.request.use(async (config) => {
   if (getTokenFn) {
-    const token = await getTokenFn();
-    if (token) config.headers.Authorization = `Bearer ${token}`;
+    try {
+      const token = await getTokenFn();
+      if (token) config.headers.Authorization = `Bearer ${token}`;
+    } catch (err) {
+      console.error("[api] getToken() failed:", err);
+    }
   }
   return config;
 });
@@ -59,8 +63,12 @@ apiClient.interceptors.response.use(
     }
 
     if (!error.response) {
+      console.error("[api] No response – raw error:", error);
+      console.error("[api] error.message:", error.message);
+      console.error("[api] error.code:", error.code);
+      console.error("[api] request URL:", cfg?.url, "baseURL:", cfg?.baseURL);
       return Promise.reject(
-        new Error("Unable to reach the server. Please try again in a moment.")
+        new Error(error.message || "Unable to reach the server. Please try again in a moment.")
       );
     }
 
