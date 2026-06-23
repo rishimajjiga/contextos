@@ -111,6 +111,34 @@ async def lifespan(app: FastAPI):
                     "ADD COLUMN IF NOT EXISTS backup_sent BOOLEAN NOT NULL DEFAULT FALSE"
                 ))
 
+                # payments table — individual Razorpay transaction records
+                await conn.execute(sa.text("""
+                    CREATE TABLE IF NOT EXISTS payments (
+                        id VARCHAR(36) PRIMARY KEY,
+                        user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        payment_id VARCHAR(128) NOT NULL,
+                        order_id VARCHAR(128),
+                        subscription_id VARCHAR(128),
+                        amount INTEGER NOT NULL,
+                        currency VARCHAR(8) NOT NULL DEFAULT 'INR',
+                        status VARCHAR(32) NOT NULL DEFAULT 'captured',
+                        plan_name VARCHAR(32) NOT NULL DEFAULT 'pro',
+                        purchase_date TIMESTAMPTZ NOT NULL,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        CONSTRAINT uq_payments_payment_id UNIQUE (payment_id)
+                    )
+                """))
+                await conn.execute(sa.text(
+                    "CREATE INDEX IF NOT EXISTS ix_payments_user_id ON payments (user_id)"
+                ))
+                await conn.execute(sa.text(
+                    "CREATE INDEX IF NOT EXISTS ix_payments_payment_id ON payments (payment_id)"
+                ))
+                await conn.execute(sa.text(
+                    "CREATE INDEX IF NOT EXISTS ix_payments_subscription_id ON payments (subscription_id)"
+                ))
+
             log.info("Database tables ready")
         except Exception as exc:
             log.warning(

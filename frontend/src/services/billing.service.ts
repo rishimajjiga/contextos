@@ -52,6 +52,28 @@ export interface SubscribeResponse {
   key_id: string;
 }
 
+/** A single payment transaction record returned by GET /billing/payments. */
+export interface PaymentRecord {
+  id: string;
+  payment_id: string;
+  order_id: string | null;
+  subscription_id: string | null;
+  amount: number;
+  /** Pre-formatted display string, e.g. "₹499" */
+  amount_display: string;
+  currency: string;
+  status: "captured" | "failed" | "refunded" | "pending";
+  plan_name: string;
+  purchase_date: string;
+}
+
+export interface PaymentHistoryResponse {
+  payments: PaymentRecord[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
 export const billingService = {
   async getPlan(): Promise<PlanInfo> {
     return request({ method: "GET", url: "/billing/plan" });
@@ -89,6 +111,17 @@ export const billingService = {
       method: "POST",
       url: "/billing/cancel",
       data: { cancel_at_cycle_end: cancelAtCycleEnd },
+    });
+  },
+
+  /**
+   * Fetch the authenticated user's payment history.
+   * Returns up to `limit` records (default 50) starting at `offset`.
+   */
+  async getPaymentHistory(limit = 50, offset = 0): Promise<PaymentHistoryResponse> {
+    return request({
+      method: "GET",
+      url: `/billing/payments?limit=${limit}&offset=${offset}`,
     });
   },
 };

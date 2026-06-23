@@ -1,18 +1,19 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, User, Brain, FolderKanban, Users, Zap, Key, Settings, X, Search } from "lucide-react";
+import { LayoutDashboard, User, Brain, FolderKanban, Users, Zap, Key, Settings, X, Search, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePlan } from "@/hooks/usePlan";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/profile",   label: "Profile",   icon: User },
-  { href: "/memories",  label: "Memories",  icon: Brain },
-  { href: "/search",    label: "Search",    icon: Search },
-  { href: "/projects",  label: "Projects",  icon: FolderKanban },
-  { href: "/team",      label: "Team",      icon: Users },
-  { href: "/pricing",   label: "Upgrade",   icon: Zap },
-  { href: "/api-keys",  label: "API Keys",  icon: Key },
-  { href: "/settings",  label: "Settings",  icon: Settings },
+  { href: "/dashboard",       label: "Dashboard",      icon: LayoutDashboard },
+  { href: "/profile",         label: "Profile",        icon: User },
+  { href: "/memories",        label: "Memories",       icon: Brain },
+  { href: "/search",          label: "Search",         icon: Search },
+  { href: "/projects",        label: "Projects",       icon: FolderKanban },
+  { href: "/team",            label: "Team",           icon: Users },
+  { href: "/pricing",         label: "Upgrade",        icon: Zap },
+  { href: "/api-keys",        label: "API Keys",       icon: Key },
+  { href: "/payment-history", label: "Billing",        icon: Receipt },
+  { href: "/settings",        label: "Settings",       icon: Settings },
 ];
 
 interface SidebarProps {

@@ -8,11 +8,16 @@ Flow:
   3. Frontend opens Razorpay JS modal with those values
   4. User pays → Razorpay calls POST /billing/webhook (no auth)
   5. Backend verifies HMAC signature and activates the plan
+  6. Payment is recorded in the payments table for history
+
+Routes added:
+  GET /billing/payments — returns paginated payment history for the signed-in user
 """
 import hashlib
 import hmac
+import uuid
 from datetime import datetime, timezone
-from sqlalchemy import select
+from sqlalchemy import select, desc
 # Python 3.12+ compatibility shim: razorpay uses pkg_resources which is not
 # bundled with Python 3.12+. Inject a minimal stub before importing razorpay.
 try:
@@ -36,6 +41,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database import get_db
 from app.api.v1.dependencies import get_user_id, get_user_id_no_purge
+from app.models.payment import Payment
 from app.services.subscription_service import (
     PLAN_LIMITS,
     PUBLIC_PLANS,
@@ -54,6 +60,54 @@ def _rzp_client() -> razorpay.Client:
     return razorpay.Client(
         auth=(settings.razorpay_key_id, settings.razorpay_key_secret)
     )
+
+
+# ── Payment recording helper ──────────────────────────────────────────────────
+
+async def _record_payment(
+    db: AsyncSession,
+    *,
+    user_id: str,
+    payment_id: str,
+    subscription_id: str | None,
+    order_id: str | None,
+    amount: int,
+    currency: str,
+    plan_name: str,
+    status: str = "captured",
+    purchase_date: datetime | None = None,
+) -> None:
+    """
+    Insert a row into the payments table.
+    Silently skips if a row with the same payment_id already exists
+    (idempotent — safe to call from both /verify and /webhook).
+    """
+    from sqlalchemy.exc import IntegrityError
+
+    existing = await db.execute(
+        select(Payment).where(Payment.payment_id == payment_id)
+    )
+    if existing.scalar_one_or_none() is not None:
+        return   # already recorded — skip
+
+    payment = Payment(
+        id=str(uuid.uuid4()),
+        user_id=user_id,
+        payment_id=payment_id,
+        subscription_id=subscription_id,
+        order_id=order_id,
+        amount=amount,
+        currency=currency,
+        status=status,
+        plan_name=plan_name,
+        purchase_date=purchase_date or datetime.now(timezone.utc),
+    )
+    db.add(payment)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        log.debug("payment_record_race_skipped", payment_id=payment_id)
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -231,6 +285,28 @@ async def verify_payment(
         from datetime import timezone as _tz
         sub.current_period_end = datetime.fromtimestamp(current_end_ts, tz=_tz.utc)
     await db.commit()
+
+    # Fetch payment details from Razorpay to record amount/currency
+    try:
+        rzp_payment = client.payment.fetch(body.razorpay_payment_id)
+        pay_amount = rzp_payment.get("amount", 0)
+        pay_currency = rzp_payment.get("currency", "INR")
+    except Exception:
+        pay_amount = 0
+        pay_currency = "INR"
+
+    # Record the individual payment transaction (idempotent — safe to retry)
+    await _record_payment(
+        db,
+        user_id=user_id,
+        payment_id=body.razorpay_payment_id,
+        subscription_id=body.razorpay_subscription_id,
+        order_id=None,
+        amount=pay_amount,
+        currency=pay_currency,
+        plan_name=resolved_plan,
+        status="captured",
+    )
 
     return {"ok": True, "plan": sub.plan}
 
@@ -481,6 +557,8 @@ async def razorpay_webhook(
     Razorpay webhook — receives subscription lifecycle events.
     Register this URL in Razorpay Dashboard -> Webhooks.
     No user auth — Razorpay calls this directly.
+    Handles: subscription.activated, subscription.charged, subscription.cancelled,
+             subscription.completed, subscription.expired, payment.failed, refund.processed
     """
     if not settings.razorpay_webhook_secret:
         raise HTTPException(status_code=503, detail="Webhook secret not configured.")
@@ -504,16 +582,125 @@ async def razorpay_webhook(
 
     log.info("razorpay_webhook", event_type=event_type)
 
+    event_payload = event.get("payload", {})
+
     if event_type == "subscription.activated":
-        await handle_razorpay_subscription_activated(db, event.get("payload", {}))
+        await handle_razorpay_subscription_activated(db, event_payload)
+
     elif event_type == "subscription.charged":
-        await handle_razorpay_subscription_charged(db, event.get("payload", {}))
+        await handle_razorpay_subscription_charged(db, event_payload)
+        # Record the individual charge as a payment transaction
+        rzp_sub = event_payload.get("subscription", {}).get("entity", {})
+        rzp_payment_entity = event_payload.get("payment", {}).get("entity", {})
+        sub_id = rzp_sub.get("id")
+        pay_id = rzp_payment_entity.get("id")
+        notes = rzp_sub.get("notes", {})
+        uid = notes.get("user_id")
+        plan = notes.get("plan", "pro")
+        if uid and pay_id:
+            await _record_payment(
+                db,
+                user_id=uid,
+                payment_id=pay_id,
+                subscription_id=sub_id,
+                order_id=rzp_payment_entity.get("order_id"),
+                amount=rzp_payment_entity.get("amount", 0),
+                currency=rzp_payment_entity.get("currency", "INR"),
+                plan_name=plan,
+                status="captured",
+            )
+
     elif event_type in ("subscription.cancelled", "subscription.completed", "subscription.expired"):
-        await handle_razorpay_subscription_cancelled(db, event.get("payload", {}))
+        await handle_razorpay_subscription_cancelled(db, event_payload)
+
+    elif event_type == "payment.failed":
+        # Record failed payment attempts so they show in history
+        rzp_payment_entity = event_payload.get("payment", {}).get("entity", {})
+        pay_id = rzp_payment_entity.get("id")
+        sub_id = rzp_payment_entity.get("subscription_id")
+        if pay_id and sub_id:
+            from app.models.subscription import UserSubscription
+            result = await db.execute(
+                select(UserSubscription).where(
+                    UserSubscription.stripe_subscription_id == sub_id
+                )
+            )
+            sub_row = result.scalar_one_or_none()
+            if sub_row:
+                await _record_payment(
+                    db,
+                    user_id=sub_row.user_id,
+                    payment_id=pay_id,
+                    subscription_id=sub_id,
+                    order_id=rzp_payment_entity.get("order_id"),
+                    amount=rzp_payment_entity.get("amount", 0),
+                    currency=rzp_payment_entity.get("currency", "INR"),
+                    plan_name=sub_row.plan,
+                    status="failed",
+                )
+
+    elif event_type == "refund.processed":
+        # Mark the original payment as refunded
+        rzp_refund = event_payload.get("refund", {}).get("entity", {})
+        original_payment_id = rzp_refund.get("payment_id")
+        if original_payment_id:
+            existing = await db.execute(
+                select(Payment).where(Payment.payment_id == original_payment_id)
+            )
+            pay_row = existing.scalar_one_or_none()
+            if pay_row:
+                pay_row.status = "refunded"
+                await db.commit()
+
     else:
         log.info("razorpay_webhook_unhandled", event_type=event_type)
 
     return {"ok": True}
+
+
+# ── GET /billing/payments ─────────────────────────────────────────────────────
+
+@router.get("/payments")
+async def get_payment_history(
+    user_id: str = Depends(get_user_id),
+    db: AsyncSession = Depends(get_db),
+    limit: int = 50,
+    offset: int = 0,
+):
+    """
+    Return the authenticated user's payment history, most recent first.
+    Each entry contains: payment_id, amount, currency, status, plan_name, purchase_date.
+    Used by the Payment History page in the frontend.
+    """
+    result = await db.execute(
+        select(Payment)
+        .where(Payment.user_id == user_id)
+        .order_by(desc(Payment.purchase_date))
+        .limit(min(limit, 100))
+        .offset(offset)
+    )
+    payments = result.scalars().all()
+
+    return {
+        "payments": [
+            {
+                "id": p.id,
+                "payment_id": p.payment_id,
+                "order_id": p.order_id,
+                "subscription_id": p.subscription_id,
+                "amount": p.amount,
+                "amount_display": f"₹{p.amount / 100:,.0f}" if p.currency == "INR" else f"{p.currency} {p.amount / 100:.2f}",
+                "currency": p.currency,
+                "status": p.status,
+                "plan_name": p.plan_name,
+                "purchase_date": p.purchase_date.isoformat(),
+            }
+            for p in payments
+        ],
+        "total": len(payments),
+        "offset": offset,
+        "limit": limit,
+    }
 
 
 # ── GET /billing/download-backup ──────────────────────────────────────────────
@@ -537,6 +724,5 @@ async def download_backup(
         media_type="application/pdf",
         headers={
             "Content-Disposition": f'attachment; filename="contextos-backup-{now}.pdf"',
-            "Content-Length": str(len(pdf_bytes)),
         },
     )

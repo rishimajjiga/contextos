@@ -10,9 +10,10 @@ from .api_key import ApiKey
 from .subscription import UserSubscription
 from .organization import Organization, OrganizationMember, OrganizationInvite
 from .thread_event import ThreadEvent
+from .payment import Payment
 
 __all__ = [
     "User", "Profile", "Project", "Document", "AISession", "ApiKey",
     "UserSubscription", "Organization", "OrganizationMember", "OrganizationInvite",
-    "ThreadEvent",
+    "ThreadEvent", "Payment",
 ]

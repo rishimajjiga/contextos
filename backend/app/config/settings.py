@@ -94,18 +94,18 @@ class Settings(BaseSettings):
 
     @property
     def founder_emails(self) -> set[str]:
-        return {e.strip().lower() for e in self.founder_emails_raw.split(",") if e.strip()}
+        v = self.founder_emails_raw.strip()
+        if not v:
+            return set()
+        return {e.strip().lower() for e in v.split(",") if e.strip()}
 
     @property
     def is_production(self) -> bool:
-        return self.app_env == "production"
+        return self.app_env.lower() == "production"
 
 
-try:
-    settings = Settings()
-except Exception as exc:
-    print(
-        f"[ContextOS] FATAL: Settings() failed — {type(exc).__name__}: {exc}",
+settings = Settings()
+ Settings() failed — {type(exc).__name__}: {exc}",
         file=sys.stderr,
         flush=True,
     )
