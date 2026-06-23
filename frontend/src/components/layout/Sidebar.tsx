@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { LayoutDashboard, User, Brain, FolderKanban, Users, Zap, Key, Settings, X, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePlan } from "@/hooks/usePlan";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -39,6 +40,11 @@ export function Sidebar({ mobileOpen, onMobileClose, onClose }: SidebarProps) {
 }
 
 function SidebarContent({ pathname, onClose }: { pathname: string; onClose?: () => void }) {
+  const { plan } = usePlan();
+  // Founder accounts already have everything — no upgrade path to show.
+  const items = plan.plan === "founder"
+    ? navItems.filter((i) => i.href !== "/pricing")
+    : navItems;
   return (
     <>
       <div className="flex h-14 items-center justify-between px-4 border-b border-border shrink-0">
@@ -54,7 +60,7 @@ function SidebarContent({ pathname, onClose }: { pathname: string; onClose?: () 
       </div>
 
       <ul className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {items.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"));
           return (
             <li key={href}>

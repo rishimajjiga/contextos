@@ -33,7 +33,8 @@ async def get_org_for_user(db: AsyncSession, user_id: str) -> Organization | Non
 
 async def require_team_plan(db: AsyncSession, user_id: str) -> None:
     plan = await get_user_plan(db, user_id)
-    if plan != "team":
+    # Founder accounts have all premium/team features.
+    if plan not in ("team", "founder"):
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail={

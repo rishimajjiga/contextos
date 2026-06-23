@@ -23,9 +23,15 @@ PLAN_LIMITS = {
     "student": {"projects": 5,  "memories": 200, "api_keys": 1,  "daily_inject": -1},
     "pro":     {"projects": -1, "memories": -1, "api_keys": 5,  "daily_inject": -1},
     "team":    {"projects": -1, "memories": -1, "api_keys": -1, "daily_inject": -1},
+    # Internal-only lifetime plan — everything unlimited. Never exposed on
+    # pricing pages or selectable by users (see PUBLIC_PLANS / billing.get_plans).
+    "founder": {"projects": -1, "memories": -1, "api_keys": -1, "daily_inject": -1},
 }
 
-PLAN_DISPLAY = {"free": "Free", "student": "Student", "pro": "Pro", "team": "Team"}
+PLAN_DISPLAY = {"free": "Free", "student": "Student", "pro": "Pro", "team": "Team", "founder": "Founder"}
+
+# Plans that are publicly visible / selectable. "founder" is intentionally excluded.
+PUBLIC_PLANS = ("free", "student", "pro", "team")
 
 GRACE_PERIOD_DAYS = 30
 
@@ -66,8 +72,35 @@ async def get_or_create_subscription(db: AsyncSession, user_id: str) -> UserSubs
         return sub
 
 
+async def _is_founder(db: AsyncSession, user_id: str) -> bool:
+    """True if this user's email is a configured founder account."""
+    from app.config import settings
+    from app.models.user import User
+    founders = settings.founder_emails
+    if not founders:
+        return False
+    result = await db.execute(select(User.email).where(User.id == user_id))
+    email = result.scalar_one_or_none()
+    return bool(email) and email.strip().lower() in founders
+
+
 async def get_user_plan(db: AsyncSession, user_id: str) -> str:
     sub = await get_or_create_subscription(db, user_id)
+
+    # Founder accounts: lifetime full access, granted automatically by email.
+    # No upgrade, no payment, no trial, no expiration. Persisted to the DB so
+    # the grant survives and all downstream limit checks treat them as unlimited.
+    if await _is_founder(db, user_id):
+        if (sub.plan != "founder" or sub.status != "active"
+                or sub.current_period_end is not None or sub.grace_period_end is not None):
+            sub.plan = "founder"            # plan = "founder"
+            sub.status = "active"           # subscription_active = true
+            sub.current_period_end = None   # expires_at = null
+            sub.grace_period_end = None
+            await db.commit()
+            log.info("founder_access_granted", user_id=user_id)
+        return "founder"
+
     now = datetime.now(timezone.utc)
 
     if sub.status == "trialing" and sub.current_period_end and sub.current_period_end < now:

@@ -132,6 +132,13 @@ export function DashboardPage() {
         description="Welcome back to ContextOS."
       />
 
+      {plan.plan === "founder" && (
+        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-brand-500/40 bg-brand-500/10 px-3.5 py-1.5 text-xs font-semibold text-brand-700">
+          <Zap className="h-3.5 w-3.5" />
+          Founder · Lifetime Access
+        </div>
+      )}
+
       {!profileLoading && keysLoaded && (
         <OnboardingChecklist
           hasProfile={!!profile}

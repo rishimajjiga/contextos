@@ -88,6 +88,14 @@ class Settings(BaseSettings):
     # Rate limiting
     rate_limit_per_minute: int = 60
 
+    # Founder accounts — comma-separated emails granted internal lifetime access.
+    # Not exposed via any API; consumed only by server-side authorization.
+    founder_emails_raw: str = Field(default="majjigarishi291@gmail.com", alias="FOUNDER_EMAILS")
+
+    @property
+    def founder_emails(self) -> set[str]:
+        return {e.strip().lower() for e in self.founder_emails_raw.split(",") if e.strip()}
+
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"

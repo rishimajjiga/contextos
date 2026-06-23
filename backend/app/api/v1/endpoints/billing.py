@@ -37,6 +37,8 @@ from app.config import settings
 from app.database import get_db
 from app.api.v1.dependencies import get_user_id, get_user_id_no_purge
 from app.services.subscription_service import (
+    PLAN_LIMITS,
+    PUBLIC_PLANS,
     get_or_create_subscription,
     get_plan_info,
     handle_razorpay_subscription_activated,
@@ -82,8 +84,9 @@ class CancelRequest(BaseModel):
 
 @router.get("/plans")
 async def get_plans():
-    """Return quota limits for every plan. Used by the pricing / upgrade page."""
-    return PLAN_LIMITS
+    """Return quota limits for the publicly selectable plans only.
+    Internal-only plans (e.g. founder) are never exposed here."""
+    return {plan: PLAN_LIMITS[plan] for plan in PUBLIC_PLANS}
 
 
 # ── GET /billing/plan ─────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import { request } from "./api";
 
 export interface PlanInfo {
-  plan: "free" | "student" | "pro" | "team";
+  plan: "free" | "student" | "pro" | "team" | "founder";
   display_name: string;
   limits: {
     projects: number;
