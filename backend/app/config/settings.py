@@ -105,8 +105,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
- Settings() failed — {type(exc).__name__}: {exc}",
-        file=sys.stderr,
-        flush=True,
-    )
-    raise
