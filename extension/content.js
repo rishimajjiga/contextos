@@ -2455,24 +2455,24 @@ async function ctxExtractConversation() {
   return { platform: name, title: ctxConvTitle(name), messages: msgs || [], capturedAt: new Date().toISOString() };
 }
 
-// Split a conversation into backend-sized parts ONLY at message boundaries, so code
-// blocks and formatting are never broken. Normal chats produce a single part; only
-// very large conversations are split. Nothing is ever truncated.
+// Exact character chunking for very large conversations: the parts concatenate back
+// to the original transcript byte-for-byte (perfect reconstruction). Normal chats are
+// a single part; only huge ones are split — nothing is ever truncated, summarized, or
+// compressed. We prefer to cut on a blank line so messages/code stay intact per part.
 var CTX_CONV_CHUNK = 250000; // chars per saved part
-function ctxChunkBlocks(blocks, limit) {
-  var chunks = [], cur = "", sep = "\n\n";
-  for (var i = 0; i < blocks.length; i++) {
-    var b = blocks[i];
-    if (b.length > limit) {                 // a single huge message — hard-split (still no loss)
-      if (cur) { chunks.push(cur); cur = ""; }
-      for (var j = 0; j < b.length; j += limit) chunks.push(b.slice(j, j + limit));
-      continue;
-    }
-    if (cur && (cur.length + sep.length + b.length) > limit) { chunks.push(cur); cur = b; }
-    else { cur = cur ? (cur + sep + b) : b; }
+function ctxChunkText(text, limit) {
+  if (text.length <= limit) return [text];
+  var parts = [], i = 0, n = text.length;
+  while (i < n) {
+    if (n - i <= limit) { parts.push(text.slice(i)); break; }
+    var hardEnd = i + limit;
+    var minCut  = i + Math.floor(limit * 0.6);
+    var br = text.lastIndexOf("\n\n", hardEnd);
+    var cut = (br >= minCut) ? (br + 2) : hardEnd; // cut index only; no chars added/removed
+    parts.push(text.slice(i, cut));
+    i = cut;
   }
-  if (cur) chunks.push(cur);
-  return chunks.length ? chunks : [""];
+  return parts.length ? parts : [text];
 }
 var CTX_CONV_LABEL = "💬 Save chat";
 
@@ -2491,7 +2491,8 @@ function ctxSaveConversation(btn) {
     var header = "Platform: "+conv.platform+"\nTitle: "+conv.title+"\nCaptured: "+conv.capturedAt.slice(0,10)+"\nMessages: "+conv.messages.length+"\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n";
     // One block per message -> we only split between messages, never inside one.
     var blocks = conv.messages.map(function(m){ var ts=(typeof ctxFmtTs==="function"&&m.ts)?ctxFmtTs(m.ts):""; return m.role+(ts?" ["+ts+"]":"")+":\n"+m.text; });
-    var chunks = ctxChunkBlocks(blocks, CTX_CONV_CHUNK);
+    var fullText = header + blocks.join("\n\n");
+    var chunks = ctxChunkText(fullText, CTX_CONV_CHUNK);
     var N = chunks.length;
     var convId = (slug||"chat")+"-"+Date.now().toString(36);
     var baseTags = ["conversation","chat"]; if(slug) baseTags.push(slug);
@@ -2506,7 +2507,7 @@ function ctxSaveConversation(btn) {
       }
       var k = idx+1;
       var title = (N>1) ? (conv.title+" ("+k+"/"+N+")") : conv.title;
-      var part  = (idx===0 ? header : "(continued \u2014 part "+k+" of "+N+")\n\n") + chunks[idx];
+      var part  = chunks[idx];
       var tags  = (N>1) ? baseTags.concat(["cid:"+convId, "part:"+k+"/"+N]) : baseTags;
       if(btn) btn.textContent = (N>1 ? ("Saving "+k+"/"+N+"\u2026") : "Saving\u2026");
       sendMessage("SAVE_MEMORY", { title: title, content: part, tags: tags }).then(function(){
