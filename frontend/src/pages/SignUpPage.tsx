@@ -1,13 +1,24 @@
 import { SignUp } from "@clerk/clerk-react";
+import { useSearchParams } from "react-router-dom";
 
 export function SignUpPage() {
+  // Honour ?redirect_url= so invite links (/join/:token) resume after sign-up.
+  const [params] = useSearchParams();
+  const raw = params.get("redirect_url") || "";
+  const redirect = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/dashboard";
+  const signInUrl = redirect !== "/dashboard"
+    ? `/sign-in?redirect_url=${encodeURIComponent(redirect)}`
+    : "/sign-in";
+
   return (
     <div className="flex flex-col items-center">
       <h1 className="mb-2 text-2xl font-semibold tracking-tight">Create your account</h1>
       <p className="mb-8 text-sm text-muted-foreground">Give your AI tools a shared memory</p>
       <SignUp
         routing="hash"
-        afterSignUpUrl="/dashboard"
+        afterSignUpUrl={redirect}
+        forceRedirectUrl={redirect}
+        signInUrl={signInUrl}
         appearance={{
           variables: {
             colorPrimary: "#4f9437",

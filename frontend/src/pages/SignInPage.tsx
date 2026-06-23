@@ -1,13 +1,24 @@
 import { SignIn } from "@clerk/clerk-react";
+import { useSearchParams } from "react-router-dom";
 
 export function SignInPage() {
+  // Honour ?redirect_url= so invite links (/join/:token) resume after sign-in.
+  const [params] = useSearchParams();
+  const raw = params.get("redirect_url") || "";
+  const redirect = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/dashboard";
+  const signUpUrl = redirect !== "/dashboard"
+    ? `/sign-up?redirect_url=${encodeURIComponent(redirect)}`
+    : "/sign-up";
+
   return (
     <div className="flex flex-col items-center">
       <h1 className="mb-2 text-2xl font-semibold tracking-tight">Welcome back</h1>
       <p className="mb-8 text-sm text-muted-foreground">Sign in to your ContextOS account</p>
       <SignIn
         routing="hash"
-        afterSignInUrl="/dashboard"
+        afterSignInUrl={redirect}
+        forceRedirectUrl={redirect}
+        signUpUrl={signUpUrl}
         appearance={{
           variables: {
             colorPrimary: "#4f9437",
@@ -15,10 +26,10 @@ export function SignInPage() {
             colorInputBackground: "hsl(100 33% 97%)",
             colorText: "hsl(130 28% 13%)",
             colorTextSecondary: "hsl(125 14% 38%)",
-            colorInputText: "hsl(130 28% 13%)",
             // colorNeutral drives the social-button background — light sage value
             // keeps the Google button on-theme with the rest of the page.
             colorNeutral: "hsl(102 20% 90%)",
+            colorInputText: "hsl(130 28% 13%)",
             borderRadius: "0.75rem",
             fontFamily: "inherit",
           },
