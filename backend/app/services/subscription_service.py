@@ -84,7 +84,9 @@ async def _is_founder(db: AsyncSession, user_id: str) -> bool:
     return bool(email) and email.strip().lower() in founders
 
 
-async def get_user_plan(db: AsyncSession, user_id: str) -> str:
+async def _get_personal_plan(db: AsyncSession, user_id: str) -> str:
+    """The user's OWN plan (founder/team/pro/student/free), ignoring any
+    organization inheritance. Used internally; callers use get_user_plan()."""
     sub = await get_or_create_subscription(db, user_id)
 
     # Founder accounts: lifetime full access, granted automatically by email.
@@ -124,6 +126,35 @@ async def get_user_plan(db: AsyncSession, user_id: str) -> str:
         await db.commit()
         return "free"
     return plan
+
+
+async def _org_owner_personal_plan(db: AsyncSession, user_id: str) -> str | None:
+    """If the user is a MEMBER of an organization they don't own, return the
+    org owner's personal plan; otherwise None. Used for team-plan inheritance."""
+    from app.models.organization import Organization, OrganizationMember
+    result = await db.execute(
+        select(Organization)
+        .join(OrganizationMember, OrganizationMember.org_id == Organization.id)
+        .where(OrganizationMember.user_id == user_id)
+        .limit(1)
+    )
+    org = result.scalar_one_or_none()
+    if org is None or org.owner_user_id == user_id:
+        return None
+    return await _get_personal_plan(db, org.owner_user_id)
+
+
+async def get_user_plan(db: AsyncSession, user_id: str) -> str:
+    """Effective plan. Organizations own the subscription: a member of an org
+    whose OWNER has an active Team (or founder) plan inherits 'team', even if
+    their personal plan is free. Owner/founder keep their own plan."""
+    personal = await _get_personal_plan(db, user_id)
+    if personal in ("team", "founder"):
+        return personal
+    owner_plan = await _org_owner_personal_plan(db, user_id)
+    if owner_plan in ("team", "founder"):
+        return "team"
+    return personal
 
 
 async def is_in_grace_period(db: AsyncSession, user_id: str) -> bool:

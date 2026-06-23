@@ -13,7 +13,7 @@ from typing import Optional
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select, desc, or_, text
+from sqlalchemy import select, desc, or_, and_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -32,6 +32,7 @@ class MemoryCreate(BaseModel):
     content: str = Field(..., min_length=1)
     tags: list[str] = Field(default_factory=list)
     project_id: Optional[str] = None
+    visibility: str = "private"  # "private" | "team"
 
 
 class MemoryOut(BaseModel):
@@ -40,6 +41,7 @@ class MemoryOut(BaseModel):
     content: str
     tags: list[str]
     project_id: Optional[str]
+    visibility: str = "private"
     created_at: str
     updated_at: str
 
@@ -53,6 +55,7 @@ def _out(doc: Document) -> MemoryOut:
         content=doc.content or "",
         tags=doc.tags or [],
         project_id=doc.project_id,
+        visibility=getattr(doc, "visibility", None) or "private",
         created_at=doc.created_at.isoformat() if doc.created_at else "",
         updated_at=doc.updated_at.isoformat() if doc.updated_at else "",
     )
@@ -70,9 +73,22 @@ async def list_memories(
 ):
     """List the user's saved memories, newest first. Optional ?q= searches title+content."""
     try:
+        # Visibility: a user always sees their own private memories. They also see
+        # TEAM memories of their org while it has an active Team plan. Once they are
+        # removed or the plan lapses, team memories drop out automatically (the rows
+        # stay in the DB for remaining members).
+        from app.services.org_service import get_user_org_id, org_team_active
+        org_id = await get_user_org_id(db, user_id)
+        team_ok = bool(org_id) and await org_team_active(db, org_id)
+        not_team = or_(Document.visibility.is_(None), Document.visibility != "team")
+        own = and_(Document.user_id == user_id, not_team)
+        if team_ok:
+            visible = or_(own, and_(Document.org_id == org_id, Document.visibility == "team"))
+        else:
+            visible = own
         stmt = (
             select(Document)
-            .where(Document.user_id == user_id, Document.doc_type == "note")
+            .where(visible, Document.doc_type == "note")
             .order_by(desc(Document.created_at))
             .limit(limit)
         )
@@ -115,6 +131,20 @@ async def create_memory(
     """Save a new text note. Enforces plan memory limit."""
     await check_memory_limit(db, user_id)
 
+    # Resolve private vs team. Team memories require an active org Team plan and
+    # are linked to the org so every current member can see them.
+    visibility = "private"
+    org_id = None
+    if (body.visibility or "private").lower() == "team":
+        from app.services.org_service import get_user_org_id, org_team_active
+        org_id = await get_user_org_id(db, user_id)
+        if not org_id or not await org_team_active(db, org_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Team memories require membership in an organization with an active Team plan.",
+            )
+        visibility = "team"
+
     note_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
 
@@ -128,8 +158,8 @@ async def create_memory(
         await db.execute(
             text(
                 "INSERT INTO documents "
-                "(id, user_id, project_id, title, content, doc_type, tags, created_at, updated_at) "
-                "VALUES (:id, :uid, :pid, :title, :content, :dtype, :tags, :ca, :ua)"
+                "(id, user_id, project_id, title, content, doc_type, tags, visibility, org_id, created_at, updated_at) "
+                "VALUES (:id, :uid, :pid, :title, :content, :dtype, :tags, :vis, :org, :ca, :ua)"
             ),
             {
                 "id":      note_id,
@@ -139,6 +169,8 @@ async def create_memory(
                 "content": body.content,
                 "dtype":   "note",
                 "tags":    tags_value,   # psycopg3 serialises list → PG ARRAY natively
+                "vis":     visibility,
+                "org":     org_id,
                 "ca":      now,
                 "ua":      now,
             },
@@ -152,8 +184,8 @@ async def create_memory(
             await db.execute(
                 text(
                     "INSERT INTO documents "
-                    "(id, user_id, project_id, title, content, doc_type, tags, created_at, updated_at) "
-                    "VALUES (:id, :uid, :pid, :title, :content, :dtype, CAST(:tags AS jsonb), :ca, :ua)"
+                    "(id, user_id, project_id, title, content, doc_type, tags, visibility, org_id, created_at, updated_at) "
+                    "VALUES (:id, :uid, :pid, :title, :content, :dtype, CAST(:tags AS jsonb), :vis, :org, :ca, :ua)"
                 ),
                 {
                     "id":      note_id,
@@ -163,6 +195,8 @@ async def create_memory(
                     "content": body.content,
                     "dtype":   "note",
                     "tags":    json.dumps(tags_value),
+                    "vis":     visibility,
+                    "org":     org_id,
                     "ca":      now,
                     "ua":      now,
                 },

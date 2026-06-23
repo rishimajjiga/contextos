@@ -6,6 +6,7 @@ export interface Memory {
   content: string;
   tags: string[];
   project_id: string | null;
+  visibility?: "private" | "team";
   created_at: string;
   updated_at: string;
 }
@@ -15,6 +16,7 @@ export interface CreateMemoryPayload {
   content: string;
   tags?: string[];
   project_id?: string;
+  visibility?: "private" | "team";
 }
 
 export const memoryService = {

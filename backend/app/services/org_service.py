@@ -210,3 +210,27 @@ async def get_org_member_user_ids(db: AsyncSession, org_id: str) -> list[str]:
         select(OrganizationMember.user_id).where(OrganizationMember.org_id == org_id)
     )
     return list(result.scalars().all())
+
+
+# ── Team-plan inheritance helpers ─────────────────────────────────────────────
+
+async def get_user_org_id(db: AsyncSession, user_id: str) -> str | None:
+    """Return the id of the organization this user belongs to (owner or member), else None."""
+    result = await db.execute(
+        select(OrganizationMember.org_id)
+        .where(OrganizationMember.user_id == user_id)
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
+async def org_team_active(db: AsyncSession, org_id: str) -> bool:
+    """True if the organization's OWNER currently has an active Team (or founder)
+    plan — i.e. the org's Team subscription is live. Members inherit access while
+    this is true; it flips off automatically on cancel/expiry."""
+    from app.services.subscription_service import _get_personal_plan
+    result = await db.execute(select(Organization).where(Organization.id == org_id))
+    org = result.scalar_one_or_none()
+    if org is None:
+        return False
+    return (await _get_personal_plan(db, org.owner_user_id)) in ("team", "founder")

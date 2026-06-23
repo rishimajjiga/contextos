@@ -20,6 +20,9 @@ class Document(Base, UUIDMixin, TimestampMixin):
     project_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    # Set when this is a TEAM memory (visibility="team"); links it to the org so
+    # all current org members can see it. NULL for private memories.
+    org_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
 
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False, default="")

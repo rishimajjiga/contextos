@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Brain, Tag, CheckCircle2, Plus, AlertCircle, Loader2, Zap } from "lucide-react";
+import { Brain, Tag, CheckCircle2, Plus, AlertCircle, Loader2, Zap, Users } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,6 +28,10 @@ export function SaveMemoryPage() {
   const { isSaving, error, clearError, createMemory } = useMemories();
   const { plan, refetch: refetchPlan } = usePlan();
   const [saved, setSaved] = useState<{ title: string } | null>(null);
+  const [shareTeam, setShareTeam] = useState(false);
+
+  // Team memories can only be created when the (effective) plan is Team.
+  const canShareTeam = plan?.plan === "team";
 
   const {
     register,
@@ -45,10 +49,16 @@ export function SaveMemoryPage() {
     const tags = values.tags
       ? values.tags.split(",").map((t) => t.trim()).filter(Boolean)
       : [];
-    const result = await createMemory({ title: values.title, content: values.content, tags });
+    const result = await createMemory({
+      title: values.title,
+      content: values.content,
+      tags,
+      visibility: canShareTeam && shareTeam ? "team" : "private",
+    });
     if (result) {
       setSaved({ title: result.title });
       reset();
+      setShareTeam(false);
       refetchPlan(); // update usage count
     }
   };
@@ -182,6 +192,26 @@ export function SaveMemoryPage() {
                   <Input id="tags" placeholder="auth, api, research" className="pl-8" {...register("tags")} />
                 </div>
               </div>
+
+              {/* Team sharing — only for Team plans (incl. inherited) */}
+              {canShareTeam && (
+                <label className="flex items-start gap-2.5 rounded-lg border border-border bg-surface-1 px-3 py-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={shareTeam}
+                    onChange={(e) => setShareTeam(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-brand-500"
+                  />
+                  <span>
+                    <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                      <Users className="h-3.5 w-3.5 text-brand-500" /> Share with team
+                    </span>
+                    <span className="block text-xs text-muted-foreground mt-0.5">
+                      Visible to everyone in your organization, in search and AI context.
+                    </span>
+                  </span>
+                </label>
+              )}
 
               <div className="flex items-center justify-between pt-1 border-t border-border">
                 <Link to="/memories" className="text-xs text-muted-foreground hover:text-foreground underline">

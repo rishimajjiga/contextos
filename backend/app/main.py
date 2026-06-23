@@ -72,6 +72,14 @@ async def lifespan(app: FastAPI):
                     "ADD COLUMN IF NOT EXISTS doc_type VARCHAR(50) "
                     "NOT NULL DEFAULT 'note'"
                 ))
+                await conn.execute(sa.text(
+                    "ALTER TABLE documents "
+                    "ADD COLUMN IF NOT EXISTS org_id VARCHAR(36)"
+                ))
+                await conn.execute(sa.text(
+                    "CREATE INDEX IF NOT EXISTS ix_documents_org_id "
+                    "ON documents (org_id)"
+                ))
 
                 # user_subscriptions
                 await conn.execute(sa.text("""
