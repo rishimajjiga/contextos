@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { setTokenGetter } from "@/services/api";
 import { useNavigate } from "react-router-dom";
 import { useAuth, useUser } from "@clerk/clerk-react";
 import { toast } from "sonner";
@@ -392,8 +393,15 @@ const cardVariant = {
 // ── Pricing Page ──────────────────────────────────────────────────────────────
 
 export function PricingPage() {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, getToken } = useAuth();
   const navigate = useNavigate();
+
+  // Wire Clerk's getToken into the Axios interceptor so billing requests
+  // include Authorization headers (PricingPage renders outside AppLayout
+  // where AuthProvider normally handles this).
+  useEffect(() => {
+    setTokenGetter(() => getToken());
+  }, [getToken]);
   const [loading, setLoading] = useState<string | null>(null);
   const [billing, setBilling] = useState<Billing>("monthly");
   const [showStudentModal, setShowStudentModal] = useState(false);
