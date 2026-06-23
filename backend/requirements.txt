@@ -21,7 +21,7 @@ email-validator==2.2.0
 
 # Billing
 razorpay==1.4.2
-setuptools>=68.0.0        # required by razorpay on Python 3.12+
+setuptools>=68.0.0,<74    # required by razorpay on Python 3.12+; <74 keeps pkg_resources.require()
 
 # Rate limiting
 slowapi==0.1.9
