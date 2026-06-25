@@ -112,6 +112,19 @@ async def lifespan(app: FastAPI):
                     "ADD COLUMN IF NOT EXISTS backup_sent BOOLEAN NOT NULL DEFAULT FALSE"
                 ))
 
+                # Backfill subscription tracking columns. These were added to the
+                # ORM model later; existing prod tables lacked them, which made
+                # EVERY authenticated request 500 (get_user_id -> subscription
+                # lookup selects started_at/auto_renew).
+                await conn.execute(sa.text(
+                    "ALTER TABLE user_subscriptions "
+                    "ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ"
+                ))
+                await conn.execute(sa.text(
+                    "ALTER TABLE user_subscriptions "
+                    "ADD COLUMN IF NOT EXISTS auto_renew BOOLEAN NOT NULL DEFAULT TRUE"
+                ))
+
                 # payments table — individual Razorpay transaction records
                 await conn.execute(sa.text("""
                     CREATE TABLE IF NOT EXISTS payments (
