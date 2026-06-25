@@ -16,10 +16,17 @@ from app.config import settings
 # psycopg3 prepare_threshold semantics:
 #   0    = always prepare (WRONG — causes DuplicatePreparedStatement)
 #   None = never prepare  (CORRECT for PgBouncer transaction mode)
+# `connect_timeout` (psycopg) / `timeout` (asyncpg) bound how long a brand-new
+# DB connection may take to establish. Without it, when Supabase is paused or
+# the network is down, each request hangs on connect for ~30s+ — long enough
+# that the frontend's HTTP client times out and shows the misleading
+# "Backend not reachable" banner. A short connect timeout makes the API fail
+# fast with a clear 5xx instead. Both params are client-side and safe through
+# the Supabase PgBouncer pooler (unlike the `options` startup parameter).
 if "asyncpg" in settings.database_url:
-    _connect_args = {"statement_cache_size": 0}
+    _connect_args = {"statement_cache_size": 0, "timeout": 10}
 else:
-    _connect_args = {"prepare_threshold": None}
+    _connect_args = {"prepare_threshold": None, "connect_timeout": 10}
 
 engine = create_async_engine(
     settings.database_url,

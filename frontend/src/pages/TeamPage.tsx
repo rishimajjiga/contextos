@@ -158,7 +158,7 @@ export function TeamPage() {
           <div>
             <p className="text-sm font-medium text-amber-700">Backend not reachable</p>
             <p className="text-xs text-amber-700/80 mt-0.5">
-              Make sure the backend server is running on port 8000, then{" "}
+              We couldn't reach the server. Please check your connection and{" "}
               <button
                 className="underline font-medium"
                 onClick={() => { setServerDown(false); loadOrg(); }}

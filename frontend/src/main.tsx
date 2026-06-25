@@ -10,7 +10,7 @@ import "./styles/globals.css";
 // content scripts (connect.js, website-bridge.js) can read it without needing
 // access to the JS execution context.
 document.documentElement.dataset.ctxosApiUrl =
-  import.meta.env.VITE_API_URL || "http://localhost:8000";
+  import.meta.env.VITE_API_URL || "https://contextos-production-d82a.up.railway.app";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
