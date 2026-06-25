@@ -117,7 +117,7 @@ function SubscriptionCard() {
   // Don't show for free plan or while loading
   if (isLoading || plan.plan === "free") return null;
 
-  const isPaid = plan.plan !== "free" && !plan.is_in_grace_period;
+  const isPaid = !plan.is_in_grace_period;
   const planLabel = PLAN_DISPLAY[plan.plan] ?? plan.plan;
 
   return (
