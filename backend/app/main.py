@@ -223,3 +223,25 @@ async def _unhandled_exception_handler(request: Request, exc: Exception):
 @app.get("/health", tags=["health"])
 async def health_check():
     return {"status": "ok", "version": "0.1.0", "env": settings.app_env}
+
+
+# DB connectivity diagnostic — unauthenticated GET so it can be hit from a
+# browser or curl. Returns the REAL database error (truncated) when the DB is
+# unreachable/paused, which is otherwise hidden behind the generic 500.
+@app.get("/health/db", tags=["health"])
+async def health_db():
+    from sqlalchemy import text as _sql_text
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(_sql_text("SELECT 1"))
+        return {"db": "ok"}
+    except Exception as exc:
+        log.error("health_db_failed", error=str(exc), error_type=type(exc).__name__)
+        return JSONResponse(
+            status_code=503,
+            content={
+                "db": "error",
+                "error_type": type(exc).__name__,
+                "detail": str(exc)[:600],
+            },
+        )
