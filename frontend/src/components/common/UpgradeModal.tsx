@@ -36,14 +36,16 @@ export function UpgradeModal({ resource, limit, plan, onClose }: Props) {
       await openRazorpayCheckout(
         "pro",
         () => {
-          toast.success("You're now on Pro!");
+          toast.success("You're now on Pro!", { id: "pay-verify" });
           onClose();
           window.location.reload();
         },
         (err) => {
-          if (err !== "cancelled") toast.error(err || "Payment failed.");
+          if (err === "cancelled") { toast.dismiss("pay-verify"); setLoading(false); return; }
+          toast.error(err || "Payment failed.", { id: "pay-verify", duration: 10000 });
           setLoading(false);
         },
+        () => toast.loading("Verifying payment…", { id: "pay-verify" }),
       );
     } catch (err: any) {
       toast.error(err?.message ?? "Unable to open payment. Please refresh and try again.");

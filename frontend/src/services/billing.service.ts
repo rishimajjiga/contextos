@@ -159,10 +159,75 @@ function loadRazorpayScript(): Promise<void> {
   });
 }
 
+const _sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Confirm a just-completed Razorpay payment, tolerating network errors.
+ *
+ * The money has already left the customer's account by the time Razorpay calls
+ * the handler, so a transient network blip must NEVER be shown as "Payment
+ * failed". This routine:
+ *   1. Retries POST /verify a few times with backoff (handles network errors).
+ *   2. Always runs POST /reconcile (which also queries Razorpay directly) so a
+ *      missed webhook or a never-landed verify still activates the plan.
+ *   3. Treats the authoritative source of truth as GET /plan: if the plan is
+ *      active and not "free", the payment succeeded — regardless of which
+ *      individual call errored along the way.
+ *
+ * Returns true if the plan is confirmed active, false only if — after all
+ * retries — the subscription is genuinely still not active.
+ */
+async function confirmPaymentWithRecovery(response: {
+  razorpay_payment_id: string;
+  razorpay_subscription_id: string;
+  razorpay_signature: string;
+}): Promise<boolean> {
+  const MAX_ATTEMPTS = 4;
+
+  // 1. Verify (retry on any error — the interceptor already retries transient
+  //    failures once; we add a few more attempts because the stakes are high).
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      await billingService.verifyPayment(response);
+      break; // verified — subscription is active
+    } catch {
+      if (attempt < MAX_ATTEMPTS) await _sleep(attempt * 1500);
+      // fall through to reconcile + plan-check regardless
+    }
+  }
+
+  // 2. Reconcile (Razorpay-backed recovery). Retry a couple of times.
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await billingService.reconcile();
+      break;
+    } catch {
+      if (attempt < 3) await _sleep(attempt * 1500);
+    }
+  }
+
+  // 3. Authoritative confirmation: is the plan actually active now?
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const info = await billingService.getPlan();
+      if (info.plan !== "free" && info.status === "active") return true;
+      if (info.is_trialing) return true; // student trial counts as active
+    } catch {
+      /* ignore and retry */
+    }
+    if (attempt < 3) await _sleep(attempt * 1500);
+  }
+
+  return false;
+}
+
 export async function openRazorpayCheckout(
   plan: "pro" | "pro_annual" | "team" | "team_annual" | "student",
   onSuccess: () => void,
   onFailure: (err: string) => void,
+  /** Optional: fired once the modal closes and we begin verifying/recovering,
+   *  so callers can show a "Verifying payment…" state instead of a blank pause. */
+  onVerifying?: () => void,
 ): Promise<void> {
   const { subscription_id, key_id } = await billingService.createSubscription(plan);
   await loadRazorpayScript();
@@ -187,14 +252,28 @@ export async function openRazorpayCheckout(
       razorpay_subscription_id: string;
       razorpay_signature: string;
     }) => {
+      // Razorpay has already taken the money — show "Verifying…", never fail
+      // on a network error. Only report failure if recovery cannot confirm
+      // the plan as active after retries.
+      onVerifying?.();
       try {
-        await billingService.verifyPayment(response);
-        // Run reconciliation after verify to ensure subscription is active
-        // even if there was a race condition or prior grace period state.
-        try { await billingService.reconcile(); } catch { /* non-fatal */ }
-        onSuccess();
+        const activated = await confirmPaymentWithRecovery(response);
+        if (activated) {
+          onSuccess();
+        } else {
+          onFailure(
+            "We've received your payment and are still confirming it. " +
+            "This can take a minute — please refresh shortly. " +
+            "If your plan isn't active, contact support with your payment ID " +
+            `(${response.razorpay_payment_id}) and we'll restore it immediately.`,
+          );
+        }
       } catch (err: any) {
-        onFailure(err?.message ?? "Payment verification failed.");
+        // Even an unexpected throw here must not imply the money was lost.
+        onFailure(
+          err?.message ??
+          "We've received your payment and are confirming it. Please refresh in a moment.",
+        );
       }
     },
     modal: {

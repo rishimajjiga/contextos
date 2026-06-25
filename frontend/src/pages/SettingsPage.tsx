@@ -49,12 +49,14 @@ export function SettingsPage() {
       await openRazorpayCheckout(
         "student",
         () => {
-          toast.success("Subscribed! Your student plan is now active.");
+          toast.success("Subscribed! Your student plan is now active.", { id: "pay-verify" });
           billingService.getPlan().then(setPlan).catch(() => {});
         },
         (err) => {
-          if (err !== "cancelled") toast.error(err || "Payment failed. Please try again.");
+          if (err === "cancelled") { toast.dismiss("pay-verify"); return; }
+          toast.error(err || "Payment failed. Please try again.", { id: "pay-verify", duration: 10000 });
         },
+        () => toast.loading("Verifying payment…", { id: "pay-verify" }),
       );
     } catch (err: any) {
       toast.error(err?.message ?? "Unable to open payment. Please refresh and try again.");

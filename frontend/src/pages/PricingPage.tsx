@@ -447,12 +447,14 @@ export function PricingPage() {
       await openRazorpayCheckout(
         rzpPlan as any,
         () => {
-          toast.success("Payment successful! Welcome to " + (planId === "pro" ? "Pro" : "Team") + " 🎉");
+          toast.success("Payment successful! Welcome to " + (planId === "pro" ? "Pro" : "Team") + " 🎉", { id: "pay-verify" });
           navigate("/dashboard");
         },
         (err) => {
-          if (err !== "cancelled") toast.error(err || "Payment failed. Please try again.");
+          if (err === "cancelled") { toast.dismiss("pay-verify"); return; }
+          toast.error(err || "Payment failed. Please try again.", { id: "pay-verify", duration: 10000 });
         },
+        () => toast.loading("Verifying payment…", { id: "pay-verify" }),
       );
     } catch (err: any) {
       toast.error(err?.message ?? "Unable to open payment. Please refresh and try again.");

@@ -18,7 +18,7 @@ import hashlib
 import hmac
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func
 # Python 3.12+ compatibility shim: razorpay uses pkg_resources which is not
 # bundled with Python 3.12+. Inject a minimal stub before importing razorpay.
 try:
@@ -36,6 +36,7 @@ import razorpay
 import structlog
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -109,6 +110,223 @@ async def _record_payment(
     except IntegrityError:
         await db.rollback()
         log.debug("payment_record_race_skipped", payment_id=payment_id)
+
+
+# ── Recovery helpers ──────────────────────────────────────────────────────────
+# These power the "payment succeeded but plan not activated" recovery paths:
+# /reconcile (self-service), /admin/recover (manual), and /recover-sweep (cron).
+# The guiding rule: if Razorpay holds a successful payment, the user MUST get
+# the plan — even when the verify call and the webhook both failed.
+
+# Razorpay payment statuses that mean money was actually collected / held.
+_RZP_SUCCESS_STATUSES = frozenset({"captured", "authorized", "paid"})
+
+
+def _resolve_plan_from_rzp_sub(rzp_sub: dict) -> str:
+    """Map a Razorpay subscription object → our internal plan name.
+
+    Prefers the user_id/plan we stored in `notes`, then falls back to matching
+    the Razorpay plan_id against the configured plan IDs. Defaults to "pro"
+    because the user has demonstrably just paid — never downgrade on ambiguity.
+    """
+    notes = (rzp_sub or {}).get("notes", {}) or {}
+    plan = notes.get("plan", "")
+    if plan in ("pro", "student", "team"):
+        return plan
+    plan_id = (rzp_sub or {}).get("plan_id", "")
+    if plan_id and plan_id in (settings.razorpay_pro_plan_id, settings.razorpay_pro_annual_plan_id):
+        return "pro"
+    if plan_id and plan_id in (settings.razorpay_team_plan_id, settings.razorpay_team_annual_plan_id):
+        return "team"
+    if plan_id and plan_id == settings.razorpay_student_plan_id:
+        return "student"
+    return "pro"
+
+
+def _apply_active_plan(sub, plan: str, *, current_end_ts=None,
+                       started_at: datetime | None = None, sub_id: str | None = None) -> None:
+    """Idempotently put a subscription row into the active/paid state.
+
+    Mirrors exactly what /verify does on a successful payment so every recovery
+    path leaves the row in the same shape: active, grace cleared, auto-renew on.
+    Never removes data; only promotes the row.
+    """
+    now = datetime.now(timezone.utc)
+    sub.plan = plan
+    sub.status = "active"
+    if sub_id:
+        sub.stripe_subscription_id = sub_id
+    sub.grace_period_end = None     # clear any stale expired / read-only state
+    sub.backup_sent = False
+    sub.auto_renew = True
+    if sub.started_at is None:
+        sub.started_at = started_at or now
+    if current_end_ts:
+        sub.current_period_end = datetime.fromtimestamp(current_end_ts, tz=timezone.utc)
+
+
+async def _recover_from_razorpay(
+    db: AsyncSession,
+    *,
+    user_id: str,
+    subscription_id: str | None = None,
+    payment_id: str | None = None,
+) -> dict:
+    """
+    Authoritative recovery: ask Razorpay directly whether a successful payment
+    exists for this user, and if so, record it and activate the plan.
+
+    Used when the local payments table has nothing to go on — i.e. the verify
+    call never landed AND the webhook never arrived (classic network-error case).
+
+    Lookup strategy (best-effort, each step wrapped so one failure can't abort):
+      1. If payment_id given, fetch that payment directly.
+      2. If we have a subscription id (arg or stored), fetch the subscription
+         (for plan + period end) and list its invoices to find paid payments.
+      3. If ANY payment is captured/authorized/paid → record + activate.
+
+    Idempotent and safe to call repeatedly.
+    """
+    client = _rzp_client()
+    sub = await get_or_create_subscription(db, user_id)
+    sub_id = subscription_id or sub.stripe_subscription_id
+
+    # 1. Fetch the Razorpay subscription (plan + current_end) if we know its id.
+    rzp_sub: dict = {}
+    if sub_id:
+        try:
+            rzp_sub = client.subscription.fetch(sub_id)
+        except Exception as e:
+            log.warning("recover_subscription_fetch_failed",
+                        user_id=user_id, subscription_id=sub_id, error=str(e))
+
+    plan = _resolve_plan_from_rzp_sub(rzp_sub) if rzp_sub else (
+        sub.plan if sub.plan not in ("free", None) else "pro"
+    )
+    current_end_ts = (rzp_sub or {}).get("current_end")
+
+    # 2. Gather candidate payments.
+    candidates: list[dict] = []
+    if payment_id:
+        try:
+            candidates.append(client.payment.fetch(payment_id))
+        except Exception as e:
+            log.warning("recover_payment_fetch_failed",
+                        user_id=user_id, payment_id=payment_id, error=str(e))
+    if sub_id:
+        try:
+            invoices = client.invoice.all({"subscription_id": sub_id, "count": 10})
+            for inv in (invoices.get("items", []) if isinstance(invoices, dict) else []):
+                pid = inv.get("payment_id")
+                if not pid:
+                    continue
+                try:
+                    candidates.append(client.payment.fetch(pid))
+                except Exception:
+                    continue
+        except Exception as e:
+            log.warning("recover_invoice_list_failed",
+                        user_id=user_id, subscription_id=sub_id, error=str(e))
+
+    # 3. Find the first genuinely successful payment.
+    success = next(
+        (p for p in candidates if (p or {}).get("status") in _RZP_SUCCESS_STATUSES),
+        None,
+    )
+    if success is None:
+        log.info("recover_no_successful_payment",
+                 user_id=user_id, subscription_id=sub_id,
+                 candidates=len(candidates))
+        return {"ok": True, "recovered": False, "reason": "no_successful_payment_in_razorpay"}
+
+    # Record the transaction (idempotent) and activate the plan.
+    await _record_payment(
+        db,
+        user_id=user_id,
+        payment_id=success.get("id"),
+        subscription_id=sub_id,
+        order_id=success.get("order_id"),
+        amount=success.get("amount", 0),
+        currency=success.get("currency", "INR"),
+        plan_name=plan,
+        status="captured",
+    )
+    _apply_active_plan(sub, plan, current_end_ts=current_end_ts, sub_id=sub_id)
+    await db.commit()
+
+    log.warning(
+        "subscription_recovered_from_razorpay",
+        user_id=user_id,
+        plan=plan,
+        payment_id=success.get("id"),
+        subscription_id=sub_id,
+        payment_status=success.get("status"),
+    )
+    return {
+        "ok": True,
+        "recovered": True,
+        "plan": plan,
+        "payment_id": success.get("id"),
+        "subscription_id": sub_id,
+    }
+
+
+# ── Admin / cron auth guards ──────────────────────────────────────────────────
+
+_optional_bearer = HTTPBearer(auto_error=False)
+
+
+def _cron_secret_ok(provided: str | None) -> bool:
+    """Constant-time compare against the configured CRON_SECRET."""
+    return bool(
+        settings.cron_secret
+        and provided
+        and hmac.compare_digest(provided, settings.cron_secret)
+    )
+
+
+async def _require_admin(
+    x_cron_secret: str | None = Header(None, alias="X-Cron-Secret"),
+    credentials: HTTPAuthorizationCredentials | None = Depends(_optional_bearer),
+    x_api_key: str | None = Header(None, alias="X-Api-Key"),
+    db: AsyncSession = Depends(get_db),
+) -> str:
+    """Allow the request if EITHER a valid cron secret OR a logged-in founder.
+
+    Returns an opaque actor string for logging.
+    """
+    if _cron_secret_ok(x_cron_secret):
+        return "cron"
+
+    if credentials or x_api_key:
+        try:
+            from app.middleware import get_current_user_id
+            from app.services import get_or_provision_user
+            clerk_id = await get_current_user_id(
+                credentials=credentials, x_api_key=x_api_key, db=db
+            )
+            user = await get_or_provision_user(db, clerk_id)
+            if user and user.email and user.email.lower() in settings.founder_emails:
+                return f"founder:{user.email.lower()}"
+        except Exception as e:
+            log.debug("admin_guard_founder_check_failed", error=str(e))
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Admin access required: provide a valid X-Cron-Secret or sign in as a founder.",
+    )
+
+
+async def _require_cron(
+    x_cron_secret: str | None = Header(None, alias="X-Cron-Secret"),
+) -> bool:
+    """Gate cron-only endpoints behind the shared CRON_SECRET."""
+    if not _cron_secret_ok(x_cron_secret):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing X-Cron-Secret.",
+        )
+    return True
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -408,52 +626,213 @@ async def reconcile_subscription(
     )
     latest_payment = result.scalar_one_or_none()
 
-    if latest_payment is None:
-        return {"ok": True, "action": "no_payment_found", "fixed": False}
-
     sub = await get_or_create_subscription(db, user_id)
 
-    # Check if there's a mismatch: payment exists but subscription isn't active
-    # or grace_period_end is still set (stale expired state after payment)
-    needs_fix = (
-        sub.plan == "free" and latest_payment.plan_name != "free"
-    ) or (
-        sub.grace_period_end is not None and sub.status == "active"
-    ) or (
-        sub.status in ("canceled", "past_due", "expired") and
-        sub.current_period_end is not None and
-        sub.current_period_end > now
+    # ── Step 1: DB-based fix (fast path) ──────────────────────────────────────
+    # If we already recorded a successful payment, fix any mismatch from it.
+    if latest_payment is not None:
+        needs_fix = (
+            sub.plan == "free" and latest_payment.plan_name != "free"
+        ) or (
+            sub.grace_period_end is not None and sub.status == "active"
+        ) or (
+            sub.status in ("canceled", "past_due", "expired") and
+            sub.current_period_end is not None and
+            sub.current_period_end > now
+        )
+
+        if needs_fix:
+            log.warning(
+                "subscription_reconcile_fix",
+                user_id=user_id,
+                payment_id=latest_payment.payment_id,
+                plan=latest_payment.plan_name,
+                old_status=sub.status,
+                grace_period_end=sub.grace_period_end,
+            )
+            _apply_active_plan(
+                sub, latest_payment.plan_name,
+                started_at=latest_payment.purchase_date,
+            )
+            await db.commit()
+            return {
+                "ok": True,
+                "action": "fixed",
+                "fixed": True,
+                "plan": sub.plan,
+                "payment_id": latest_payment.payment_id,
+            }
+
+    # ── Step 2: Razorpay-direct fallback ──────────────────────────────────────
+    # No usable local payment record, OR the subscription still looks broken
+    # despite having paid. This is the network-error case where BOTH the verify
+    # call and the webhook failed — the payment only exists inside Razorpay.
+    sub_looks_broken = (
+        (sub.plan == "free" and sub.stripe_subscription_id) or
+        (sub.grace_period_end is not None) or
+        (sub.status in ("canceled", "past_due", "expired"))
     )
 
-    if not needs_fix:
-        return {"ok": True, "action": "no_mismatch", "fixed": False}
+    if latest_payment is None or sub_looks_broken:
+        rec = await _recover_from_razorpay(db, user_id=user_id)
+        if rec.get("recovered"):
+            return {
+                "ok": True,
+                "action": "recovered_from_razorpay",
+                "fixed": True,
+                "plan": rec.get("plan"),
+                "payment_id": rec.get("payment_id"),
+            }
+        return {
+            "ok": True,
+            "action": "no_payment_found" if latest_payment is None else "no_mismatch",
+            "fixed": False,
+        }
 
-    # Auto-fix: activate the plan from the latest payment
+    return {"ok": True, "action": "no_mismatch", "fixed": False}
+
+
+# ── POST /billing/admin/recover ───────────────────────────────────────────────
+
+class AdminRecoverRequest(BaseModel):
+    user_email: str | None = None
+    user_id: str | None = None
+    razorpay_payment_id: str | None = None
+    razorpay_subscription_id: str | None = None
+
+
+@router.post("/admin/recover")
+async def admin_recover(
+    body: AdminRecoverRequest,
+    actor: str = Depends(_require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Manual recovery tool. Given a user (by email, internal id, or Razorpay
+    subscription id) and/or a specific Razorpay payment id, verify the payment
+    with Razorpay and activate the subscription.
+
+    Auth: founder login OR X-Cron-Secret header.
+
+    Body (all optional, but at least one identifier required):
+      - user_email             — look up the user by email
+      - user_id                — internal user id
+      - razorpay_payment_id    — verify/activate from this exact payment
+      - razorpay_subscription_id — used to find the user and/or fetch invoices
+    """
+    from app.models.user import User
+    from app.models.subscription import UserSubscription
+
+    # Resolve the target user.
+    target_user_id = body.user_id
+
+    if not target_user_id and body.user_email:
+        res = await db.execute(
+            select(User).where(func.lower(User.email) == body.user_email.strip().lower())
+        )
+        user = res.scalar_one_or_none()
+        if user is None:
+            raise HTTPException(status_code=404, detail=f"No user found with email {body.user_email}.")
+        target_user_id = user.id
+
+    if not target_user_id and body.razorpay_subscription_id:
+        res = await db.execute(
+            select(UserSubscription).where(
+                UserSubscription.stripe_subscription_id == body.razorpay_subscription_id
+            )
+        )
+        srow = res.scalar_one_or_none()
+        if srow is not None:
+            target_user_id = srow.user_id
+
+    if not target_user_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide at least one of: user_id, user_email, or razorpay_subscription_id.",
+        )
+
+    rec = await _recover_from_razorpay(
+        db,
+        user_id=target_user_id,
+        subscription_id=body.razorpay_subscription_id,
+        payment_id=body.razorpay_payment_id,
+    )
+
+    sub = await get_or_create_subscription(db, target_user_id)
+
     log.warning(
-        "subscription_reconcile_fix",
-        user_id=user_id,
-        payment_id=latest_payment.payment_id,
-        plan=latest_payment.plan_name,
-        old_status=sub.status,
-        grace_period_end=sub.grace_period_end,
+        "admin_recovery_action",
+        actor=actor,
+        target_user_id=target_user_id,
+        payment_id=body.razorpay_payment_id,
+        subscription_id=body.razorpay_subscription_id,
+        recovered=rec.get("recovered"),
     )
-
-    sub.plan = latest_payment.plan_name
-    sub.status = "active"
-    sub.grace_period_end = None   # clear stale expired state
-    sub.backup_sent = False
-    sub.auto_renew = True
-    if sub.started_at is None:
-        sub.started_at = latest_payment.purchase_date
-    await db.commit()
 
     return {
         "ok": True,
-        "action": "fixed",
-        "fixed": True,
-        "plan": sub.plan,
-        "payment_id": latest_payment.payment_id,
+        "actor": actor,
+        "user_id": target_user_id,
+        "recovery": rec,
+        "current_plan": sub.plan,
+        "status": sub.status,
+        "expires_on": sub.current_period_end.isoformat() if sub.current_period_end else None,
     }
+
+
+# ── POST /billing/recover-sweep ───────────────────────────────────────────────
+
+@router.post("/recover-sweep", include_in_schema=False)
+async def recover_sweep(
+    _: bool = Depends(_require_cron),
+    db: AsyncSession = Depends(get_db),
+    limit: int = 200,
+):
+    """
+    Webhook-failure safety net. Designed to run every ~5 minutes from an external
+    scheduler (Railway cron / GitHub Action / uptime ping) that sends the
+    X-Cron-Secret header.
+
+    Finds subscriptions that have a Razorpay subscription id (so the user paid
+    or tried to) but are stuck in a broken state — free, expired, cancelled, or
+    sitting in a grace period — and recovers each one from Razorpay.
+    """
+    from app.models.subscription import UserSubscription
+
+    res = await db.execute(
+        select(UserSubscription)
+        .where(UserSubscription.stripe_subscription_id.is_not(None))
+        .limit(min(limit, 500))
+    )
+    subs = res.scalars().all()
+
+    checked = 0
+    recovered: list[dict] = []
+
+    for s in subs:
+        looks_broken = (
+            s.plan == "free"
+            or s.grace_period_end is not None
+            or s.status in ("canceled", "past_due", "expired", "created")
+        )
+        if not looks_broken:
+            continue
+        checked += 1
+        try:
+            rec = await _recover_from_razorpay(
+                db, user_id=s.user_id, subscription_id=s.stripe_subscription_id
+            )
+            if rec.get("recovered"):
+                recovered.append({
+                    "user_id": s.user_id,
+                    "plan": rec.get("plan"),
+                    "payment_id": rec.get("payment_id"),
+                })
+        except Exception as e:
+            log.warning("recover_sweep_item_failed", user_id=s.user_id, error=str(e))
+
+    log.info("recover_sweep_complete", scanned=len(subs), checked=checked, recovered=len(recovered))
+    return {"ok": True, "scanned": len(subs), "checked": checked, "recovered": recovered}
 
 
 # ── Educational domain detection ──────────────────────────────────────────────
