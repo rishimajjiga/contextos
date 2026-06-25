@@ -4,7 +4,7 @@
  * Data is fetched from GET /billing/payments.
  */
 import { useEffect, useState } from "react";
-import { Receipt, RefreshCw, AlertCircle } from "lucide-react";
+import { Receipt, RefreshCw, AlertCircle, CalendarDays, RefreshCcw, Clock } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { Badge } from "@/components/ui/badge";
@@ -35,7 +35,8 @@ const PLAN_LABEL: Record<string, string> = {
   founder: "Founder",
 };
 
-function formatDate(iso: string): string {
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
   try {
     return new Date(iso).toLocaleDateString("en-IN", {
       day:   "2-digit",
@@ -45,6 +46,42 @@ function formatDate(iso: string): string {
   } catch {
     return iso;
   }
+}
+
+// ── Subscription details pill row ─────────────────────────────────────────────
+function SubscriptionDetailRow({ payment }: { payment: PaymentRecord }) {
+  if (payment.status !== "captured") return null;
+  const hasDetails = payment.started_on || payment.expires_on || payment.days_remaining !== null;
+  if (!hasDetails) return null;
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground border-t border-border/30 pt-3">
+      {payment.started_on && (
+        <span className="flex items-center gap-1">
+          <CalendarDays className="h-3 w-3 shrink-0" />
+          Started: <span className="text-foreground/80 ml-0.5">{formatDate(payment.started_on)}</span>
+        </span>
+      )}
+      {payment.expires_on && (
+        <span className="flex items-center gap-1">
+          <Clock className="h-3 w-3 shrink-0" />
+          Expires: <span className="text-foreground/80 ml-0.5">{formatDate(payment.expires_on)}</span>
+        </span>
+      )}
+      <span className="flex items-center gap-1">
+        <RefreshCcw className="h-3 w-3 shrink-0" />
+        Auto Renew:{" "}
+        <span className={`ml-0.5 font-medium ${payment.auto_renew ? "text-green-600" : "text-amber-600"}`}>
+          {payment.auto_renew ? "ON" : "OFF"}
+        </span>
+      </span>
+      {payment.days_remaining !== null && (
+        <span className="flex items-center gap-1">
+          <span className="font-medium text-brand-500">{payment.days_remaining} days remaining</span>
+        </span>
+      )}
+    </div>
+  );
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -126,6 +163,10 @@ export function PaymentHistoryPage() {
                     <th className="px-6 py-3 text-left font-medium">Plan</th>
                     <th className="px-6 py-3 text-left font-medium">Amount</th>
                     <th className="px-6 py-3 text-left font-medium">Status</th>
+                    <th className="px-6 py-3 text-left font-medium">Started</th>
+                    <th className="px-6 py-3 text-left font-medium">Expires</th>
+                    <th className="px-6 py-3 text-left font-medium">Auto Renew</th>
+                    <th className="px-6 py-3 text-left font-medium">Days Left</th>
                     <th className="px-6 py-3 text-left font-medium">Transaction ID</th>
                   </tr>
                 </thead>
@@ -150,6 +191,24 @@ export function PaymentHistoryPage() {
                         <Badge variant={STATUS_VARIANT[p.status] ?? "outline"} className="text-xs">
                           {STATUS_LABEL[p.status] ?? p.status}
                         </Badge>
+                      </td>
+                      <td className="px-6 py-4 text-foreground/70 whitespace-nowrap">
+                        {formatDate(p.started_on)}
+                      </td>
+                      <td className="px-6 py-4 text-foreground/70 whitespace-nowrap">
+                        {formatDate(p.expires_on)}
+                      </td>
+                      <td className="px-6 py-4">
+                        {p.status === "captured" ? (
+                          <span className={`text-xs font-medium ${p.auto_renew ? "text-green-600" : "text-amber-600"}`}>
+                            {p.auto_renew ? "ON" : "OFF"}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground/50">—</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 tabular-nums text-foreground/70">
+                        {p.days_remaining !== null ? `${p.days_remaining}d` : "—"}
                       </td>
                       <td className="px-6 py-4 font-mono text-xs text-muted-foreground break-all">
                         {p.payment_id}
@@ -176,6 +235,7 @@ export function PaymentHistoryPage() {
                     <span className="text-muted-foreground">{formatDate(p.purchase_date)}</span>
                     <span className="font-semibold tabular-nums">{p.amount_display}</span>
                   </div>
+                  <SubscriptionDetailRow payment={p} />
                   <p className="font-mono text-[11px] text-muted-foreground/70 break-all">
                     {p.payment_id}
                   </p>

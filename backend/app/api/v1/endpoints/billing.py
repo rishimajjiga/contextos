@@ -11,7 +11,8 @@ Flow:
   6. Payment is recorded in the payments table for history
 
 Routes added:
-  GET /billing/payments — returns paginated payment history for the signed-in user
+  GET  /billing/payments    — returns paginated payment history for the signed-in user
+  POST /billing/reconcile   — recovery: auto-fix subscription mismatches from payment records
 """
 import hashlib
 import hmac
@@ -241,6 +242,12 @@ async def verify_payment(
     """
     Called by the frontend after the Razorpay modal succeeds.
     Verifies the HMAC signature and marks the subscription as active.
+
+    Safety:
+    - Clears grace_period_end so expired banner disappears immediately.
+    - Sets started_at on first activation.
+    - Resets auto_renew to True on new payment.
+    - Idempotent: safe to call multiple times for the same payment.
     """
     # Razorpay signature = HMAC-SHA256(payment_id + "|" + subscription_id, key_secret)
     expected = hmac.new(
@@ -276,15 +283,30 @@ async def verify_payment(
         else:
             resolved_plan = "pro"   # safe default — user just paid
 
-    # Activate the subscription with the correct plan
+    now = datetime.now(timezone.utc)
+
+    # Activate the subscription with the correct plan.
+    # FIX: Clear grace_period_end so the expired banner disappears immediately.
     sub = await get_or_create_subscription(db, user_id)
     sub.plan = resolved_plan
     sub.status = "active"
     sub.stripe_subscription_id = body.razorpay_subscription_id
+    sub.grace_period_end = None   # ← CRITICAL: clears expired/grace state
+    sub.backup_sent = False
+    sub.auto_renew = True         # new payment always resets auto-renew to ON
+    if sub.started_at is None:
+        sub.started_at = now      # record first activation date
     if current_end_ts:
         from datetime import timezone as _tz
         sub.current_period_end = datetime.fromtimestamp(current_end_ts, tz=_tz.utc)
     await db.commit()
+
+    log.info(
+        "subscription_activated_via_verify",
+        user_id=user_id,
+        plan=resolved_plan,
+        subscription_id=body.razorpay_subscription_id,
+    )
 
     # Fetch payment details from Razorpay to record amount/currency
     try:
@@ -306,6 +328,7 @@ async def verify_payment(
         currency=pay_currency,
         plan_name=resolved_plan,
         status="captured",
+        purchase_date=now,
     )
 
     return {"ok": True, "plan": sub.plan}
@@ -319,7 +342,11 @@ async def cancel_subscription(
     user_id: str = Depends(get_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    """Cancel the user's Razorpay subscription."""
+    """Cancel the user's Razorpay subscription.
+
+    cancel_at_cycle_end=True (default): keeps access until period end, stops renewal.
+    cancel_at_cycle_end=False: cancels immediately, downgrades to free.
+    """
     sub = await get_or_create_subscription(db, user_id)
     if not sub.stripe_subscription_id:
         raise HTTPException(status_code=400, detail="No active subscription found.")
@@ -334,14 +361,99 @@ async def cancel_subscription(
         log.error("razorpay_cancel_error", user_id=user_id, error=str(e))
         raise HTTPException(status_code=502, detail=f"Razorpay error: {e}")
 
-    if not body.cancel_at_cycle_end:
+    if body.cancel_at_cycle_end:
+        # Keep plan active until period end — just disable auto-renew
+        # SAFETY: do NOT downgrade plan or set grace period here.
+        # The subscription stays active; Razorpay will send subscription.cancelled
+        # webhook when the period actually ends.
+        sub.auto_renew = False
+    else:
+        # Immediate cancellation — downgrade now
         sub.plan = "free"
         sub.status = "active"
         sub.stripe_subscription_id = None
         sub.current_period_end = None
-        await db.commit()
+        sub.auto_renew = True
+    await db.commit()
 
     return {"ok": True, "cancel_at_cycle_end": body.cancel_at_cycle_end}
+
+
+# ── POST /billing/reconcile ───────────────────────────────────────────────────
+
+@router.post("/reconcile")
+async def reconcile_subscription(
+    user_id: str = Depends(get_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Recovery endpoint: checks payment records for successful payments and
+    auto-fixes subscription mismatches. Call this from PaymentSuccessPage
+    or manually if a user reports being stuck on expired/read-only after paying.
+
+    Logic:
+    1. Find the most recent captured payment for this user.
+    2. If the subscription is NOT active (or has a stale grace_period_end),
+       activate it using the payment record data.
+    3. Idempotent — safe to call repeatedly.
+    """
+    now = datetime.now(timezone.utc)
+
+    # Get the most recent successful payment
+    result = await db.execute(
+        select(Payment)
+        .where(Payment.user_id == user_id, Payment.status == "captured")
+        .order_by(desc(Payment.purchase_date))
+        .limit(1)
+    )
+    latest_payment = result.scalar_one_or_none()
+
+    if latest_payment is None:
+        return {"ok": True, "action": "no_payment_found", "fixed": False}
+
+    sub = await get_or_create_subscription(db, user_id)
+
+    # Check if there's a mismatch: payment exists but subscription isn't active
+    # or grace_period_end is still set (stale expired state after payment)
+    needs_fix = (
+        sub.plan == "free" and latest_payment.plan_name != "free"
+    ) or (
+        sub.grace_period_end is not None and sub.status == "active"
+    ) or (
+        sub.status in ("canceled", "past_due", "expired") and
+        sub.current_period_end is not None and
+        sub.current_period_end > now
+    )
+
+    if not needs_fix:
+        return {"ok": True, "action": "no_mismatch", "fixed": False}
+
+    # Auto-fix: activate the plan from the latest payment
+    log.warning(
+        "subscription_reconcile_fix",
+        user_id=user_id,
+        payment_id=latest_payment.payment_id,
+        plan=latest_payment.plan_name,
+        old_status=sub.status,
+        grace_period_end=sub.grace_period_end,
+    )
+
+    sub.plan = latest_payment.plan_name
+    sub.status = "active"
+    sub.grace_period_end = None   # clear stale expired state
+    sub.backup_sent = False
+    sub.auto_renew = True
+    if sub.started_at is None:
+        sub.started_at = latest_payment.purchase_date
+    await db.commit()
+
+    return {
+        "ok": True,
+        "action": "fixed",
+        "fixed": True,
+        "plan": sub.plan,
+        "payment_id": latest_payment.payment_id,
+    }
 
 
 # ── Educational domain detection ──────────────────────────────────────────────
@@ -669,9 +781,12 @@ async def get_payment_history(
 ):
     """
     Return the authenticated user's payment history, most recent first.
-    Each entry contains: payment_id, amount, currency, status, plan_name, purchase_date.
-    Used by the Payment History page in the frontend.
+    Each entry contains: payment_id, amount, currency, status, plan_name,
+    purchase_date, plus subscription-level details (expires_on, auto_renew,
+    days_remaining) from the current subscription row.
     """
+    from app.models.subscription import UserSubscription
+
     result = await db.execute(
         select(Payment)
         .where(Payment.user_id == user_id)
@@ -680,6 +795,28 @@ async def get_payment_history(
         .offset(offset)
     )
     payments = result.scalars().all()
+
+    # Fetch subscription for extra billing details
+    sub_result = await db.execute(
+        select(UserSubscription).where(UserSubscription.user_id == user_id)
+    )
+    sub = sub_result.scalar_one_or_none()
+
+    now = datetime.now(timezone.utc)
+
+    # Subscription-level details to attach to payment rows
+    started_on = None
+    expires_on = None
+    auto_renew = True
+    days_remaining = None
+
+    if sub:
+        started_on = sub.started_at.isoformat() if sub.started_at else None
+        expires_on = sub.current_period_end.isoformat() if sub.current_period_end else None
+        auto_renew = bool(sub.auto_renew)
+        if sub.current_period_end and sub.current_period_end > now:
+            delta = sub.current_period_end - now
+            days_remaining = delta.days
 
     return {
         "payments": [
@@ -694,6 +831,11 @@ async def get_payment_history(
                 "status": p.status,
                 "plan_name": p.plan_name,
                 "purchase_date": p.purchase_date.isoformat(),
+                # Subscription-level billing details
+                "started_on": started_on,
+                "expires_on": expires_on,
+                "auto_renew": auto_renew,
+                "days_remaining": days_remaining,
             }
             for p in payments
         ],

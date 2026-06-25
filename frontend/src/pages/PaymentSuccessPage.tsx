@@ -11,6 +11,7 @@ import { useEffect } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { CheckCircle2, ArrowRight, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { billingService } from "@/services/billing.service";
 
 const PLAN_LABEL: Record<string, string> = {
   pro:         "Pro",
@@ -25,6 +26,12 @@ export function PaymentSuccessPage() {
   const navigate  = useNavigate();
   const plan      = params.get("plan") ?? "";
   const planLabel = PLAN_LABEL[plan] ?? "your new plan";
+
+  // Run reconciliation on mount — ensures subscription is active even if the
+  // webhook was delayed or the verify call hit a race condition.
+  useEffect(() => {
+    billingService.reconcile().catch(() => { /* non-fatal */ });
+  }, []);
 
   // Auto-redirect to dashboard after 8 seconds so users who land here via
   // Razorpay callback_url aren't stranded.

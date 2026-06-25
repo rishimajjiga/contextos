@@ -166,6 +166,42 @@ async def is_in_grace_period(db: AsyncSession, user_id: str) -> bool:
 
 async def get_plan_info(db: AsyncSession, user_id: str) -> dict:
     sub = await get_or_create_subscription(db, user_id)
+
+    # ── Self-healing: fix stale grace/expired state for users who already paid ──
+    # If grace_period_end is set but a successful payment exists, the user paid
+    # and the old verify_payment didn't clear it. Auto-fix on every plan fetch
+    # so existing stuck users recover the moment they open the app.
+    if sub.grace_period_end is not None:
+        from app.models.payment import Payment
+        from sqlalchemy import desc as _desc
+        try:
+            recent_pay = await db.execute(
+                select(Payment)
+                .where(Payment.user_id == user_id, Payment.status == "captured")
+                .order_by(_desc(Payment.purchase_date))
+                .limit(1)
+            )
+            latest = recent_pay.scalar_one_or_none()
+            if latest is not None:
+                # Payment exists — the grace period is stale; clear it now
+                log.info(
+                    "subscription_self_heal",
+                    user_id=user_id,
+                    payment_id=latest.payment_id,
+                    plan=latest.plan_name,
+                )
+                sub.plan = latest.plan_name
+                sub.status = "active"
+                sub.grace_period_end = None
+                sub.backup_sent = False
+                sub.auto_renew = True
+                if sub.started_at is None:
+                    sub.started_at = latest.purchase_date
+                await db.commit()
+        except Exception as exc:
+            log.warning("subscription_self_heal_failed", user_id=user_id, error=str(exc))
+    # ── end self-healing ──────────────────────────────────────────────────────
+
     plan = await get_user_plan(db, user_id)
     limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])
     now = datetime.now(timezone.utc)
@@ -189,15 +225,26 @@ async def get_plan_info(db: AsyncSession, user_id: str) -> dict:
         log.error("get_plan_info_mem_count_failed", user_id=user_id, error=str(exc))
         mem_count = 0
 
+    # Calculate days remaining in current billing period
+    days_remaining = None
+    if sub.current_period_end and sub.current_period_end > now:
+        delta = sub.current_period_end - now
+        days_remaining = delta.days
+
     return {
         "plan": plan,
         "display_name": PLAN_DISPLAY.get(plan, plan.title()),
         "limits": limits,
+        "status": sub.status,
         "current_period_end": sub.current_period_end.isoformat() if sub.current_period_end else None,
         "is_trialing": sub.status == "trialing",
         "is_in_grace_period": in_grace,
         "grace_period_end": sub.grace_period_end.isoformat() if sub.grace_period_end else None,
         "usage": {"projects": proj_count, "memories": mem_count},
+        # Enhanced billing details (Task B/C)
+        "started_on": sub.started_at.isoformat() if sub.started_at else None,
+        "auto_renew": bool(sub.auto_renew),
+        "days_remaining": days_remaining,
     }
 
 
@@ -347,11 +394,15 @@ async def handle_razorpay_subscription_activated(db: AsyncSession, payload: dict
         else:
             plan = "free"
     sub = await get_or_create_subscription(db, user_id)
+    now = datetime.now(timezone.utc)
     sub.stripe_subscription_id = rzp_sub_id
     sub.plan = plan
     sub.status = "active"
-    sub.grace_period_end = None
+    sub.grace_period_end = None   # clear any stale grace/expired state
     sub.backup_sent = False
+    sub.auto_renew = True
+    if sub.started_at is None:
+        sub.started_at = now
     if current_end_ts:
         sub.current_period_end = datetime.fromtimestamp(current_end_ts, tz=timezone.utc)
     await db.commit()
@@ -370,6 +421,7 @@ async def handle_razorpay_subscription_charged(db: AsyncSession, payload: dict) 
     sub.status = "active"
     sub.grace_period_end = None
     sub.backup_sent = False
+    sub.auto_renew = True
     if current_end_ts:
         sub.current_period_end = datetime.fromtimestamp(current_end_ts, tz=timezone.utc)
     await db.commit()

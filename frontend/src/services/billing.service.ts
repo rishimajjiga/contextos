@@ -3,6 +3,7 @@ import { request } from "./api";
 export interface PlanInfo {
   plan: "free" | "student" | "pro" | "team" | "founder";
   display_name: string;
+  status: string;
   limits: {
     projects: number;
     memories: number;
@@ -17,6 +18,10 @@ export interface PlanInfo {
   is_trialing: boolean;
   is_in_grace_period: boolean;
   grace_period_end: string | null;
+  // Enhanced billing details
+  started_on: string | null;
+  auto_renew: boolean;
+  days_remaining: number | null;
 }
 
 /** Quota limits for a single plan. -1 means unlimited. Mirrors backend PLAN_LIMITS. */
@@ -65,6 +70,11 @@ export interface PaymentRecord {
   status: "captured" | "failed" | "refunded" | "pending";
   plan_name: string;
   purchase_date: string;
+  // Subscription-level billing details
+  started_on: string | null;
+  expires_on: string | null;
+  auto_renew: boolean;
+  days_remaining: number | null;
 }
 
 export interface PaymentHistoryResponse {
@@ -124,6 +134,14 @@ export const billingService = {
       url: `/billing/payments?limit=${limit}&offset=${offset}`,
     });
   },
+
+  /**
+   * Recovery: auto-fix subscription mismatches from payment records.
+   * Call after payment success to ensure subscription is always activated.
+   */
+  async reconcile(): Promise<{ ok: boolean; action: string; fixed: boolean; plan?: string }> {
+    return request({ method: "POST", url: "/billing/reconcile" });
+  },
 };
 
 declare global {
@@ -171,6 +189,9 @@ export async function openRazorpayCheckout(
     }) => {
       try {
         await billingService.verifyPayment(response);
+        // Run reconciliation after verify to ensure subscription is active
+        // even if there was a race condition or prior grace period state.
+        try { await billingService.reconcile(); } catch { /* non-fatal */ }
         onSuccess();
       } catch (err: any) {
         onFailure(err?.message ?? "Payment verification failed.");

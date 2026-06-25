@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
-import { ArrowRight, Brain, FolderKanban, Users, Cpu, Zap, Key, MessageSquare, FileText, Globe, Code2 } from "lucide-react";
+import { ArrowRight, Brain, FolderKanban, Users, Cpu, Zap, Key, MessageSquare, FileText, Globe, Code2, Chrome } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const FEATURES = [
@@ -367,6 +367,18 @@ export function LandingPage() {
                   <Button variant="outline" size="lg">Sign in</Button>
                 </Link>
               </motion.div>
+              <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
+                <a
+                  href="https://chromewebstore.google.com/detail/lofknjnllpgmbhnipkcblgmeijmeobbl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button variant="outline" size="lg" className="gap-2">
+                    <Chrome className="h-4 w-4" />
+                    Add Chrome Extension
+                  </Button>
+                </a>
+              </motion.div>
             </motion.div>
 
             <motion.div
@@ -572,13 +584,27 @@ export function LandingPage() {
           <p className="text-muted-foreground mb-8 text-lg">
             Build your second brain today. Free to start, no credit card required.
           </p>
-          <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} className="inline-block">
-            <Link to="/sign-up">
-              <Button size="lg" className="gap-2 px-8 shadow-lg shadow-brand-500/20">
-                Get started free <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-          </motion.div>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
+              <Link to="/sign-up">
+                <Button size="lg" className="gap-2 px-8 shadow-lg shadow-brand-500/20">
+                  Get started free <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
+              <a
+                href="https://chromewebstore.google.com/detail/lofknjnllpgmbhnipkcblgmeijmeobbl"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Button variant="outline" size="lg" className="gap-2">
+                  <Chrome className="h-4 w-4" />
+                  Add Chrome Extension
+                </Button>
+              </a>
+            </motion.div>
+          </div>
         </motion.div>
       </section>
 

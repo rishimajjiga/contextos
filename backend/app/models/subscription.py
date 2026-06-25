@@ -5,7 +5,7 @@ One row per user — tracks their Stripe plan, subscription ID, and billing peri
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -20,14 +20,14 @@ class UserSubscription(Base, UUIDMixin, TimestampMixin):
         nullable=False, unique=True, index=True,
     )
 
-    # Plan: "free" | "pro" | "team"
+    # Plan: "free" | "pro" | "team" | "student" | "founder"
     plan: Mapped[str] = mapped_column(String(32), nullable=False, default="free")
 
     # Stripe IDs — null until the user subscribes
     stripe_customer_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
     stripe_subscription_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
 
-    # "active" | "canceled" | "past_due" | "trialing"
+    # "active" | "canceled" | "past_due" | "trialing" | "expired"
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
 
     # When the current billing period ends (null for free forever)
@@ -42,6 +42,15 @@ class UserSubscription(Base, UUIDMixin, TimestampMixin):
 
     # True once the backup PDF has been emailed (prevents double-sends)
     backup_sent: Mapped[bool] = mapped_column(default=False, nullable=False)
+
+    # When the subscription was first activated (set on first payment)
+    started_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    # Whether the subscription will auto-renew. Set to False when user cancels
+    # with cancel_at_cycle_end=True (keeps access until period end, no renewal).
+    auto_renew: Mapped[bool] = mapped_column(Boolean(), default=True, nullable=False)
 
     # Relationship back to User
     user: Mapped["User"] = relationship("User", back_populates="subscription")  # noqa: F821

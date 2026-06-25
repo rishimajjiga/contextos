@@ -4,12 +4,16 @@ import { billingService, type PlanInfo } from "@/services/billing.service";
 const FREE_PLAN_DEFAULT: PlanInfo = {
   plan: "free",
   display_name: "Free",
+  status: "active",
   limits: { projects: 1, memories: 10, api_keys: 1, daily_inject: 3 },
   usage: { projects: 0, memories: 0 },
   current_period_end: null,
   is_trialing: false,
   is_in_grace_period: false,
   grace_period_end: null,
+  started_on: null,
+  auto_renew: true,
+  days_remaining: null,
 };
 
 export function usePlan() {

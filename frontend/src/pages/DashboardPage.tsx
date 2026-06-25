@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useUser } from "@clerk/clerk-react";
-import { FolderKanban, User, ArrowRight, Plus, CheckCircle2, Circle, Chrome, Key, Zap, Brain } from "lucide-react";
+import { FolderKanban, User, ArrowRight, Plus, CheckCircle2, Circle, Chrome, Key, Zap, Brain, CreditCard, CalendarDays, RefreshCcw, Clock } from "lucide-react";
 import { useProjects } from "@/hooks/useProjects";
 import { useProfile } from "@/hooks/useProfile";
 import { usePlan } from "@/hooks/usePlan";
@@ -92,6 +92,95 @@ function OnboardingChecklist({
   );
 }
 
+const PLAN_DISPLAY: Record<string, string> = {
+  free: "Free",
+  student: "Student",
+  pro: "Pro",
+  team: "Team",
+  founder: "Founder",
+};
+
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleDateString("en-IN", {
+      day: "2-digit", month: "short", year: "numeric",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function SubscriptionCard() {
+  const { plan, isLoading } = usePlan();
+
+  // Don't show for free plan or while loading
+  if (isLoading || plan.plan === "free") return null;
+
+  const isPaid = plan.plan !== "free" && !plan.is_in_grace_period;
+  const planLabel = PLAN_DISPLAY[plan.plan] ?? plan.plan;
+
+  return (
+    <Card className="mb-6 border-brand-500/20 bg-brand-500/5">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <CreditCard className="h-4 w-4 text-brand-400" />
+            Current Plan
+          </CardTitle>
+          <Link to="/payment-history">
+            <Button variant="ghost" size="sm" className="gap-1 text-xs text-muted-foreground">
+              View history <ArrowRight className="h-3 w-3" />
+            </Button>
+          </Link>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="flex items-center gap-2 mb-3">
+          {isPaid ? (
+            <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+          ) : (
+            <Circle className="h-4 w-4 text-amber-500 shrink-0" />
+          )}
+          <span className="font-semibold text-foreground">
+            {isPaid ? `✅ ${planLabel} Plan Active` : `${planLabel} Plan`}
+          </span>
+          {plan.is_trialing && (
+            <Badge variant="outline" className="text-[10px] text-brand-600 border-brand-400/40">Trial</Badge>
+          )}
+          {!plan.auto_renew && isPaid && (
+            <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-400/40">Auto-renew OFF</Badge>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs sm:grid-cols-4">
+          {plan.started_on && (
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <CalendarDays className="h-3 w-3 shrink-0" />
+              <span>Started: <span className="text-foreground/80">{formatDate(plan.started_on)}</span></span>
+            </div>
+          )}
+          {plan.current_period_end && (
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Clock className="h-3 w-3 shrink-0" />
+              <span>Expires: <span className="text-foreground/80">{formatDate(plan.current_period_end)}</span></span>
+            </div>
+          )}
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <RefreshCcw className="h-3 w-3 shrink-0" />
+            <span>Auto Renew: <span className={`font-medium ${plan.auto_renew ? "text-green-600" : "text-amber-600"}`}>{plan.auto_renew ? "ON" : "OFF"}</span></span>
+          </div>
+          {plan.days_remaining !== null && (
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <span className="font-medium text-brand-500">{plan.days_remaining} days remaining</span>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function DashboardPage() {
   const { user } = useUser();
   const { projects, isLoading: projectsLoading } = useProjects();
@@ -146,6 +235,9 @@ export function DashboardPage() {
           hasKey={hasKey}
         />
       )}
+
+      {/* Subscription plan card — only for paid plans, only when active */}
+      <SubscriptionCard />
 
       {/* Usage metrics */}
       <motion.div
