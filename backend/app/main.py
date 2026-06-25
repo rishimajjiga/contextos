@@ -7,8 +7,9 @@ import structlog
 import sqlalchemy as sa
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -173,7 +174,11 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-_cors_origins = ["*"]  # open for all origins; auth is enforced via Clerk JWT
+# Production origins: https://www.usecontextos.com and https://usecontextos.com
+# call the API cross-origin. We allow all origins ("*") with credentials OFF —
+# auth is a Clerk Bearer token (not a cookie), so wildcard CORS is safe and the
+# browser accepts it for non-credentialed requests.
+_cors_origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -181,6 +186,7 @@ app.add_middleware(
     allow_credentials=False,  # cannot combine wildcard origins with credentials
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 app.add_middleware(LoggingMiddleware)
@@ -191,6 +197,28 @@ app.include_router(v1_router, prefix="/api/v1")
 
 
 # Health
+
+# Unhandled-exception handler.
+# Starlette's default 500 response carries NO CORS headers, so when a save
+# (memories/projects/team/payments) hits an unexpected error the browser hides
+# it behind a misleading "No 'Access-Control-Allow-Origin' header" CORS error.
+# Echo the request Origin back on 500s so the real error reaches the frontend.
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception):
+    log.error(
+        "unhandled_exception",
+        path=request.url.path,
+        method=request.method,
+        error=str(exc),
+        error_type=type(exc).__name__,
+    )
+    origin = request.headers.get("origin") or "*"
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error. Please try again in a moment."},
+        headers={"Access-Control-Allow-Origin": origin, "Vary": "Origin"},
+    )
+
 
 @app.get("/health", tags=["health"])
 async def health_check():
