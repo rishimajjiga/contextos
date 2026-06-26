@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
-import { ArrowRight, Brain, FolderKanban, Users, Cpu, Zap, Key, MessageSquare, FileText, Globe, Code2, Chrome } from "lucide-react";
+import { ArrowRight, Brain, FolderKanban, Users, Cpu, Zap, Key, MessageSquare, FileText, Globe, Code2, Chrome, Github, Youtube, Newspaper } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const FEATURES = [
@@ -20,10 +20,10 @@ const STEPS = [
 ];
 
 const ROTATING = [
-  "Save ideas.",
+  "Save highlighted text from any website.",
   "Remember conversations.",
   "Organize your knowledge.",
-  "Power ChatGPT, Claude and Gemini.",
+  "Power ChatGPT, Claude, Gemini and Cursor.",
 ];
 
 // Shared scroll-in animation
@@ -335,7 +335,7 @@ export function LandingPage() {
               className="mb-6 inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-500/10 px-4 py-1.5 text-xs text-brand-600 backdrop-blur-sm"
             >
               <span className="h-1.5 w-1.5 rounded-full bg-brand-400 animate-pulse" />
-              Your second brain for creators and developers
+              Your second brain for the entire browser
             </motion.div>
 
             <motion.h1
@@ -349,7 +349,7 @@ export function LandingPage() {
               variants={fadeUp}
               className="mt-4 text-xl font-medium text-foreground sm:text-2xl"
             >
-              Your Second Brain for Every AI
+              Your Second Brain for the Entire Browser
             </motion.p>
 
             <motion.p
@@ -394,8 +394,8 @@ export function LandingPage() {
               className="mt-12 flex flex-wrap items-center justify-center gap-6 text-xs text-muted-foreground lg:justify-start"
             >
               <span>✓ Free to start</span>
-              <span>✓ No credit card required</span>
-              <span>✓ Works across all your tools</span>
+              <span>✓ Works on any website</span>
+              <span>✓ ChatGPT, Claude, Gemini, Cursor &amp; more</span>
             </motion.div>
           </motion.div>
 
@@ -407,6 +407,65 @@ export function LandingPage() {
             transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
           >
             <HeroVisual />
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Works Everywhere */}
+      <section className="relative border-t border-border bg-surface-0 py-16 px-4 sm:py-24 sm:px-6">
+        <div className="mx-auto max-w-5xl text-center">
+          <motion.h2
+            initial="hidden" whileInView="show" viewport={{ once: true, margin: "-80px" }} variants={fadeUp}
+            className="text-3xl font-bold tracking-tight mb-4"
+          >
+            Works Everywhere
+          </motion.h2>
+          <motion.p
+            initial="hidden" whileInView="show" viewport={{ once: true }} variants={fadeUp}
+            className="text-muted-foreground max-w-2xl mx-auto mb-10 text-base sm:text-lg"
+          >
+            Highlight any text on the web, save it to ContextOS, and access it whenever you need it —
+            from documentation and GitHub to articles, videos, and your favorite AI tools.
+          </motion.p>
+
+          <motion.div
+            initial="hidden" whileInView="show" viewport={{ once: true }} variants={stagger}
+            className="grid grid-cols-2 gap-3 sm:grid-cols-5"
+          >
+            {[
+              { icon: Chrome,        label: "Chrome" },
+              { icon: FileText,      label: "Documentation" },
+              { icon: Github,        label: "GitHub" },
+              { icon: Code2,         label: "Stack Overflow" },
+              { icon: Youtube,       label: "YouTube" },
+              { icon: Newspaper,     label: "News sites" },
+              { icon: MessageSquare, label: "ChatGPT" },
+              { icon: Brain,         label: "Claude" },
+              { icon: Zap,           label: "Gemini" },
+              { icon: Cpu,           label: "Cursor" },
+            ].map(({ icon: Icon, label }) => (
+              <motion.div
+                key={label}
+                variants={fadeUp}
+                className="flex flex-col items-center gap-2 rounded-xl border border-border/60 bg-surface-1/50 px-3 py-4"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/10">
+                  <Icon className="h-5 w-5 text-brand-400" />
+                </div>
+                <span className="text-xs font-medium text-foreground/80">{label}</span>
+              </motion.div>
+            ))}
+          </motion.div>
+
+          <motion.div
+            initial="hidden" whileInView="show" viewport={{ once: true }} variants={fadeUp}
+            className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground"
+          >
+            <span>✓ Works across the entire browser</span>
+            <span>✓ Save highlighted text from any webpage</span>
+            <span>✓ Personal &amp; Team memories</span>
+            <span>✓ Sync across devices</span>
+            <span>✓ Secure cloud storage</span>
           </motion.div>
         </div>
       </section>

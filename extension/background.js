@@ -129,6 +129,28 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
   });
 });
 
+// ── Clip builder ──────────────────────────────────────────────────────────────
+// Builds a memory payload from a text selection: the SELECTED TEXT is the
+// content, the PAGE TITLE is the title, and the SOURCE URL is preserved as a
+// footer (the backend has no dedicated url column). Works on any website.
+function _hostname(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ""); } catch (_) { return ""; }
+}
+function buildSelectionPayload(info, tab, visibility) {
+  const pageTitle = (tab && tab.title ? tab.title : "").trim();
+  const pageUrl   = (tab && tab.url) ? tab.url : "";
+  const snippet   = (info.selectionText || "").trim();
+  const title     = (pageTitle || snippet.slice(0, 80) || "Clipped text")
+                      .replace(/\s+/g, " ").slice(0, 200);
+  const content   = pageUrl
+    ? `${snippet}\n\n— Source: ${pageTitle || pageUrl}\n${pageUrl}`
+    : snippet;
+  const host = _hostname(pageUrl);
+  const payload = { title, content, tags: ["clipped", host].filter(Boolean) };
+  if (visibility === "team") payload.visibility = "team";
+  return payload;
+}
+
 // ── Context menu handler ──────────────────────────────────────────────────────
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   const { apiKey } = await getConfig();
@@ -140,14 +162,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
   if (info.menuItemId === "save-selection" && info.selectionText) {
     setSaveDestination("personal");
-    const title = (info.selectionText.slice(0, 60) + (info.selectionText.length > 60 ? "…" : ""))
-      .replace(/\n/g, " ").trim();
     try {
-      await apiRequest("/api/v1/memories", "POST", {
-        title,
-        content: info.selectionText,
-        tags: ["quick-save"],
-      });
+      await apiRequest("/api/v1/memories", "POST", buildSelectionPayload(info, tab, "personal"));
       cacheInvalidate("list:", "search:", "context:");
       chrome.action.setBadgeText({ text: "✓", tabId: tab?.id });
       chrome.action.setBadgeBackgroundColor({ color: "#10B981" });
@@ -191,12 +207,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   // ── Team save variants ──────────────────────────────────────────────────────
   if (info.menuItemId === "save-selection-team" && info.selectionText) {
     setSaveDestination("team");
-    const title = (info.selectionText.slice(0, 60) + (info.selectionText.length > 60 ? "…" : ""))
-      .replace(/\n/g, " ").trim();
     try {
-      await apiRequest("/api/v1/memories", "POST", {
-        title, content: info.selectionText, tags: ["quick-save"], visibility: "team",
-      });
+      await apiRequest("/api/v1/memories", "POST", buildSelectionPayload(info, tab, "team"));
       cacheInvalidate("list:", "search:", "context:");
       chrome.action.setBadgeText({ text: "👥", tabId: tab?.id });
       chrome.action.setBadgeBackgroundColor({ color: "#10B981" });
