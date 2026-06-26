@@ -231,9 +231,23 @@ function escapeHtml(str) {
 // never read field/page content here and only react to genuine user focus, so
 // nothing is collected automatically.
 
+// True for any field that belongs to ContextOS's OWN injected UI (the floating
+// panel near the brain icon, sidebar, save dialog, inline-edit fields, suggestion
+// dropdown, etc.). We must never treat these as a target — otherwise typing in
+// our own search box would anchor suggestions next to the brain icon.
+function ctxIsOwnUI(el) {
+  try {
+    return !!(el.closest && el.closest(
+      "#ctx-fab, #ctx-panel, #ctx-sidebar, #ctx-dialog, #ctx-suggest-dropdown, " +
+      "#ctx-refresh-banner, #ctx-status-toast, #ctx-suggestion-toast, #ctx-searching-pill"
+    ));
+  } catch (_) { return false; }
+}
+
 function ctxIsEditableEl(el) {
   if (!el || el.nodeType !== 1) return false;
   if (el.disabled || el.readOnly) return false;
+  if (ctxIsOwnUI(el)) return false; // ignore our own panel/search/edit fields
   var tag = el.tagName;
   if (tag === "TEXTAREA") return true;
   if (tag === "INPUT") {
@@ -1874,14 +1888,14 @@ function findInputFallback(platform) {
   var candidates = document.querySelectorAll("[contenteditable='true']");
   for (var j = 0; j < candidates.length; j++) {
     var c = candidates[j];
-    if (c.offsetWidth > 100 && c.offsetHeight > 20) {
+    if (!ctxIsOwnUI(c) && c.offsetWidth > 100 && c.offsetHeight > 20) {
       _cachedInput = c; _cacheTs = now; return c;
     }
   }
   var textareas = document.querySelectorAll("textarea");
   for (var k = 0; k < textareas.length; k++) {
     var ta = textareas[k];
-    if (ta.offsetWidth > 100 && ta.offsetHeight > 20) {
+    if (!ctxIsOwnUI(ta) && ta.offsetWidth > 100 && ta.offsetHeight > 20) {
       _cachedInput = ta; _cacheTs = now; return ta;
     }
   }
@@ -1891,7 +1905,7 @@ function findInputFallback(platform) {
   );
   for (var n = 0; n < inputs.length; n++) {
     var inp = inputs[n];
-    if (!inp.disabled && !inp.readOnly && inp.offsetWidth > 100 && inp.offsetHeight > 12) {
+    if (!ctxIsOwnUI(inp) && !inp.disabled && !inp.readOnly && inp.offsetWidth > 100 && inp.offsetHeight > 12) {
       _cachedInput = inp; _cacheTs = now; return inp;
     }
   }
