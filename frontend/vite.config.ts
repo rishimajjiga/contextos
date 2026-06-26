@@ -27,13 +27,36 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: "dist",
-      sourcemap: true,
+      // Production source maps are not served to users but bloat the deploy
+      // (2 MB+). Disable for prod; flip to "hidden" if you wire an error tracker.
+      sourcemap: false,
+      // Don't spend build time computing gzip sizes for the report.
+      reportCompressedSize: false,
+      chunkSizeWarningLimit: 900,
       rollupOptions: {
         output: {
-          manualChunks: {
-            vendor: ["react", "react-dom", "react-router-dom"],
-            clerk: ["@clerk/clerk-react"],
-            ui: ["@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "lucide-react"],
+          // Group third-party code into long-cacheable vendor chunks so that
+          // shipping app code doesn't invalidate the (rarely-changing) deps,
+          // and heavy libs (framer-motion, clerk) load in parallel / only when
+          // a route that needs them is visited.
+          manualChunks(id) {
+            if (!id.includes("node_modules")) return undefined;
+            if (id.includes("@clerk")) return "clerk";
+            if (id.includes("framer-motion")) return "motion";
+            if (
+              id.includes("@radix-ui") ||
+              id.includes("lucide-react") ||
+              id.includes("cmdk") ||
+              id.includes("class-variance-authority") ||
+              id.includes("tailwind-merge")
+            ) return "ui";
+            if (
+              id.includes("react-router") ||
+              id.includes("react-dom") ||
+              id.includes("/scheduler/") ||
+              id.includes("/react/")
+            ) return "react-vendor";
+            return "vendor";
           },
         },
       },

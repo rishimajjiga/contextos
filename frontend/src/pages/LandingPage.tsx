@@ -274,14 +274,22 @@ function HeroVisual() {
   const [imgOk, setImgOk] = useState(true);
   if (!imgOk) return <HeroIllustration />;
   return (
-    <motion.img
-      src="/hero-brain.png"
-      alt="ContextOS — your second brain connected to every AI tool"
-      onError={() => setImgOk(false)}
-      className="mx-auto w-full max-w-[560px] drop-shadow-[0_24px_50px_rgba(45,90,35,0.18)]"
-      animate={{ y: [0, -12, 0] }}
-      transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-    />
+    <picture>
+      {/* WebP (26KB) for modern browsers; PNG fallback keeps 100% compatibility.
+          width/height set the intrinsic aspect ratio to avoid layout shift. */}
+      <source srcSet="/hero-brain.webp" type="image/webp" />
+      <motion.img
+        src="/hero-brain.png"
+        alt="ContextOS — your second brain connected to every AI tool"
+        onError={() => setImgOk(false)}
+        width={864}
+        height={713}
+        decoding="async"
+        className="mx-auto w-full max-w-[560px] drop-shadow-[0_24px_50px_rgba(45,90,35,0.18)]"
+        animate={{ y: [0, -12, 0] }}
+        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+      />
+    </picture>
   );
 }
 

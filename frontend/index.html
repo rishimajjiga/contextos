@@ -7,13 +7,27 @@
     <meta name="description" content="ContextOS — The memory layer for AI. Define your context once, use it everywhere." />
     <meta name="theme-color" content="#eef3e7" />
 
+    <!-- Warm critical third-party connections (API backend + Clerk auth) -->
+    <link rel="preconnect" href="https://api.usecontextos.com" crossorigin />
+    <link rel="dns-prefetch" href="https://api.usecontextos.com" />
+    <link rel="preconnect" href="https://creative-leopard-73.clerk.accounts.dev" crossorigin />
+    <link rel="dns-prefetch" href="https://creative-leopard-73.clerk.accounts.dev" />
+
     <!-- Inter (body) + Fraunces (display serif) + JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
+      rel="preload"
+      as="style"
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
+      onload="this.onload=null;this.rel='stylesheet'"
     />
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
 
     <title>ContextOS</title>
   </head>

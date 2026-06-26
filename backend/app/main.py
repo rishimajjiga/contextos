@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -203,6 +204,11 @@ app.add_middleware(
 )
 
 app.add_middleware(LoggingMiddleware)
+
+# Response compression. Gzips JSON/text responses > 500 bytes, typically a
+# 60-80% transfer reduction on list endpoints (memories, projects, payments).
+# Outermost middleware so it compresses the fully-formed response.
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # Routers
 
