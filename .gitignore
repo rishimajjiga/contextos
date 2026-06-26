@@ -33,3 +33,6 @@ htmlcov/
 
 # Alembic
 alembic/versions/*.py
+
+*.bak
+vite.config.ts.timestamp-*.mjs
