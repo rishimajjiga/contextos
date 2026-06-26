@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ContextOS — Second Brain",
-  "description": "Remember everything. Your second brain for creators and developers. Save projects, documents, prompts, and knowledge. Continue anywhere.",
+  "description": "Remember everything. Save conversations, projects, prompts, and knowledge across AI tools.",
   "version": "2.0.0",
   "permissions": [
     "storage",
@@ -57,7 +57,9 @@
         "https://app.contextos.dev/connect-extension*",
         "https://contextos-eta.vercel.app/connect-extension*"
       ],
-      "js": ["connect.js"],
+      "js": [
+        "connect.js"
+      ],
       "run_at": "document_idle"
     },
     {
@@ -67,43 +69,45 @@
         "https://app.contextos.dev/*",
         "https://contextos-eta.vercel.app/*"
       ],
-      "js": ["website-bridge.js"],
+      "js": [
+        "website-bridge.js"
+      ],
       "run_at": "document_idle",
       "world": "MAIN"
     },
     {
       "matches": [
-        "https://claude.ai/*",
-        "https://chatgpt.com/*",
-        "https://chat.openai.com/*",
-        "https://gemini.google.com/*",
-        "https://www.perplexity.ai/*",
-        "https://perplexity.ai/*",
-        "https://copilot.microsoft.com/*",
-        "https://chat.mistral.ai/*",
-        "https://grok.com/*",
-        "https://poe.com/*",
-        "https://openrouter.ai/*",
-        "https://chat.deepseek.com/*",
-        "https://groq.com/*",
-        "https://console.groq.com/*"
+        "http://*/*",
+        "https://*/*"
       ],
-      "js": ["content.js"],
-      "css": ["styles.css"],
-      "run_at": "document_idle"
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
+      "run_at": "document_idle",
+      "exclude_matches": [
+        "https://chromewebstore.google.com/*",
+        "https://chrome.google.com/webstore/*",
+        "http://localhost:5173/*",
+        "http://localhost:5174/*",
+        "https://app.contextos.dev/*",
+        "https://contextos-eta.vercel.app/*"
+      ]
     }
   ],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16":  "icons/icon16.png",
-      "48":  "icons/icon48.png",
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     }
   },
   "icons": {
-    "16":  "icons/icon16.png",
-    "48":  "icons/icon48.png",
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   }
 }

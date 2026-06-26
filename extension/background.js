@@ -109,6 +109,11 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
     title: "Save this page to ContextOS",
     contexts: ["page"],
   });
+  chrome.contextMenus.create({
+    id: "save-link",
+    title: "Save link to ContextOS",
+    contexts: ["link"],
+  });
   // Team-save variants — only do anything for active Team-plan members; the
   // backend authorizes membership, so these are safe to always show.
   chrome.contextMenus.create({
@@ -142,11 +147,23 @@ function buildSelectionPayload(info, tab, visibility) {
   const snippet   = (info.selectionText || "").trim();
   const title     = (pageTitle || snippet.slice(0, 80) || "Clipped text")
                       .replace(/\s+/g, " ").slice(0, 200);
-  const content   = pageUrl
-    ? `${snippet}\n\n— Source: ${pageTitle || pageUrl}\n${pageUrl}`
-    : snippet;
+  const content   = pageUrl ? `${snippet}\n\nSource: ${pageUrl}` : snippet;
   const host = _hostname(pageUrl);
   const payload = { title, content, tags: ["clipped", host].filter(Boolean) };
+  if (visibility === "team") payload.visibility = "team";
+  return payload;
+}
+
+// Builds a memory payload from a right-clicked link. The link URL is the content
+// (short); the page it was found on is noted briefly.
+function buildLinkPayload(info, tab, visibility) {
+  const linkUrl  = info.linkUrl || "";
+  const linkText = (info.selectionText || "").trim();
+  const pageUrl  = (tab && tab.url) ? tab.url : "";
+  const linkHost = _hostname(linkUrl);
+  const title    = (linkText || linkHost || "Saved link").replace(/\s+/g, " ").slice(0, 200);
+  const content  = `${linkUrl}${pageUrl ? `\n\nFound on: ${pageUrl}` : ""}`;
+  const payload  = { title, content, tags: ["link", linkHost].filter(Boolean) };
   if (visibility === "team") payload.visibility = "team";
   return payload;
 }
@@ -202,6 +219,21 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       chrome.action.setBadgeBackgroundColor({ color: "#10B981" });
       setTimeout(() => chrome.action.setBadgeText({ text: "" }), 2000);
     } catch (_) {}
+  }
+
+  if (info.menuItemId === "save-link" && info.linkUrl) {
+    const dest = await getSaveDestination();   // honour the user's last Personal/Team choice
+    try {
+      await apiRequest("/api/v1/memories", "POST", buildLinkPayload(info, tab, dest));
+      cacheInvalidate("list:", "search:", "context:");
+      chrome.action.setBadgeText({ text: dest === "team" ? "👥" : "✓", tabId: tab?.id });
+      chrome.action.setBadgeBackgroundColor({ color: "#10B981" });
+      setTimeout(() => chrome.action.setBadgeText({ text: "" }), 2000);
+    } catch (err) {
+      chrome.action.setBadgeText({ text: "!", tabId: tab?.id });
+      chrome.action.setBadgeBackgroundColor({ color: "#EF4444" });
+      setTimeout(() => chrome.action.setBadgeText({ text: "" }), 3000);
+    }
   }
 
   // ── Team save variants ──────────────────────────────────────────────────────

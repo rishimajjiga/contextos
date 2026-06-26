@@ -116,6 +116,11 @@ const PLATFORMS = {
   },
 };
 
+// Generic fallback so the panel can work on ANY website. It has no AI input
+// selectors, so AI-only features (input injection, suggestions) stay disabled;
+// only the save/search panel works. Marked generic so we can keep it lazy.
+const GENERIC_PLATFORM = { name: "Web", inputSelectors: [], chatSelectors: ["main", "article"], color: "#4f9437", generic: true };
+
 function getPlatform() {
   const hostname = window.location.hostname.replace("www.", "");
 
@@ -124,19 +129,19 @@ function getPlatform() {
     const onCopilot =
       /copilot/i.test(location.pathname + location.search) ||
       !!document.querySelector("#copilot-chat-textarea, #copilot-chat-panel, .copilot-chat-messages");
-    if (!onCopilot) return null;
+    if (!onCopilot) return GENERIC_PLATFORM;
   }
   if (hostname === "x.com") {
     const onGrok =
       /grok/i.test(location.pathname) ||
       !!document.querySelector('textarea[data-testid="grok-query"], [aria-label*="Grok"]');
-    if (!onGrok) return null;
+    if (!onGrok) return GENERIC_PLATFORM;
   }
 
   return (
     PLATFORMS[hostname] ||
     Object.entries(PLATFORMS).find(([key]) => hostname.includes(key))?.[1] ||
-    null
+    GENERIC_PLATFORM
   );
 }
 
@@ -2118,10 +2123,11 @@ function init() {
       _suggestEnabled = r.suggestEnabled === true;
       _autoSuggestOn = _suggestEnabled;
 
+      var _boot = function() { if (!platform.generic) bootExtension(platform); };
       if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", function() { bootExtension(platform); });
+        document.addEventListener("DOMContentLoaded", _boot);
       } else {
-        bootExtension(platform);
+        _boot();
       }
     });
 
@@ -2137,6 +2143,7 @@ function init() {
         var selText  = msg.text  || "";
         var selTitle = msg.title || document.title;
         _saveTabInited = false; // allow initSaveTab to run fresh
+        if (!document.getElementById("ctx-fab")) injectFAB(getPlatform()); // lazy on normal sites
         if (_openPanelFn) _openPanelFn();
         if (_switchTabFn) _switchTabFn("save"); // triggers initSaveTab (sync)
         // Override whatever initSaveTab filled in
@@ -2175,10 +2182,11 @@ function init() {
       }
     });
   } catch (_) {
+    var _fb = function() { if (!platform.generic) injectFAB(platform); };
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", function() { injectFAB(platform); });
+      document.addEventListener("DOMContentLoaded", _fb);
     } else {
-      injectFAB(platform);
+      _fb();
     }
   }
 }
