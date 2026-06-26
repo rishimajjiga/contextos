@@ -1875,14 +1875,12 @@ function positionDropdown(dd, input) {
 function setSugSelIdx(idx) {
   _sugSelIdx = idx;
   if (!_sugDropdown) return;
-  var gem = ctxIsGemini();
   _sugDropdown.querySelectorAll(".ctx-si[data-idx]").forEach(function(el) {
     var on = parseInt(el.dataset.idx) === idx;
     el.classList.toggle("ctx-selected", on);
-    if (gem) {                                     // inline highlight (CSP-proof)
-      el.style.background = on ? "rgba(79,148,55,0.18)" : "transparent";
-      el.style.color = on ? "#1c2e1d" : "rgba(45,70,35,0.82)";
-    }
+    // Inline highlight (CSP-proof) so selection is visible on every site.
+    el.style.background = on ? "rgba(79,148,55,0.18)" : "transparent";
+    el.style.color = on ? "#1c2e1d" : "rgba(45,70,35,0.82)";
   });
 }
 
@@ -1916,11 +1914,12 @@ function acceptSuggestion(idx) {
   }
 }
 
-// Gemini strips our injected <style> element via its CSP, so the suggestion
-// dropdown renders unstyled and blends into the dark page. Inline style
-// attributes ARE allowed by Gemini's CSP (positioning already works inline), so
-// apply the essential visuals directly on the elements. Gemini only.
-function ctxStyleGeminiDropdown(dd) {
+// Some sites (e.g. Gemini) enforce a strict CSP that strips our injected <style>
+// element, so the suggestion dropdown renders unstyled and blends into the page.
+// Inline style attributes survive CSP everywhere, so apply the essential visuals
+// directly on the elements on EVERY site. Where the stylesheet already applies
+// these simply mirror it, so the look is unchanged there.
+function ctxStyleDropdownInline(dd) {
   dd.style.cssText += ";background:#f7faf2;border:1px solid rgba(79,148,55,0.45);" +
     "border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,0.65);overflow:hidden;" +
     "overflow-y:auto;max-height:320px;z-index:2147483646;color:#1c2e1d;" +
@@ -2006,7 +2005,7 @@ function renderSuggestDropdown(recentItems, memItems, input, accentColor) {
   dd.innerHTML = html;
   document.body.appendChild(dd);
   _sugDropdown = dd;
-  if (ctxIsGemini()) ctxStyleGeminiDropdown(dd);   // CSP-proof inline styling
+  ctxStyleDropdownInline(dd);   // CSP-proof inline styling (works on every site)
 
   // Position after the browser has painted (offsetHeight available)
   requestAnimationFrame(function() { if (_sugDropdown === dd) positionDropdown(dd, input); });
