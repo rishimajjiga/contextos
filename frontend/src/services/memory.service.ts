@@ -23,6 +23,12 @@ export interface CreateMemoryPayload {
   visibility?: "private" | "team";
 }
 
+export interface UpdateMemoryPayload {
+  title?: string;
+  content?: string;
+  tags?: string[];
+}
+
 export const memoryService = {
   async list(params?: { projectId?: string; q?: string; scope?: "personal" | "team" | "all" }): Promise<Memory[]> {
     const p = new URLSearchParams();
@@ -36,6 +42,11 @@ export const memoryService = {
 
   async create(payload: CreateMemoryPayload): Promise<Memory> {
     const res = await apiClient.post<Memory>("/memories", payload);
+    return res.data;
+  },
+
+  async update(id: string, payload: UpdateMemoryPayload): Promise<Memory> {
+    const res = await apiClient.patch<Memory>(`/memories/${id}`, payload);
     return res.data;
   },
 

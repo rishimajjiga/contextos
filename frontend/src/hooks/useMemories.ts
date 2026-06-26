@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { memoryService, type Memory, type CreateMemoryPayload } from "@/services/memory.service";
+import { memoryService, type Memory, type CreateMemoryPayload, type UpdateMemoryPayload } from "@/services/memory.service";
 
 // Custom event name shared with the Chrome extension via website-bridge.js.
 // Fired when any memory is saved or deleted — from the website OR the extension.
@@ -45,6 +45,23 @@ export function useMemories() {
     }
   }, []);
 
+  const updateMemory = useCallback(async (id: string, payload: UpdateMemoryPayload): Promise<Memory | null> => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      const updated = await memoryService.update(id, payload);
+      // Replace in place — same id, no duplicate row created.
+      setMemories((prev) => prev.map((m) => (m.id === id ? updated : m)));
+      window.dispatchEvent(new CustomEvent(SYNC_EVENT));
+      return updated;
+    } catch (err: any) {
+      setError(err?.message || "Failed to update memory.");
+      return null;
+    } finally {
+      setIsSaving(false);
+    }
+  }, []);
+
   const deleteMemory = useCallback(async (id: string) => {
     try {
       await memoryService.delete(id);
@@ -69,5 +86,5 @@ export function useMemories() {
     return () => window.removeEventListener(SYNC_EVENT, handler);
   }, [fetchMemories]);
 
-  return { memories, isLoading, isSaving, error, clearError, fetchMemories, createMemory, deleteMemory };
+  return { memories, isLoading, isSaving, error, clearError, fetchMemories, createMemory, updateMemory, deleteMemory };
 }

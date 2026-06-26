@@ -163,11 +163,27 @@ function getPageText() {
   return document.body.innerText.slice(0, 8000);
 }
 
-function injectIntoInput(text) {
+function injectIntoInput(text, targetEl) {
   const platform = getPlatform();
-  if (!platform) return false;
-  const input = findElement(platform.inputSelectors);
+  // Resolve the target: an explicit element first (suggestions pass the watched
+  // field), then the platform's known AI input (unchanged for AI sites), then
+  // whatever editable field the user last focused — giving website-wide support.
+  const input = targetEl
+    || (platform ? findElement(platform.inputSelectors) : null)
+    || ctxGetActiveEditable();
   if (!input) return false;
+
+  // Single-line fields (search boxes, comment boxes, generic inputs): insert
+  // plain text without the multi-line ContextOS decoration.
+  if (input.tagName === "INPUT") {
+    const nativeSet = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+    const cur  = input.value || "";
+    const next = cur ? (cur + " " + text) : text;
+    if (nativeSet) { nativeSet.call(input, next); } else { input.value = next; }
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  }
 
   const prefix = "[ContextOS — Second Brain]\n" + text + "\n\n---\n\n";
 
@@ -180,7 +196,7 @@ function injectIntoInput(text) {
     }
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
-  } else if (input.getAttribute("contenteditable")) {
+  } else if (input.getAttribute("contenteditable") || input.isContentEditable) {
     input.focus();
     const sel = window.getSelection();
     const range = document.createRange();
@@ -203,6 +219,53 @@ function escapeHtml(str) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+// ── Website-wide editable-field detection + active-field tracking ─────────────
+// Lets memory injection & auto-suggestions work in ANY editable field on ANY
+// site (input, textarea, contenteditable, rich-text editors, email compose,
+// social/post editors, comment boxes, search boxes, docs editors) — not only the
+// hard-coded AI platforms above.
+//
+// Security: we only ever keep a reference to the element the USER focused. We
+// never read field/page content here and only react to genuine user focus, so
+// nothing is collected automatically.
+
+function ctxIsEditableEl(el) {
+  if (!el || el.nodeType !== 1) return false;
+  if (el.disabled || el.readOnly) return false;
+  var tag = el.tagName;
+  if (tag === "TEXTAREA") return true;
+  if (tag === "INPUT") {
+    var t = (el.getAttribute("type") || "text").toLowerCase();
+    // Editable text-like inputs only — never password/checkbox/file/etc.
+    return t === "text" || t === "search" || t === "email" || t === "url" || t === "tel" || t === "";
+  }
+  try { if (el.isContentEditable) return true; } catch (_) {}
+  return false;
+}
+
+var _ctxActiveEditable = null;
+var _ctxFocusTrackerInstalled = false;
+
+function ctxInstallFocusTracker() {
+  if (_ctxFocusTrackerInstalled) return;
+  _ctxFocusTrackerInstalled = true;
+  // Single passive capture-phase listener — negligible cost, fires only on focus.
+  document.addEventListener("focusin", function (e) {
+    var el = e.target;
+    if (ctxIsEditableEl(el)) _ctxActiveEditable = el;
+  }, true);
+}
+
+// Returns the editable field the user is currently / was last interacting with.
+function ctxGetActiveEditable() {
+  if (_ctxActiveEditable && document.contains(_ctxActiveEditable) && ctxIsEditableEl(_ctxActiveEditable)) {
+    return _ctxActiveEditable;
+  }
+  var ae = document.activeElement;
+  if (ctxIsEditableEl(ae)) { _ctxActiveEditable = ae; return ae; }
+  return null;
 }
 
 // ── Extension context guard ───────────────────────────────────────────────────
@@ -1648,8 +1711,8 @@ function acceptSuggestion(idx) {
       document.execCommand("insertText", false, item.text);
     }
   } else {
-    // Inject memory context into the current prompt
-    injectIntoInput(item.text);
+    // Inject memory context into the field the suggestion was raised on.
+    injectIntoInput(item.text, input);
   }
 }
 
@@ -1804,6 +1867,10 @@ function findInputWithShadow(platform) {
 
 function findInputFallback(platform) {
   var now = Date.now();
+  // Prefer the field the user is actually interacting with (website-wide,
+  // security-aligned — we attach only where the user has focused).
+  var active = ctxGetActiveEditable();
+  if (active) { _cachedInput = active; _cacheTs = now; return active; }
   var candidates = document.querySelectorAll("[contenteditable='true']");
   for (var j = 0; j < candidates.length; j++) {
     var c = candidates[j];
@@ -1816,6 +1883,16 @@ function findInputFallback(platform) {
     var ta = textareas[k];
     if (ta.offsetWidth > 100 && ta.offsetHeight > 20) {
       _cachedInput = ta; _cacheTs = now; return ta;
+    }
+  }
+  // Generic single-line fields (search / comment boxes, etc.)
+  var inputs = document.querySelectorAll(
+    "input[type='text'],input[type='search'],input[type='email'],input[type='url'],input:not([type])"
+  );
+  for (var n = 0; n < inputs.length; n++) {
+    var inp = inputs[n];
+    if (!inp.disabled && !inp.readOnly && inp.offsetWidth > 100 && inp.offsetHeight > 12) {
+      _cachedInput = inp; _cacheTs = now; return inp;
     }
   }
   return null;
@@ -1962,6 +2039,16 @@ function attachInputWatcher(platform) {
     if (input) bindInput(input);
   }
 
+  // Website-wide: bind to whatever editable field the user focuses, so
+  // suggestions appear in any supported text field — not just the first one
+  // found. Cheap (capture-phase, fires only on focus) and security-aligned:
+  // we attach only where the user is actively interacting.
+  function onFocusInBind(e) {
+    if (!_autoSuggestOn) return;
+    if (ctxIsEditableEl(e.target)) bindInput(e.target);
+  }
+  document.addEventListener("focusin", onFocusInBind, true);
+
   tryAttach();
 
   // Aggressive poll only until first attach (max ~30s), then single light SPA check
@@ -1984,6 +2071,7 @@ function attachInputWatcher(platform) {
   _inputWatcher.cleanup = function() {
     clearInterval(attachTimer);
     clearInterval(navTimer);
+    document.removeEventListener("focusin", onFocusInBind, true);
     observers.forEach(function(o) { o.stop(); });
     observers.length = 0;
   };
@@ -2117,6 +2205,10 @@ function bootExtension(platform) {
 function init() {
   var platform = getPlatform();
   if (!platform) return;
+
+  // Track the user's active editable field so memory injection works on any site
+  // (cheap, passive, collects nothing). Lazy: only a single focus listener.
+  try { ctxInstallFocusTracker(); } catch (_) {}
 
   try {
     chrome.storage.sync.get(["suggestEnabled", "fabRight", "fabBottom"], function(r) {

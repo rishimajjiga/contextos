@@ -37,6 +37,14 @@ class MemoryCreate(BaseModel):
     team_id: Optional[str] = None  # optional: explicit team (org) to save into
 
 
+class MemoryUpdate(BaseModel):
+    """Partial update — only the fields provided are changed. Editing a memory
+    in place never creates a duplicate (the row id is preserved)."""
+    title: Optional[str] = Field(default=None, min_length=1, max_length=500)
+    content: Optional[str] = Field(default=None, min_length=1)
+    tags: Optional[list[str]] = None
+
+
 class MemoryOut(BaseModel):
     id: str
     title: str
@@ -275,6 +283,54 @@ async def create_memory(
     note = result.scalar_one_or_none()
     if note is None:
         raise HTTPException(status_code=500, detail="Memory saved but could not be retrieved.")
+    return _out(note)
+
+
+@router.patch("/{memory_id}", response_model=MemoryOut)
+async def update_memory(
+    memory_id: str,
+    body: MemoryUpdate,
+    user_id: str = Depends(get_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Edit an existing memory in place (title / content / tags).
+
+    Updates the SAME row — this never creates a duplicate. Only the caller's own
+    memories can be edited. Visibility / project / org are intentionally left
+    untouched so existing team-sharing and plan behaviour is unchanged.
+    """
+    result = await db.execute(
+        select(Document).where(Document.id == memory_id, Document.user_id == user_id)
+    )
+    note = result.scalar_one_or_none()
+    if not note:
+        raise HTTPException(status_code=404, detail="Memory not found")
+
+    data = body.model_dump(exclude_unset=True)
+    if "title" in data and data["title"] is not None:
+        note.title = data["title"]
+    if "content" in data and data["content"] is not None:
+        note.content = data["content"]
+    if "tags" in data and data["tags"] is not None:
+        note.tags = data["tags"]
+    note.updated_at = datetime.now(timezone.utc)
+
+    try:
+        await db.commit()
+        await db.refresh(note)
+    except Exception as exc:
+        await db.rollback()
+        log.error(
+            "update_memory_failed",
+            user_id=user_id,
+            memory_id=memory_id,
+            error=str(exc),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update memory: {exc}",
+        )
     return _out(note)
 
 
