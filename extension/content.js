@@ -2123,7 +2123,7 @@ function init() {
       _suggestEnabled = r.suggestEnabled === true;
       _autoSuggestOn = _suggestEnabled;
 
-      var _boot = function() { if (!platform.generic) bootExtension(platform); };
+      var _boot = function() { bootExtension(platform); };  // show brain icon on every site
       if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", _boot);
       } else {
@@ -2182,7 +2182,7 @@ function init() {
       }
     });
   } catch (_) {
-    var _fb = function() { if (!platform.generic) injectFAB(platform); };
+    var _fb = function() { injectFAB(platform); };
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", _fb);
     } else {
