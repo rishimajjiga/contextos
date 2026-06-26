@@ -1689,8 +1689,26 @@ function hideSuggestDropdown() {
 }
 
 function positionDropdown(dd, input) {
+  var h = dd.offsetHeight || 240;
+
+  // Anchor the suggestions to the floating brain icon (per user preference).
+  // The FAB is draggable, so read its live position and open the dropdown next
+  // to it — above by default, flipping below if there isn't room.
+  var fab = document.getElementById("ctx-fab");
+  if (fab) {
+    var f = fab.getBoundingClientRect();
+    var width = Math.min(360, window.innerWidth - 16);
+    var left  = Math.max(8, Math.min(f.right - width, window.innerWidth - width - 8));
+    var top   = f.top - h - 10;                 // open upward, above the icon
+    if (top < 8) top = Math.min(f.bottom + 10, window.innerHeight - h - 8); // flip below
+    dd.style.left  = left + "px";
+    dd.style.top   = Math.max(8, top) + "px";
+    dd.style.width = width + "px";
+    return;
+  }
+
+  // Fallback (no FAB yet): anchor to the active text field.
   var rect = input.getBoundingClientRect();
-  var h    = dd.offsetHeight || 240;
   var showAbove = (window.innerHeight - rect.bottom < h + 10) && (rect.top > h + 10);
   dd.style.top  = showAbove ? (rect.top - h - 6) + "px" : (rect.bottom + 6) + "px";
   dd.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 490)) + "px";
@@ -2223,6 +2241,19 @@ function init() {
   // Track the user's active editable field so memory injection works on any site
   // (cheap, passive, collects nothing). Lazy: only a single focus listener.
   try { ctxInstallFocusTracker(); } catch (_) {}
+
+  // bfcache safety: when the page is frozen into Chrome's back/forward cache the
+  // keep-alive port can't be messaged, which logs
+  // "Unchecked runtime.lastError: …back/forward cache… channel is closed".
+  // Proactively drop the port on pagehide and re-open it on restore.
+  try {
+    window.addEventListener("pagehide", function (e) {
+      if (e.persisted) { stopKeepWorkerAlive(); hideSuggestDropdown(); }
+    });
+    window.addEventListener("pageshow", function (e) {
+      if (e.persisted && _autoSuggestOn && !_contextInvalidated) startKeepWorkerAlive();
+    });
+  } catch (_) {}
 
   try {
     chrome.storage.sync.get(["suggestEnabled", "fabRight", "fabBottom"], function(r) {
