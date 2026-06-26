@@ -7,33 +7,41 @@ Security: every query is filtered by ``user_id`` so a caller can only ever
 export their own projects and memories; nothing belonging to another user (or
 another user's team memories) is included.
 
-The PDF is built with ReportLab (cover page, page numbers, headings, text
-wrapping, automatic page breaks, section separators). If ReportLab is somehow
-unavailable at runtime we fall back to a minimal, dependency-free valid PDF so
-the endpoint never hard-fails.
+Performance: the (synchronous, CPU-bound) ReportLab build runs in a worker
+thread so it never blocks the async event loop, ORM rows are snapshotted into
+plain objects first (so the build touches no DB/session), character-level word
+wrap is forced (so a long unbroken string — URL, base64, pasted code — can never
+stall the layout engine), and very large fields are capped. Together these keep
+the request from timing out. A dependency-free fallback guarantees a valid PDF
+even if ReportLab is unavailable.
 """
 import io
 import html
+from types import SimpleNamespace
 from datetime import datetime, timezone
+
+# Safety caps so a pathological record can never blow up render time / size.
+MAX_CONTENT_CHARS = 50_000
+MAX_TITLE_CHARS = 1_000
+MAX_TAGS = 100
 
 
 # ── Public API ──────────────────────────────────────────────────────────────
 
 async def generate_pdf_bytes(db, user_id: str) -> bytes:
     """Fetch all data owned by ``user_id`` and return a professionally
-    formatted PDF as bytes."""
-    # Imported lazily so the PDF builder helpers below can be unit-tested
-    # without pulling in SQLAlchemy / the app package.
+    formatted PDF as bytes. The heavy PDF render is offloaded to a thread."""
     from sqlalchemy import select, desc
+    from starlette.concurrency import run_in_threadpool
     from app.models.user import User
     from app.models.project import Project
     from app.models.document import Document
 
-    user = (
+    user_row = (
         await db.execute(select(User).where(User.id == user_id))
     ).scalar_one_or_none()
 
-    projects = (
+    project_rows = (
         await db.execute(
             select(Project)
             .where(Project.user_id == user_id)
@@ -41,7 +49,7 @@ async def generate_pdf_bytes(db, user_id: str) -> bytes:
         )
     ).scalars().all()
 
-    documents = (
+    document_rows = (
         await db.execute(
             select(Document)
             .where(Document.user_id == user_id)
@@ -49,13 +57,61 @@ async def generate_pdf_bytes(db, user_id: str) -> bytes:
         )
     ).scalars().all()
 
+    # Snapshot ORM rows into plain objects so the threaded render never touches
+    # the AsyncSession (which is not safe to use from another thread).
+    user = _snap_user(user_row)
+    documents = [_snap_doc(d) for d in document_rows]
+    projects = [_snap_proj(p) for p in project_rows]
     export_dt = datetime.now(timezone.utc)
 
+    return await run_in_threadpool(_render, user, projects, documents, export_dt)
+
+
+def _render(user, projects, documents, export_dt) -> bytes:
     try:
         return _build_pdf_reportlab(user, projects, documents, export_dt)
     except Exception:
-        # Never hard-fail the download — emit a minimal valid PDF instead.
         return _build_pdf_plaintext(user, projects, documents, export_dt)
+
+
+# ── Snapshotting (ORM row -> plain object, with caps) ────────────────────────
+
+def _cap(text, limit):
+    text = "" if text is None else str(text)
+    if len(text) > limit:
+        return text[:limit] + " … [truncated]"
+    return text
+
+
+def _snap_user(row):
+    if row is None:
+        return SimpleNamespace(name="", email="")
+    return SimpleNamespace(
+        name=getattr(row, "name", "") or "",
+        email=getattr(row, "email", "") or "",
+    )
+
+
+def _snap_doc(row):
+    tags = list(getattr(row, "tags", None) or [])[:MAX_TAGS]
+    return SimpleNamespace(
+        title=_cap(getattr(row, "title", None) or "Untitled", MAX_TITLE_CHARS),
+        content=_cap(getattr(row, "content", None) or "", MAX_CONTENT_CHARS),
+        tags=[str(t) for t in tags],
+        created_at=getattr(row, "created_at", None),
+        updated_at=getattr(row, "updated_at", None),
+    )
+
+
+def _snap_proj(row):
+    stack = list(getattr(row, "stack", None) or [])[:MAX_TAGS]
+    return SimpleNamespace(
+        name=_cap(getattr(row, "name", None) or "Untitled project", MAX_TITLE_CHARS),
+        description=_cap(getattr(row, "description", None) or "", MAX_CONTENT_CHARS),
+        stack=[str(s) for s in stack],
+        goals=_cap(getattr(row, "goals", None) or "", MAX_CONTENT_CHARS),
+        created_at=getattr(row, "created_at", None),
+    )
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -105,7 +161,6 @@ def _build_pdf_reportlab(user, projects, documents, export_dt: datetime) -> byte
 
     buf = io.BytesIO()
 
-    # Footer with page number + brand on every page.
     def _on_page(canvas, doc_):
         canvas.saveState()
         canvas.setFont("Helvetica", 8)
@@ -115,14 +170,8 @@ def _build_pdf_reportlab(user, projects, documents, export_dt: datetime) -> byte
         canvas.restoreState()
 
     doc = SimpleDocTemplate(
-        buf,
-        pagesize=A4,
-        title="ContextOS — Your Data Export",
-        author="ContextOS",
-        leftMargin=2 * cm,
-        rightMargin=2 * cm,
-        topMargin=2 * cm,
-        bottomMargin=2 * cm,
+        buf, pagesize=A4, title="ContextOS — Your Data Export", author="ContextOS",
+        leftMargin=2 * cm, rightMargin=2 * cm, topMargin=2 * cm, bottomMargin=2 * cm,
     )
 
     styles = getSampleStyleSheet()
@@ -142,16 +191,19 @@ def _build_pdf_reportlab(user, projects, documents, export_dt: datetime) -> byte
         "h1", parent=styles["Heading1"], fontSize=16, textColor=BRAND,
         spaceBefore=4, spaceAfter=6,
     )
+    # wordWrap="CJK" forces character-level wrapping so a long unbroken token
+    # (URL / base64 / minified code) can never overflow the frame or stall layout.
     h2 = ParagraphStyle(
         "h2", parent=styles["Heading2"], fontSize=12.5, textColor=INK,
-        spaceBefore=10, spaceAfter=1,
+        spaceBefore=10, spaceAfter=1, wordWrap="CJK",
     )
     meta = ParagraphStyle(
         "meta", parent=styles["Normal"], fontSize=8.5, textColor=colors.grey,
-        spaceAfter=3,
+        spaceAfter=3, wordWrap="CJK",
     )
     body = ParagraphStyle(
         "body", parent=styles["BodyText"], fontSize=10, leading=14, spaceAfter=2,
+        wordWrap="CJK",
     )
     empty = ParagraphStyle(
         "empty", parent=styles["Normal"], fontSize=12.5, alignment=TA_CENTER,
@@ -187,27 +239,21 @@ def _build_pdf_reportlab(user, projects, documents, export_dt: datetime) -> byte
     else:
         last = len(documents) - 1
         for i, d in enumerate(documents):
-            title = _esc(getattr(d, "title", None) or "Untitled")
-            story.append(Paragraph(title, h2))
-
-            created = _fmt_dt(getattr(d, "created_at", None))
-            updated = _fmt_dt(getattr(d, "updated_at", None))
-            tags = getattr(d, "tags", None) or []
-            tag_str = ", ".join(tags) if tags else "—"
+            story.append(Paragraph(_esc(d.title or "Untitled"), h2))
+            created = _fmt_dt(d.created_at)
+            updated = _fmt_dt(d.updated_at)
+            tag_str = ", ".join(d.tags) if d.tags else "—"
             story.append(Paragraph(
                 f"Created: {_esc(created)} &nbsp;|&nbsp; "
                 f"Updated: {_esc(updated)} &nbsp;|&nbsp; "
                 f"Tags: {_esc(tag_str)}",
                 meta,
             ))
-
-            content = getattr(d, "content", None) or ""
+            content = d.content or ""
             if content.strip():
                 story.append(Paragraph(_esc(content).replace("\n", "<br/>"), body))
             else:
                 story.append(Paragraph("<i>(no content)</i>", body))
-
-            # Section separator between entries (not after the final one).
             if i < last:
                 story.append(Spacer(1, 0.22 * cm))
                 story.append(HRFlowable(width="100%", thickness=0.4, color=SEP))
@@ -223,21 +269,13 @@ def _build_pdf_reportlab(user, projects, documents, export_dt: datetime) -> byte
         last = len(projects) - 1
         for i, p in enumerate(projects):
             story.append(Paragraph(_esc(p.name or "Untitled project"), h2))
-            story.append(Paragraph(
-                f"Created: {_esc(_fmt_dt(getattr(p, 'created_at', None)))}", meta))
-
-            desc_text = getattr(p, "description", None) or ""
-            if desc_text.strip():
-                story.append(Paragraph(_esc(desc_text).replace("\n", "<br/>"), body))
-
-            stack = getattr(p, "stack", None) or []
-            if stack:
-                story.append(Paragraph(f"<b>Stack:</b> {_esc(', '.join(stack))}", body))
-
-            goals = getattr(p, "goals", None) or ""
-            if goals.strip():
-                story.append(Paragraph(f"<b>Goals:</b> {_esc(goals)}", body))
-
+            story.append(Paragraph(f"Created: {_esc(_fmt_dt(p.created_at))}", meta))
+            if (p.description or "").strip():
+                story.append(Paragraph(_esc(p.description).replace("\n", "<br/>"), body))
+            if p.stack:
+                story.append(Paragraph(f"<b>Stack:</b> {_esc(', '.join(p.stack))}", body))
+            if (p.goals or "").strip():
+                story.append(Paragraph(f"<b>Goals:</b> {_esc(p.goals)}", body))
             if i < last:
                 story.append(Spacer(1, 0.22 * cm))
                 story.append(HRFlowable(width="100%", thickness=0.4, color=SEP))
@@ -268,13 +306,11 @@ def _build_pdf_plaintext(user, projects, documents, export_dt: datetime) -> byte
         lines.append("You have no saved memories yet.")
     else:
         for d in documents:
-            title = getattr(d, "title", None) or "Untitled"
-            lines.append(f"[{title}]")
-            created = _fmt_dt(getattr(d, "created_at", None))
-            updated = _fmt_dt(getattr(d, "updated_at", None))
-            tags = getattr(d, "tags", None) or []
-            lines.append(f"  Created: {created} | Updated: {updated} | Tags: {', '.join(tags) or '-'}")
-            content = getattr(d, "content", None) or ""
+            lines.append(f"[{d.title or 'Untitled'}]")
+            created = _fmt_dt(d.created_at)
+            updated = _fmt_dt(d.updated_at)
+            lines.append(f"  Created: {created} | Updated: {updated} | Tags: {', '.join(d.tags) or '-'}")
+            content = d.content or ""
             if content:
                 snippet = content[:1000] + ("..." if len(content) > 1000 else "")
                 lines.append("  " + snippet.replace("\n", " "))
@@ -284,12 +320,11 @@ def _build_pdf_plaintext(user, projects, documents, export_dt: datetime) -> byte
         lines += ["", f"Projects ({len(projects)})", "=" * 40]
         for p in projects:
             lines.append(f"- {p.name}")
-            if getattr(p, "description", None):
+            if p.description:
                 lines.append(f"  {p.description}")
 
     text = "\n".join(lines)
 
-    # Build a one-page PDF, drawing each line separately so newlines render.
     leading = 14
     y_start = 800
     content_ops = ["BT", "/F1 10 Tf", f"1 0 0 1 40 {y_start} Tm", f"{leading} TL"]
