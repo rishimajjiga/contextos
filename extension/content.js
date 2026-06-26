@@ -163,6 +163,103 @@ function getPageText() {
   return document.body.innerText.slice(0, 8000);
 }
 
+// ── Gemini (Quill) insertion ──
+// Gemini's prompt box is a Quill rich-text editor (div.ql-editor). Quill runs a
+// MutationObserver that reconciles the DOM against its own internal model, so the
+// generic contenteditable path — which places the caret at the .ql-editor ROOT
+// (range.setStart(editor, 0)) and inserts text node-by-node with insertParagraph —
+// gets silently reverted: bare text nodes added as direct children of .ql-editor,
+// and unexpected block splits, are stripped by Quill's normalizer. Result: the
+// suggestion never lands. The functions below insert text the way Quill accepts:
+// caret placed INSIDE a block, a single insertText call (Quill converts newlines
+// into its own line breaks), with a paste-event fallback via Quill's clipboard module.
+// Everything here is gated to gemini.google.com and never runs on other platforms.
+
+function ctxIsGemini() {
+  try { return window.location.hostname.indexOf("gemini.google.com") !== -1; }
+  catch (_) { return false; }
+}
+
+// Resolve the genuine Quill editor element, tolerating light-DOM and the
+// rich-textarea shadow-DOM variants of Gemini's UI.
+function findGeminiEditor(preferred) {
+  if (preferred && preferred.classList && preferred.classList.contains("ql-editor") &&
+      document.contains(preferred)) {
+    return preferred;
+  }
+  var ed = document.querySelector("rich-textarea .ql-editor") ||
+           document.querySelector(".ql-editor[contenteditable='true']") ||
+           document.querySelector(".ql-editor");
+  if (ed) return ed;
+  var rt = document.querySelector("rich-textarea");
+  if (rt && rt.shadowRoot) {
+    ed = rt.shadowRoot.querySelector(".ql-editor") ||
+         rt.shadowRoot.querySelector("[contenteditable='true']");
+    if (ed) return ed;
+  }
+  // Last resort: the element we were handed, if it is itself editable.
+  if (preferred && preferred.getAttribute && preferred.getAttribute("contenteditable")) {
+    return preferred;
+  }
+  return null;
+}
+
+// Insert text into a Quill editor. replaceAll=true overwrites existing content
+// (used for "recent prompt" suggestions); otherwise text is prepended at the caret.
+function injectIntoGeminiEditor(editor, text, replaceAll) {
+  if (!editor) return false;
+  editor.focus();
+  var sel = window.getSelection();
+
+  if (replaceAll) {
+    var rAll = document.createRange();
+    rAll.selectNodeContents(editor);
+    sel.removeAllRanges();
+    sel.addRange(rAll);
+  } else {
+    // Place the caret INSIDE the first block (never at the .ql-editor root),
+    // unless the user already has a caret inside the editor.
+    if (!(sel.rangeCount && editor.contains(sel.anchorNode))) {
+      var block = editor.querySelector("p, div, li, h1, h2, h3") || editor;
+      var rIn = document.createRange();
+      rIn.selectNodeContents(block);
+      rIn.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(rIn);
+    }
+  }
+
+  var before = (editor.textContent || "").length;
+
+  // Primary path: a single native insertText. Quill listens for the resulting
+  // input event and absorbs the text (including newlines) into its model.
+  var ok = false;
+  try { ok = document.execCommand("insertText", false, text); } catch (_) { ok = false; }
+
+  var after = (editor.textContent || "").length;
+
+  // Only fall back if NOTHING was inserted — this guards against duplicate text.
+  if (!ok || after <= before) {
+    try {
+      var dt = new DataTransfer();
+      dt.setData("text/plain", text);
+      editor.dispatchEvent(new ClipboardEvent("paste", {
+        bubbles: true, cancelable: true, clipboardData: dt,
+      }));
+    } catch (_) {}
+  }
+
+  // Notify Gemini's framework so the send button enables and the model syncs.
+  try {
+    editor.dispatchEvent(new InputEvent("input", {
+      bubbles: true, inputType: "insertText", data: text,
+    }));
+  } catch (_) {
+    editor.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  return true;
+}
+
 function injectIntoInput(text, targetEl) {
   const platform = getPlatform();
   // Resolve the target: an explicit element first (suggestions pass the watched
@@ -197,6 +294,11 @@ function injectIntoInput(text, targetEl) {
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
   } else if (input.getAttribute("contenteditable") || input.isContentEditable) {
+    // Gemini's Quill editor needs a dedicated path (see injectIntoGeminiEditor).
+    if (ctxIsGemini()) {
+      const gEditor = findGeminiEditor(input);
+      if (gEditor) { injectIntoGeminiEditor(gEditor, prefix, false); return true; }
+    }
     input.focus();
     const sel = window.getSelection();
     const range = document.createRange();
@@ -1738,6 +1840,11 @@ function acceptSuggestion(idx) {
       if (ns) ns.call(input, item.text); else input.value = item.text;
       input.dispatchEvent(new Event("input", { bubbles: true }));
     } else if (input.getAttribute("contenteditable")) {
+      // Gemini's Quill editor ignores the generic selectAll+insertText path.
+      if (ctxIsGemini()) {
+        var gEd = findGeminiEditor(input);
+        if (gEd) { injectIntoGeminiEditor(gEd, item.text, true); return; }
+      }
       input.focus();
       document.execCommand("selectAll", false, null);
       document.execCommand("insertText", false, item.text);
