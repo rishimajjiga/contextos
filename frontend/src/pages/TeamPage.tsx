@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { teamService, type Organization, type InviteResult } from "@/services/team.service";
+import { TeamMemories } from "@/components/team/TeamMemories";
 import { useNavigate } from "react-router-dom";
 
 export function TeamPage() {
@@ -281,6 +282,9 @@ export function TeamPage() {
               })}
             </CardContent>
           </Card>
+
+          {/* Team Memories workspace */}
+          <TeamMemories />
 
           {/* Pending invites */}
           {pendingInvites.length > 0 && (

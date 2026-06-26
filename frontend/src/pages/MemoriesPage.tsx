@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Brain, Trash2, Tag, ChevronDown, ChevronUp, Search, X, Plus, Zap } from "lucide-react";
+import { Brain, Trash2, Tag, ChevronDown, ChevronUp, Search, X, Plus, Zap, Lock, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useMemories } from "@/hooks/useMemories";
 import { usePlan } from "@/hooks/usePlan";
@@ -22,7 +22,7 @@ export function MemoriesPage() {
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchMemories(debouncedQ.trim() ? { q: debouncedQ.trim() } : undefined);
+    fetchMemories({ scope: "personal", ...(debouncedQ.trim() ? { q: debouncedQ.trim() } : {}) });
   }, [debouncedQ, fetchMemories]);
 
   const handleClearSearch = () => {
@@ -60,7 +60,7 @@ export function MemoriesPage() {
             message={error}
             onRetry={() => {
               clearError();
-              fetchMemories(debouncedQ.trim() ? { q: debouncedQ.trim() } : undefined);
+              fetchMemories({ scope: "personal", ...(debouncedQ.trim() ? { q: debouncedQ.trim() } : {}) });
             }}
             onDismiss={clearError}
           />
@@ -179,7 +179,12 @@ export function MemoriesPage() {
                         {tag}
                       </Badge>
                     ))}
-                    <span className="text-[10px] text-muted-foreground ml-auto">
+                    <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground ml-auto">
+                      {mem.visibility === "team"
+                        ? <><Users className="h-2.5 w-2.5" /> Team</>
+                        : <><Lock className="h-2.5 w-2.5" /> Private</>}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
                       {formatRelativeTime(mem.created_at)}
                     </span>
                   </div>

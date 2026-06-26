@@ -109,6 +109,18 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
     title: "Save this page to ContextOS",
     contexts: ["page"],
   });
+  // Team-save variants — only do anything for active Team-plan members; the
+  // backend authorizes membership, so these are safe to always show.
+  chrome.contextMenus.create({
+    id: "save-selection-team",
+    title: "Save selection to Team",
+    contexts: ["selection"],
+  });
+  chrome.contextMenus.create({
+    id: "save-page-team",
+    title: "Save this page to Team",
+    contexts: ["page"],
+  });
   // "Open Movable Brain" — opens the floating panel prefilled with selected text
   chrome.contextMenus.create({
     id: "open-brain-with-selection",
@@ -127,6 +139,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   }
 
   if (info.menuItemId === "save-selection" && info.selectionText) {
+    setSaveDestination("personal");
     const title = (info.selectionText.slice(0, 60) + (info.selectionText.length > 60 ? "…" : ""))
       .replace(/\n/g, " ").trim();
     try {
@@ -160,6 +173,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   }
 
   if (info.menuItemId === "save-page" && tab?.url) {
+    setSaveDestination("personal");
     const title = (tab.title || tab.url).slice(0, 120);
     try {
       await apiRequest("/api/v1/memories", "POST", {
@@ -173,6 +187,46 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       setTimeout(() => chrome.action.setBadgeText({ text: "" }), 2000);
     } catch (_) {}
   }
+
+  // ── Team save variants ──────────────────────────────────────────────────────
+  if (info.menuItemId === "save-selection-team" && info.selectionText) {
+    setSaveDestination("team");
+    const title = (info.selectionText.slice(0, 60) + (info.selectionText.length > 60 ? "…" : ""))
+      .replace(/\n/g, " ").trim();
+    try {
+      await apiRequest("/api/v1/memories", "POST", {
+        title, content: info.selectionText, tags: ["quick-save"], visibility: "team",
+      });
+      cacheInvalidate("list:", "search:", "context:");
+      chrome.action.setBadgeText({ text: "👥", tabId: tab?.id });
+      chrome.action.setBadgeBackgroundColor({ color: "#10B981" });
+      setTimeout(() => chrome.action.setBadgeText({ text: "" }), 2000);
+    } catch (err) {
+      chrome.action.setBadgeText({ text: "!", tabId: tab?.id });
+      chrome.action.setBadgeBackgroundColor({ color: "#EF4444" });
+      setTimeout(() => chrome.action.setBadgeText({ text: "" }), 3000);
+    }
+  }
+
+  if (info.menuItemId === "save-page-team" && tab?.url) {
+    setSaveDestination("team");
+    const title = (tab.title || tab.url).slice(0, 120);
+    try {
+      await apiRequest("/api/v1/memories", "POST", {
+        title,
+        content: `Source: ${tab.url}\n\nSaved from: ${tab.title || tab.url}`,
+        tags: ["webpage"], visibility: "team",
+      });
+      cacheInvalidate("list:", "search:", "context:");
+      chrome.action.setBadgeText({ text: "👥", tabId: tab.id });
+      chrome.action.setBadgeBackgroundColor({ color: "#10B981" });
+      setTimeout(() => chrome.action.setBadgeText({ text: "" }), 2000);
+    } catch (_) {
+      chrome.action.setBadgeText({ text: "!", tabId: tab?.id });
+      chrome.action.setBadgeBackgroundColor({ color: "#EF4444" });
+      setTimeout(() => chrome.action.setBadgeText({ text: "" }), 3000);
+    }
+  }
 });
 
 // ── Storage helpers ───────────────────────────────────────────────────────────
@@ -182,6 +236,35 @@ async function getConfig() {
       resolve({ apiUrl: r.apiUrl || DEFAULT_API_URL, apiKey: r.apiKey || "" })
     )
   );
+}
+
+// ── Team save destination (quick-save) ────────────────────────────────────────
+// Remembers the user's last chosen save destination so the next save defaults
+// to it. "personal" (default) | "team". Stored in chrome.storage.local.
+async function getSaveDestination() {
+  return new Promise((resolve) =>
+    chrome.storage.local.get(["saveDestination"], (r) => resolve(r.saveDestination === "team" ? "team" : "personal"))
+  );
+}
+async function setSaveDestination(dest) {
+  const d = dest === "team" ? "team" : "personal";
+  await new Promise((r) => chrome.storage.local.set({ saveDestination: d }, r));
+  return d;
+}
+
+// Cached lookup of the user's team (org). 5-min in-memory cache so we never add
+// an API call to the save path. Returns { id, name } or null.
+let _teamCache = { info: undefined, expiry: 0 };
+async function getActiveTeam() {
+  if (_teamCache.info !== undefined && Date.now() < _teamCache.expiry) return _teamCache.info;
+  try {
+    const org = await apiRequest("/api/v1/organizations");
+    const info = (org && org.id) ? { id: org.id, name: org.name } : null;
+    _teamCache = { info, expiry: Date.now() + 5 * 60 * 1000 };
+    return info;
+  } catch (_) {
+    return null;  // not on a team / not reachable — treat as personal-only
+  }
 }
 
 // ── Core fetch with retry ─────────────────────────────────────────────────────
@@ -316,12 +399,22 @@ async function handleMessage(msg) {
     }
 
     case "SAVE_MEMORY": {
+      // Destination: explicit msg.visibility wins, else the remembered default
+      // (quick-save). Personal payloads are byte-identical to before (no
+      // visibility field) → 100% backward compatible.
+      const dest = (msg.visibility === "team" || msg.visibility === "personal")
+        ? msg.visibility
+        : await getSaveDestination();
       const payload = {
         title:      msg.title,
         content:    msg.content,
         tags:       msg.tags       || [],
         project_id: msg.project_id || null,
       };
+      if (dest === "team") {
+        payload.visibility = "team";
+        if (msg.team_id) payload.team_id = msg.team_id;
+      }
       try {
         const result = await apiRequest("/api/v1/memories", "POST", payload);
         cacheInvalidate("list:", "search:", "context:");
@@ -341,6 +434,21 @@ async function handleMessage(msg) {
         }
         throw err;
       }
+    }
+
+    // ── Team / save destination ──────────────────────────────────────────────
+    case "TEAM_INFO": {
+      const team = await getActiveTeam();
+      const destination = await getSaveDestination();
+      return { hasTeam: !!team, team, destination };
+    }
+
+    case "GET_SAVE_DESTINATION": {
+      return { destination: await getSaveDestination() };
+    }
+
+    case "SET_SAVE_DESTINATION": {
+      return { destination: await setSaveDestination(msg.destination) };
     }
 
     case "DELETE_MEMORY": {

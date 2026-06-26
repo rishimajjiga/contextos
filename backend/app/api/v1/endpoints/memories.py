@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.document import Document
+from app.models.user import User
 from app.api.v1.dependencies import get_user_id
 from app.services.subscription_service import check_memory_limit
 
@@ -33,6 +34,7 @@ class MemoryCreate(BaseModel):
     tags: list[str] = Field(default_factory=list)
     project_id: Optional[str] = None
     visibility: str = "private"  # "private" | "team"
+    team_id: Optional[str] = None  # optional: explicit team (org) to save into
 
 
 class MemoryOut(BaseModel):
@@ -44,11 +46,16 @@ class MemoryOut(BaseModel):
     visibility: str = "private"
     created_at: str
     updated_at: str
+    # Creator info — populated for team-scope listings so the Team workspace can
+    # show who shared each memory. None/empty for personal listings.
+    user_id: Optional[str] = None
+    creator_name: Optional[str] = None
+    creator_email: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
 
-def _out(doc: Document) -> MemoryOut:
+def _out(doc: Document, creator_name: str | None = None, creator_email: str | None = None) -> MemoryOut:
     return MemoryOut(
         id=str(doc.id),
         title=doc.title,
@@ -58,6 +65,9 @@ def _out(doc: Document) -> MemoryOut:
         visibility=getattr(doc, "visibility", None) or "private",
         created_at=doc.created_at.isoformat() if doc.created_at else "",
         updated_at=doc.updated_at.isoformat() if doc.updated_at else "",
+        user_id=str(doc.user_id),
+        creator_name=creator_name,
+        creator_email=creator_email,
     )
 
 
@@ -70,6 +80,7 @@ async def list_memories(
     q: Optional[str] = None,
     project_id: Optional[str] = None,
     limit: int = 100,
+    scope: Optional[str] = None,   # None/"all" (default, back-compat) | "personal" | "team"
 ):
     """List the user's saved memories, newest first. Optional ?q= searches title+content."""
     try:
@@ -78,30 +89,54 @@ async def list_memories(
         # removed or the plan lapses, team memories drop out automatically (the rows
         # stay in the DB for remaining members).
         from app.services.org_service import get_user_org_id, org_team_active
+        scope_norm = (scope or "all").lower()
         org_id = await get_user_org_id(db, user_id)
         team_ok = bool(org_id) and await org_team_active(db, org_id)
         not_team = or_(Document.visibility.is_(None), Document.visibility != "team")
         own = and_(Document.user_id == user_id, not_team)
-        if team_ok:
+
+        def _apply_filters(stmt):
+            if project_id:
+                stmt = stmt.where(Document.project_id == project_id)
+            if q and q.strip():
+                term = f"%{q.strip()}%"
+                stmt = stmt.where(or_(Document.title.ilike(term), Document.content.ilike(term)))
+            return stmt
+
+        # ── TEAM scope: only the org's shared team memories, with creator info.
+        # Membership/active-plan are derived server-side from the caller — a
+        # client cannot request another team's memories.
+        if scope_norm == "team":
+            if not team_ok:
+                return []
+            stmt = _apply_filters(
+                select(Document, User.name, User.email)
+                .join(User, User.id == Document.user_id)
+                .where(
+                    Document.org_id == org_id,
+                    Document.visibility == "team",
+                    Document.doc_type == "note",
+                )
+                .order_by(desc(Document.created_at))
+                .limit(limit)
+            )
+            result = await db.execute(stmt)
+            return [_out(row[0], creator_name=row[1], creator_email=row[2]) for row in result.all()]
+
+        # ── PERSONAL scope: only the caller's own private memories (no team).
+        # ── ALL (default / back-compat): own private + active team memories.
+        if scope_norm == "personal":
+            visible = own
+        elif team_ok:
             visible = or_(own, and_(Document.org_id == org_id, Document.visibility == "team"))
         else:
             visible = own
-        stmt = (
+        stmt = _apply_filters(
             select(Document)
             .where(visible, Document.doc_type == "note")
             .order_by(desc(Document.created_at))
             .limit(limit)
         )
-        if project_id:
-            stmt = stmt.where(Document.project_id == project_id)
-        if q and q.strip():
-            term = f"%{q.strip()}%"
-            stmt = stmt.where(
-                or_(
-                    Document.title.ilike(term),
-                    Document.content.ilike(term),
-                )
-            )
         result = await db.execute(stmt)
         return [_out(d) for d in result.scalars().all()]
     except HTTPException:
@@ -137,12 +172,30 @@ async def create_memory(
     org_id = None
     if (body.visibility or "private").lower() == "team":
         from app.services.org_service import get_user_org_id, org_team_active
-        org_id = await get_user_org_id(db, user_id)
-        if not org_id or not await org_team_active(db, org_id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Team memories require membership in an organization with an active Team plan.",
+        from app.models.organization import OrganizationMember
+        if body.team_id:
+            # Explicit team selection: the caller MUST be a member of that exact
+            # team (prevents saving into a team you don't belong to), and the
+            # team's plan must be active.
+            member = await db.execute(
+                select(OrganizationMember).where(
+                    OrganizationMember.org_id == body.team_id,
+                    OrganizationMember.user_id == user_id,
+                )
             )
+            if member.scalar_one_or_none() is None or not await org_team_active(db, body.team_id):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You are not a member of that team, or its Team plan is not active.",
+                )
+            org_id = body.team_id
+        else:
+            org_id = await get_user_org_id(db, user_id)
+            if not org_id or not await org_team_active(db, org_id):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Team memories require membership in an organization with an active Team plan.",
+                )
         visibility = "team"
 
     note_id = str(uuid.uuid4())

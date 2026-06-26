@@ -11,9 +11,9 @@ export function useMemories() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Track the active search params so auto-refresh uses the same filter
-  const lastParamsRef = useRef<{ projectId?: string; q?: string } | undefined>(undefined);
+  const lastParamsRef = useRef<{ projectId?: string; q?: string; scope?: "personal" | "team" | "all" } | undefined>(undefined);
 
-  const fetchMemories = useCallback(async (params?: { projectId?: string; q?: string }) => {
+  const fetchMemories = useCallback(async (params?: { projectId?: string; q?: string; scope?: "personal" | "team" | "all" }) => {
     lastParamsRef.current = params;
     setIsLoading(true);
     setError(null);

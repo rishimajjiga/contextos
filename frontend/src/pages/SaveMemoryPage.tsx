@@ -28,7 +28,14 @@ export function SaveMemoryPage() {
   const { isSaving, error, clearError, createMemory } = useMemories();
   const { plan, refetch: refetchPlan } = usePlan();
   const [saved, setSaved] = useState<{ title: string } | null>(null);
-  const [shareTeam, setShareTeam] = useState(false);
+  // Quick-save: remember the last chosen destination across visits.
+  const [shareTeam, setShareTeam] = useState<boolean>(
+    () => { try { return localStorage.getItem("ctxos:saveDestination") === "team"; } catch { return false; } }
+  );
+  const chooseShareTeam = (v: boolean) => {
+    setShareTeam(v);
+    try { localStorage.setItem("ctxos:saveDestination", v ? "team" : "personal"); } catch { /* ignore */ }
+  };
 
   // Team memories can only be created when the (effective) plan is Team.
   const canShareTeam = plan?.plan === "team";
@@ -58,7 +65,7 @@ export function SaveMemoryPage() {
     if (result) {
       setSaved({ title: result.title });
       reset();
-      setShareTeam(false);
+      // Keep the chosen destination (quick-save) — do not reset to personal.
       refetchPlan(); // update usage count
     }
   };
@@ -199,7 +206,7 @@ export function SaveMemoryPage() {
                   <input
                     type="checkbox"
                     checked={shareTeam}
-                    onChange={(e) => setShareTeam(e.target.checked)}
+                    onChange={(e) => chooseShareTeam(e.target.checked)}
                     className="mt-0.5 h-4 w-4 accent-brand-500"
                   />
                   <span>
