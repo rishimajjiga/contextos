@@ -43,7 +43,7 @@ export function Sidebar({ mobileOpen, onMobileClose, onClose }: SidebarProps) {
 function SidebarContent({ pathname, onClose }: { pathname: string; onClose?: () => void }) {
   const { plan } = usePlan();
   // Founder accounts already have everything — no upgrade path to show.
-  const items = plan.plan === "founder"
+  const items = plan?.plan === "founder"
     ? navItems.filter((i) => i.href !== "/pricing")
     : navItems;
   return (

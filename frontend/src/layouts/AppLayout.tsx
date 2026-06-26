@@ -11,7 +11,7 @@ function GracePeriodBanner() {
   const { plan } = usePlan();
   const [downloading, setDownloading] = useState(false);
 
-  if (!plan.is_in_grace_period) return null;
+  if (!plan || !plan.is_in_grace_period) return null;
 
   const deleteDate = plan.grace_period_end
     ? new Date(plan.grace_period_end).toLocaleDateString("en-IN", {

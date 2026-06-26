@@ -3,11 +3,11 @@ import { setTokenGetter } from "@/services/api";
 import { useNavigate } from "react-router-dom";
 import { useAuth, useUser } from "@clerk/clerk-react";
 import { toast } from "sonner";
+import { usePlan } from "@/hooks/usePlan";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   billingService,
   openRazorpayCheckout,
-  type PlanInfo,
   type StudentCheckResult,
   type AllPlanLimits,
   type PlanLimits,
@@ -405,7 +405,7 @@ export function PricingPage() {
   const [loading, setLoading] = useState<string | null>(null);
   const [billing, setBilling] = useState<Billing>("monthly");
   const [showStudentModal, setShowStudentModal] = useState(false);
-  const [planInfo, setPlanInfo] = useState<PlanInfo | null>(null);
+  const { plan: planInfo } = usePlan();   // shared cached subscription (deduped)
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   // allLimits starts with the known defaults so cards render immediately;
   // the backend response overwrites them (same values, but keeps us honest
@@ -419,11 +419,6 @@ export function PricingPage() {
     // Fetch authoritative plan limits (public endpoint, no auth needed)
     billingService.getPlans().then(setAllLimits).catch(() => {/* keep defaults */});
   }, []);
-
-  useEffect(() => {
-    if (!isSignedIn) return;
-    billingService.getPlan().then(setPlanInfo).catch(() => {});
-  }, [isSignedIn]);
 
   // handleCta — identical to original
   async function handleCta(planId: "free" | "student" | "pro" | "team") {

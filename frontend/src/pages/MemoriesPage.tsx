@@ -33,7 +33,7 @@ export function MemoriesPage() {
   // Free plan has a positive memory limit; Pro/Student are unlimited (-1).
   // We never delete anything — older memories stay stored and simply aren't
   // shown until the user upgrades again.
-  const memLimit = plan.limits.memories;
+  const memLimit = plan?.limits.memories ?? -1;
   const limited = memLimit > 0;
   const visibleMemories = limited ? memories.slice(0, memLimit) : memories;
   const hiddenCount = limited ? Math.max(0, memories.length - memLimit) : 0;

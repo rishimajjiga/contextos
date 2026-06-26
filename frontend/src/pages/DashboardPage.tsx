@@ -32,7 +32,7 @@ function UsageCard({
       <div className="group rounded-xl border border-border/60 bg-surface-1/40 hover:border-brand-500/30 hover:bg-surface-1/70 transition-all cursor-pointer p-4 sm:p-5 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wide mb-1.5">{label}</p>
-          <p className="text-xl font-bold text-foreground tabular-nums">{value}</p>
+          <p className="text-xl font-bold text-foreground tabular-nums">{value === "" ? <span className="inline-block h-5 w-14 rounded bg-surface-3 animate-pulse align-middle" /> : value}</p>
         </div>
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-500/10 group-hover:bg-brand-500/18 transition-colors">
           <Icon className="h-4.5 w-4.5 text-brand-400" />
@@ -114,8 +114,8 @@ function formatDate(iso: string | null | undefined): string {
 function SubscriptionCard() {
   const { plan, isLoading } = usePlan();
 
-  // Don't show for free plan or while loading
-  if (isLoading || plan.plan === "free") return null;
+  // Don't show for free plan or while the plan is still resolving
+  if (isLoading || !plan || plan.plan === "free") return null;
 
   const isPaid = !plan.is_in_grace_period;
   const planLabel = PLAN_DISPLAY[plan.plan] ?? plan.plan;
@@ -206,13 +206,13 @@ export function DashboardPage() {
   const firstName = user?.firstName || user?.username || "there";
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-  const memLimit = plan.limits.memories;
-  const projLimit = plan.limits.projects;
-  const injectLimit = plan.limits.daily_inject;
-
-  const memValue   = `${plan.usage.memories}/${memLimit >= 10000 ? "∞" : memLimit}`;
-  const projValue  = `${plan.usage.projects}/${projLimit >= 1000 ? "∞" : projLimit}`;
-  const injectValue = (injectLimit < 0 || injectLimit >= 10000) ? "∞/day" : `${injectLimit}/day`;
+  // Plan-derived usage values. While the plan is still resolving (plan === null)
+  // we pass "" so the UsageCard shows a skeleton instead of flashing Free limits.
+  const memValue   = plan ? `${plan.usage.memories}/${plan.limits.memories >= 10000 ? "∞" : plan.limits.memories}` : "";
+  const projValue  = plan ? `${plan.usage.projects}/${plan.limits.projects >= 1000 ? "∞" : plan.limits.projects}` : "";
+  const injectValue = plan
+    ? ((plan.limits.daily_inject < 0 || plan.limits.daily_inject >= 10000) ? "∞/day" : `${plan.limits.daily_inject}/day`)
+    : "";
 
   return (
     <div>
@@ -221,7 +221,7 @@ export function DashboardPage() {
         description="Welcome back to ContextOS."
       />
 
-      {plan.plan === "founder" && (
+      {plan?.plan === "founder" && (
         <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-brand-500/40 bg-brand-500/10 px-3.5 py-1.5 text-xs font-semibold text-brand-700">
           <Zap className="h-3.5 w-3.5" />
           Founder · Lifetime Access

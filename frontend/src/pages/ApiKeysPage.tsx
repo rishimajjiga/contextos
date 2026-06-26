@@ -252,11 +252,11 @@ export function ApiKeysPage() {
     await createKey(name);
   };
 
-  const keyLimit = plan.limits.api_keys; // -1 = unlimited
+  const keyLimit = plan?.limits.api_keys ?? -1; // -1 = unlimited (also while loading)
   const atLimit = keyLimit !== -1 && keys.length >= keyLimit;
-  const limitMessage = plan.plan === "student"
+  const limitMessage = plan?.plan === "student"
     ? "You have reached the API key limit for the Student Plan."
-    : `You've reached the ${keyLimit} API key limit on the ${plan.display_name} plan.`;
+    : `You've reached the ${keyLimit} API key limit on the ${plan?.display_name ?? "current"} plan.`;
 
   return (
     <div>
