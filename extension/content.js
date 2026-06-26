@@ -208,55 +208,107 @@ function findGeminiEditor(preferred) {
 // (used for "recent prompt" suggestions); otherwise text is prepended at the caret.
 function injectIntoGeminiEditor(editor, text, replaceAll) {
   if (!editor) return false;
-  editor.focus();
-  var sel = window.getSelection();
+  var snapshot = editor.innerHTML;                 // pre-injection state
+  var baseLen  = (editor.textContent || "").length;
 
-  if (replaceAll) {
-    var rAll = document.createRange();
-    rAll.selectNodeContents(editor);
-    sel.removeAllRanges();
-    sel.addRange(rAll);
-  } else {
-    // Place the caret INSIDE the first block (never at the .ql-editor root),
-    // unless the user already has a caret inside the editor.
-    if (!(sel.rangeCount && editor.contains(sel.anchorNode))) {
-      var block = editor.querySelector("p, div, li, h1, h2, h3") || editor;
-      var rIn = document.createRange();
-      rIn.selectNodeContents(block);
-      rIn.collapse(true);
-      sel.removeAllRanges();
-      sel.addRange(rIn);
+  function fireInput() {
+    try {
+      editor.dispatchEvent(new InputEvent("input", {
+        bubbles: true, inputType: "insertText", data: text,
+      }));
+    } catch (_) {
+      editor.dispatchEvent(new Event("input", { bubbles: true }));
     }
   }
 
-  var before = (editor.textContent || "").length;
-
-  // Primary path: a single native insertText. Quill listens for the resulting
-  // input event and absorbs the text (including newlines) into its model.
-  var ok = false;
-  try { ok = document.execCommand("insertText", false, text); } catch (_) { ok = false; }
-
-  var after = (editor.textContent || "").length;
-
-  // Only fall back if NOTHING was inserted — this guards against duplicate text.
-  if (!ok || after <= before) {
-    try {
-      var dt = new DataTransfer();
-      dt.setData("text/plain", text);
-      editor.dispatchEvent(new ClipboardEvent("paste", {
-        bubbles: true, cancelable: true, clipboardData: dt,
-      }));
-    } catch (_) {}
+  // Drop a caret in the editor, then poke Quill so it registers the selection
+  // synchronously (it listens on document 'selectionchange'); without a
+  // registered selection Quill silently drops programmatic input.
+  function placeCaret() {
+    var sel = window.getSelection();
+    var r = document.createRange();
+    r.selectNodeContents(editor);
+    r.collapse(!replaceAll ? false : false);       // caret at end of content
+    if (replaceAll) r.selectNodeContents(editor);  // ...or select all to replace
+    sel.removeAllRanges();
+    sel.addRange(r);
+    try { document.dispatchEvent(new Event("selectionchange")); } catch (_) {}
   }
 
-  // Notify Gemini's framework so the send button enables and the model syncs.
-  try {
-    editor.dispatchEvent(new InputEvent("input", {
-      bubbles: true, inputType: "insertText", data: text,
+  // True only when BOTH the start and end of the text are present — so a
+  // newline-truncated partial insert does NOT count as success.
+  function landedFull() {
+    var norm = (editor.textContent || "").replace(/\s+/g, " ");
+    var src  = String(text).replace(/\s+/g, " ").trim();
+    if (!src) return true;
+    var head = src.slice(0, 16), tail = src.slice(-16);
+    return norm.indexOf(head) !== -1 && norm.indexOf(tail) !== -1;
+  }
+
+  function pasteText() {
+    var dt = new DataTransfer();
+    dt.setData("text/plain", text);
+    editor.dispatchEvent(new ClipboardEvent("paste", {
+      bubbles: true, cancelable: true, clipboardData: dt,
     }));
-  } catch (_) {
-    editor.dispatchEvent(new Event("input", { bubbles: true }));
   }
+
+  // Line-by-line insertText avoids execCommand truncating at the first newline.
+  function execLines() {
+    var lines = String(text).split("\n");
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i]) document.execCommand("insertText", false, lines[i]);
+      if (i < lines.length - 1) document.execCommand("insertText", false, "\n");
+    }
+  }
+
+  // Guaranteed multi-line build: one <p> per line, prepended onto the clean base.
+  function domBuild() {
+    editor.innerHTML = replaceAll ? "" : snapshot;
+    if ((editor.textContent || "").trim() === "") editor.innerHTML = "";
+    var lines = String(text).split("\n");
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < lines.length; i++) {
+      var p = document.createElement("p");
+      if (lines[i] === "") p.appendChild(document.createElement("br"));
+      else p.appendChild(document.createTextNode(lines[i]));
+      frag.appendChild(p);
+    }
+    editor.insertBefore(frag, editor.firstChild);
+    editor.classList.remove("ql-blank");
+    fireInput();
+  }
+
+  // One pass of the event-based methods. Quill's paste handler inserts the whole
+  // multi-line block atomically, so it is tried first.
+  function attempt() {
+    editor.focus();
+    placeCaret();
+    try { pasteText(); } catch (_) {}
+    if (landedFull()) { fireInput(); return true; }
+    if ((editor.textContent || "").length <= baseLen) {   // paste added nothing
+      try { execLines(); } catch (_) {}
+      if (landedFull()) { fireInput(); return true; }
+    }
+    return false;
+  }
+
+  if (attempt()) return true;
+
+  // Not fully landed. Quill may need a tick; clean up any partial, retry once,
+  // then fall back to the guaranteed DOM build and re-assert if it gets reverted.
+  setTimeout(function () {
+    if (!replaceAll && (editor.textContent || "").length > baseLen) editor.innerHTML = snapshot;
+    if (attempt()) return;
+    if (!replaceAll && (editor.textContent || "").length > baseLen) editor.innerHTML = snapshot;
+    domBuild();
+    var tail = String(text).replace(/\s+/g, " ").trim().slice(-16);
+    setTimeout(function () {
+      var norm = (editor.textContent || "").replace(/\s+/g, " ");
+      if (tail && norm.indexOf(tail) === -1) domBuild();
+    }, 60);
+  }, 0);
+
   return true;
 }
 
@@ -1797,7 +1849,10 @@ function positionDropdown(dd, input) {
   // The FAB is draggable, so read its live position and open the dropdown next
   // to it — above by default, flipping below if there isn't room.
   var fab = document.getElementById("ctx-fab");
-  if (fab) {
+  // On Gemini the brain icon sits far from the centered prompt box, so anchoring
+  // the dropdown to it strands the suggestions in the corner. Anchor to the
+  // input field there instead (the fallback path below) — Gemini only.
+  if (fab && !ctxIsGemini()) {
     var f = fab.getBoundingClientRect();
     var width = Math.min(360, window.innerWidth - 16);
     var left  = Math.max(8, Math.min(f.right - width, window.innerWidth - width - 8));
@@ -1820,8 +1875,14 @@ function positionDropdown(dd, input) {
 function setSugSelIdx(idx) {
   _sugSelIdx = idx;
   if (!_sugDropdown) return;
+  var gem = ctxIsGemini();
   _sugDropdown.querySelectorAll(".ctx-si[data-idx]").forEach(function(el) {
-    el.classList.toggle("ctx-selected", parseInt(el.dataset.idx) === idx);
+    var on = parseInt(el.dataset.idx) === idx;
+    el.classList.toggle("ctx-selected", on);
+    if (gem) {                                     // inline highlight (CSP-proof)
+      el.style.background = on ? "rgba(79,148,55,0.18)" : "transparent";
+      el.style.color = on ? "#1c2e1d" : "rgba(45,70,35,0.82)";
+    }
   });
 }
 
@@ -1853,6 +1914,46 @@ function acceptSuggestion(idx) {
     // Inject memory context into the field the suggestion was raised on.
     injectIntoInput(item.text, input);
   }
+}
+
+// Gemini strips our injected <style> element via its CSP, so the suggestion
+// dropdown renders unstyled and blends into the dark page. Inline style
+// attributes ARE allowed by Gemini's CSP (positioning already works inline), so
+// apply the essential visuals directly on the elements. Gemini only.
+function ctxStyleGeminiDropdown(dd) {
+  dd.style.cssText += ";background:#f7faf2;border:1px solid rgba(79,148,55,0.45);" +
+    "border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,0.65);overflow:hidden;" +
+    "overflow-y:auto;max-height:320px;z-index:2147483646;color:#1c2e1d;" +
+    "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+  dd.querySelectorAll(".ctx-si").forEach(function(el) {
+    el.style.cssText += ";display:flex;align-items:center;gap:10px;padding:8px 14px;" +
+      "cursor:pointer;font-size:12px;color:rgba(45,70,35,0.82);user-select:none;background:transparent";
+  });
+  dd.querySelectorAll(".ctx-si-text").forEach(function(el) {
+    el.style.cssText += ";flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
+  });
+  dd.querySelectorAll(".ctx-si-icon").forEach(function(el) {
+    el.style.cssText += ";flex-shrink:0;width:18px;text-align:center;opacity:0.7";
+  });
+  dd.querySelectorAll(".ctx-si-kind").forEach(function(el) {
+    el.style.cssText += ";font-size:9px;font-weight:700;color:rgba(45,70,35,0.4);" +
+      "flex-shrink:0;text-transform:uppercase;letter-spacing:0.4px";
+  });
+  dd.querySelectorAll(".ctx-si-header").forEach(function(el) {
+    el.style.cssText += ";padding:6px 14px 3px;font-size:9px;font-weight:800;" +
+      "color:rgba(45,70,35,0.5);text-transform:uppercase;letter-spacing:0.5px;background:#eef3e7";
+  });
+  dd.querySelectorAll(".ctx-si-sep").forEach(function(el) {
+    el.style.cssText += ";height:1px;background:rgba(45,70,35,0.12);margin:3px 0";
+  });
+  dd.querySelectorAll(".ctx-si-footer").forEach(function(el) {
+    el.style.cssText += ";padding:5px 14px 7px;display:flex;gap:4px;align-items:center;" +
+      "border-top:1px solid rgba(45,70,35,0.18);font-size:9px;color:rgba(45,70,35,0.45)";
+  });
+  dd.querySelectorAll(".ctx-si-footer kbd").forEach(function(el) {
+    el.style.cssText += ";background:rgba(45,70,35,0.1);border-radius:3px;padding:1px 5px;" +
+      "font-family:inherit;font-size:9px;color:rgba(45,70,35,0.5)";
+  });
 }
 
 function renderSuggestDropdown(recentItems, memItems, input, accentColor) {
@@ -1905,6 +2006,7 @@ function renderSuggestDropdown(recentItems, memItems, input, accentColor) {
   dd.innerHTML = html;
   document.body.appendChild(dd);
   _sugDropdown = dd;
+  if (ctxIsGemini()) ctxStyleGeminiDropdown(dd);   // CSP-proof inline styling
 
   // Position after the browser has painted (offsetHeight available)
   requestAnimationFrame(function() { if (_sugDropdown === dd) positionDropdown(dd, input); });
