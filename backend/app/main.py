@@ -125,6 +125,13 @@ async def lifespan(app: FastAPI):
                     "ALTER TABLE user_subscriptions "
                     "ADD COLUMN IF NOT EXISTS auto_renew BOOLEAN NOT NULL DEFAULT TRUE"
                 ))
+                # trial_used (one-time Student trial guard). Without this backfill
+                # the new ORM column makes EVERY authenticated request 500, since
+                # get_user_id -> subscription lookup selects trial_used.
+                await conn.execute(sa.text(
+                    "ALTER TABLE user_subscriptions "
+                    "ADD COLUMN IF NOT EXISTS trial_used BOOLEAN NOT NULL DEFAULT FALSE"
+                ))
 
                 # payments table — individual Razorpay transaction records
                 await conn.execute(sa.text("""
