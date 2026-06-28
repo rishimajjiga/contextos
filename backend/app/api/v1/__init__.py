@@ -57,6 +57,7 @@ else:
             "usage": {"projects": 0, "memories": 0},
             "current_period_end": None,
             "is_trialing": False,
+            "trial_expired": False,
             "is_in_grace_period": False,
             "grace_period_end": None,
         }

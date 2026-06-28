@@ -16,6 +16,8 @@ export interface PlanInfo {
   };
   current_period_end: string | null;
   is_trialing: boolean;
+  /** True once the one-time Student trial has been used and has since ended. */
+  trial_expired: boolean;
   is_in_grace_period: boolean;
   grace_period_end: string | null;
   // Enhanced billing details

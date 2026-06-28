@@ -52,6 +52,11 @@ class UserSubscription(Base, UUIDMixin, TimestampMixin):
     # with cancel_at_cycle_end=True (keeps access until period end, no renewal).
     auto_renew: Mapped[bool] = mapped_column(Boolean(), default=True, nullable=False)
 
+    # True once the user has ever activated the one-time free Student trial.
+    # Stays True forever (even after the trial expires and the plan reverts to
+    # free) so the 30-day trial can never be re-claimed for unlimited free access.
+    trial_used: Mapped[bool] = mapped_column(Boolean(), default=False, nullable=False)
+
     # Relationship back to User
     user: Mapped["User"] = relationship("User", back_populates="subscription")  # noqa: F821
 

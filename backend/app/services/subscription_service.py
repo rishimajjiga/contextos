@@ -207,6 +207,18 @@ async def get_plan_info(db: AsyncSession, user_id: str) -> dict:
     now = datetime.now(timezone.utc)
     in_grace = sub.grace_period_end is not None and now < sub.grace_period_end
 
+    # True when the user's one-time Student trial has been used and has since
+    # ended (they are back on free, not in a paid plan, not in grace). Drives the
+    # proactive "your trial ended — upgrade" prompt on the frontend. Note: by the
+    # time this runs, an expired trial has already been lazily downgraded to
+    # free by get_user_plan() above, so we rely on trial_used + free plan.
+    trial_expired = (
+        plan == "free"
+        and bool(getattr(sub, "trial_used", False))
+        and not in_grace
+        and sub.status != "trialing"
+    )
+
     try:
         r = await db.execute(select(func.count()).where(Project.user_id == user_id))
         proj_count = r.scalar_one()
@@ -238,6 +250,7 @@ async def get_plan_info(db: AsyncSession, user_id: str) -> dict:
         "status": sub.status,
         "current_period_end": sub.current_period_end.isoformat() if sub.current_period_end else None,
         "is_trialing": sub.status == "trialing",
+        "trial_expired": trial_expired,
         "is_in_grace_period": in_grace,
         "grace_period_end": sub.grace_period_end.isoformat() if sub.grace_period_end else None,
         "usage": {"projects": proj_count, "memories": mem_count},

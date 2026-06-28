@@ -1023,10 +1023,28 @@ async def student_claim(
         raise HTTPException(status_code=400, detail="You already have an active student trial.")
     if sub.plan == "student" and sub.status == "active":
         raise HTTPException(status_code=400, detail="You already have an active student subscription.")
+    # One trial per account, ever. Once the 30-day trial has been claimed it
+    # cannot be re-activated — even after it expires and the plan reverts to
+    # free — otherwise an expired user could call this endpoint repeatedly for
+    # unlimited free Student access.
+    if sub.trial_used:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "You've already used your free Student trial. "
+                "Upgrade to a paid plan to keep premium features."
+            ),
+        )
 
+    now = datetime.now(timezone.utc)
     sub.plan = "student"
     sub.status = "trialing"
-    sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=30)
+    sub.trial_used = True
+    sub.current_period_end = now + timedelta(days=30)
+    # Record when the trial began so the dashboard can show a start date and the
+    # 30-day window is auditable.
+    if sub.started_at is None:
+        sub.started_at = now
     await db.commit()
 
     log.info("student_trial_activated", user_id=user_id, email=email)

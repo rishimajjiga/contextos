@@ -64,6 +64,38 @@ function GracePeriodBanner() {
   );
 }
 
+function TrialEndedBanner() {
+  const { plan } = usePlan();
+  const [dismissed, setDismissed] = useState(false);
+
+  // Only after the one-time Student trial has ended (back on free, not in grace).
+  if (!plan || !plan.trial_expired || dismissed) return null;
+
+  return (
+    <div className="bg-brand-500/10 border-b border-brand-500/30 px-4 py-2 flex items-center justify-between gap-4 text-sm flex-wrap">
+      <span className="text-brand-700 dark:text-brand-600">
+        🎓 Your free <strong>Student trial has ended</strong>. You're now on the
+        Free plan. Upgrade to keep unlimited memories and auto-inject.
+      </span>
+      <div className="flex items-center gap-2 shrink-0">
+        <Link
+          to="/pricing"
+          className="px-3 py-1 bg-brand-600 hover:bg-brand-500 text-white rounded-md font-medium text-xs transition-colors"
+        >
+          Upgrade Plan
+        </Link>
+        <button
+          onClick={() => setDismissed(true)}
+          aria-label="Dismiss"
+          className="px-2 py-1 text-brand-700 dark:text-brand-600 hover:opacity-70 rounded-md font-medium text-xs transition-opacity"
+        >
+          Dismiss
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function AppLayout() {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -98,6 +130,7 @@ export function AppLayout() {
         <Sidebar mobileOpen={mobileNavOpen} onMobileClose={closeMobileNav} />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <GracePeriodBanner />
+          <TrialEndedBanner />
           <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} />
           <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
             <div className="mx-auto max-w-6xl animate-fade-in">
