@@ -131,7 +131,7 @@ export function LivePanel({ open, onClose }: Props) {
                   </TabsContent>
 
                   <TabsContent value="polls" className="mt-0 flex-1 overflow-hidden px-0">
-                    <PollsTab open={open} isAdmin={isAdmin} />
+                    <PollsTab open={open} isAdmin={isAdmin} session={session} />
                   </TabsContent>
                 </Tabs>
               )}

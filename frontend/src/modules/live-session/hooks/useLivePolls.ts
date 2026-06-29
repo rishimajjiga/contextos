@@ -1,16 +1,18 @@
-// ── Live Session module · polls + live vote tallies ──────────────────────────
-// Subscribes to active polls and their votes. Vote aggregation happens client
-// side from the votes stream, so percentages update live for everyone.
+// ── Live Session module · polls + live vote tallies (session-scoped) ─────────
+// Subscribes to the ACTIVE session's polls and their votes. Tallies are derived
+// client-side from the votes stream, so percentages update live for everyone.
+// Polls are tied to the session: they deactivate/disappear when it ends.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getLiveClient } from "../lib/supabaseClient";
-import { TABLES, POLL_DURATION_MS } from "../config";
+import { TABLES } from "../config";
 import { getUserSessionId } from "../lib/userSession";
 import type { LivePoll, PollTally } from "../types";
 
 interface PollRow {
   id: string;
+  session_id: string;
   question: string;
   image_url: string | null;
   options: string[];
@@ -26,6 +28,7 @@ interface VoteRow {
 
 const toPoll = (r: PollRow): LivePoll => ({
   id: r.id,
+  sessionId: r.session_id,
   question: r.question,
   imageUrl: r.image_url,
   options: Array.isArray(r.options) ? r.options : [],
@@ -34,7 +37,7 @@ const toPoll = (r: PollRow): LivePoll => ({
   isActive: r.is_active,
 });
 
-export function useLivePolls(enabled: boolean) {
+export function useLivePolls(enabled: boolean, sessionId: string | null) {
   const [polls, setPolls] = useState<LivePoll[]>([]);
   const [votes, setVotes] = useState<VoteRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,13 +47,11 @@ export function useLivePolls(enabled: boolean) {
 
   const fetchPolls = useCallback(async () => {
     const client = getLiveClient();
-    if (!client) {
-      setLoading(false);
-      return;
-    }
+    if (!client || !sessionId) { setPolls([]); setVotes([]); setLoading(false); return; }
     const { data: pollData } = await client
       .from(TABLES.polls)
       .select("*")
+      .eq("session_id", sessionId)
       .eq("is_active", true)
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: false });
@@ -67,30 +68,30 @@ export function useLivePolls(enabled: boolean) {
       setVotes([]);
     }
     setLoading(false);
-  }, []);
+  }, [sessionId]);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !sessionId) { setPolls([]); setVotes([]); return; }
     const client = getLiveClient();
     if (!client) return;
 
     fetchPolls();
 
     pollChan.current = client
-      .channel("live:polls")
-      .on("postgres_changes", { event: "*", schema: "public", table: TABLES.polls }, () => fetchPolls())
+      .channel(`live:polls:${sessionId}`)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: TABLES.polls, filter: `session_id=eq.${sessionId}` },
+        () => fetchPolls())
       .subscribe();
 
     voteChan.current = client
-      .channel("live:votes")
+      .channel(`live:votes:${sessionId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: TABLES.votes }, (payload) => {
-        // Apply vote deltas incrementally to avoid a full refetch per vote.
         const row = (payload.new ?? payload.old) as VoteRow;
         if (!row) return;
         setVotes((prev) => {
           const without = prev.filter(
-            (v) => !(v.poll_id === row.poll_id && v.user_session_id === row.user_session_id),
-          );
+            (v) => !(v.poll_id === row.poll_id && v.user_session_id === row.user_session_id));
           return payload.eventType === "DELETE" ? without : [...without, payload.new as VoteRow];
         });
       })
@@ -102,9 +103,8 @@ export function useLivePolls(enabled: boolean) {
       pollChan.current = null;
       voteChan.current = null;
     };
-  }, [enabled, fetchPolls]);
+  }, [enabled, sessionId, fetchPolls]);
 
-  /** poll.id -> tally */
   const tallies = useMemo(() => {
     const map: Record<string, PollTally> = {};
     for (const p of polls) map[p.id] = { counts: p.options.map(() => 0), total: 0 };
@@ -118,53 +118,54 @@ export function useLivePolls(enabled: boolean) {
     return map;
   }, [polls, votes]);
 
-  /** poll.id -> this user's selected option (or undefined). */
   const myVotes = useMemo(() => {
     const map: Record<string, number> = {};
     for (const v of votes) if (v.user_session_id === userSessionId) map[v.poll_id] = v.selected_option;
     return map;
   }, [votes, userSessionId]);
 
-  /** Cast a vote. The DB composite PK guarantees one vote per user per poll. */
+  /** Cast a vote. DB composite PK guarantees one vote per user per poll. */
   const vote = useCallback(async (pollId: string, optionIndex: number) => {
-    if (myVotes[pollId] !== undefined) return;       // already voted
+    if (myVotes[pollId] !== undefined) return;
     const client = getLiveClient();
     if (!client) return;
-    // Optimistic local update for instant feedback.
     setVotes((prev) => [...prev, { poll_id: pollId, user_session_id: userSessionId, selected_option: optionIndex }]);
     const { error } = await client.from(TABLES.votes).insert({
-      poll_id: pollId,
-      user_session_id: userSessionId,
-      selected_option: optionIndex,
+      poll_id: pollId, user_session_id: userSessionId, selected_option: optionIndex,
     });
     if (error) {
-      // Roll back optimistic vote on failure (e.g. duplicate).
       setVotes((prev) => prev.filter((v) => !(v.poll_id === pollId && v.user_session_id === userSessionId)));
     }
   }, [myVotes, userSessionId]);
 
-  /** Admin: create a 24-hour poll. */
+  /**
+   * Admin: create a poll bound to the active session. `imageUrl` is the already
+   * uploaded signed URL (or null). `expiresAtIso` is normally the session end.
+   * Throws on failure so the caller can surface the reason.
+   */
   const createPoll = useCallback(async (
     question: string,
     options: string[],
     imageUrl: string | null,
+    expiresAtIso: string,
     adminEmail: string,
   ) => {
     const client = getLiveClient();
     if (!client) throw new Error("Live session backend not configured.");
-    const now = new Date();
+    if (!sessionId) throw new Error("Start a session before creating a poll.");
     const { error } = await client.from(TABLES.polls).insert({
+      session_id: sessionId,
       question,
       options,
       image_url: imageUrl,
-      created_at: now.toISOString(),
-      expires_at: new Date(now.getTime() + POLL_DURATION_MS).toISOString(),
+      created_at: new Date().toISOString(),
+      expires_at: expiresAtIso,
       is_active: true,
       created_by: adminEmail,
     });
     if (error) throw error;
     await fetchPolls();
-  }, [fetchPolls]);
+  }, [sessionId, fetchPolls]);
 
   return { polls, tallies, myVotes, loading, vote, createPoll };
 }

@@ -1,7 +1,7 @@
-// ── Live Session module · chat tab ───────────────────────────────────────────
+// ── Live Session module · chat tab (text + emoji only) ───────────────────────
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { motion } from "framer-motion";
-import { Send, Clock, Plus, Square } from "lucide-react";
+import { Send, Clock, Plus, Square, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLiveMessages } from "../hooks/useLiveMessages";
 import { useCountdown } from "../hooks/useCountdown";
@@ -12,8 +12,14 @@ interface Props {
   session: LiveSession | null;
   loading: boolean;
   isAdmin: boolean;
-  onCreateSession: (topic: string, adminEmail: string) => Promise<void>;
+  onCreateSession: (topic: string, startIso: string, endIso: string, adminEmail: string) => Promise<void>;
   onEndSession: (id: string) => Promise<void>;
+}
+
+// Format a Date for a <input type="datetime-local"> value (local, no tz).
+function toLocalInput(d: Date): string {
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
 }
 
 export function LiveTab({ session, loading, isAdmin, onCreateSession, onEndSession }: Props) {
@@ -22,25 +28,31 @@ export function LiveTab({ session, loading, isAdmin, onCreateSession, onEndSessi
   const { messages, sendMessage, userSessionId } = useLiveMessages(sessionId);
   const { label, ended } = useCountdown(session?.endTime);
   const [draft, setDraft] = useState("");
+  const [sendErr, setSendErr] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to newest.
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages.length]);
 
-  const send = (e: FormEvent) => {
+  const send = async (e: FormEvent) => {
     e.preventDefault();
     if (!draft.trim() || ended) return;
-    sendMessage(draft);
+    const text = draft;
     setDraft("");
+    setSendErr(null);
+    try {
+      await sendMessage(text);
+    } catch (err: unknown) {
+      setDraft(text); // restore so the user doesn't lose it
+      setSendErr(err instanceof Error ? err.message : "Failed to send. Try again.");
+    }
   };
 
   if (loading) {
     return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading…</div>;
   }
 
-  // No active session
   if (!session) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
@@ -53,30 +65,30 @@ export function LiveTab({ session, loading, isAdmin, onCreateSession, onEndSessi
             Sessions are started by the ContextOS team. Check back soon.
           </p>
         </div>
-        {isAdmin && <AdminStartSession onCreate={(t) => onCreateSession(t, email ?? "admin")} />}
+        {isAdmin && (
+          <AdminStartSession
+            onCreate={(topic, startIso, endIso) => onCreateSession(topic, startIso, endIso, email ?? "admin")}
+          />
+        )}
       </div>
     );
   }
 
   return (
     <div className="flex h-full flex-col">
-      {/* Topic + countdown */}
       <div className="flex items-center justify-between gap-3 border-b border-border/60 px-5 py-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">{session.topic}</p>
           <p className="text-xs text-muted-foreground">Live now · anonymous chat</p>
         </div>
-        <div
-          className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium tabular-nums ${
-            ended ? "bg-destructive/10 text-destructive" : "bg-brand-500/10 text-brand-700"
-          }`}
-        >
+        <div className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium tabular-nums ${
+          ended ? "bg-destructive/10 text-destructive" : "bg-brand-500/10 text-brand-700"
+        }`}>
           <Clock className="h-3.5 w-3.5" />
           {ended ? "Ended" : label}
         </div>
       </div>
 
-      {/* Admin end control */}
       {isAdmin && !ended && (
         <div className="flex justify-end px-5 pt-2">
           <button
@@ -88,12 +100,9 @@ export function LiveTab({ session, loading, isAdmin, onCreateSession, onEndSessi
         </div>
       )}
 
-      {/* Messages */}
       <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto px-5 py-4">
         {messages.length === 0 ? (
-          <p className="py-8 text-center text-xs text-muted-foreground">
-            No messages yet — say hello 👋
-          </p>
+          <p className="py-8 text-center text-xs text-muted-foreground">No messages yet — say hello 👋</p>
         ) : (
           messages.map((m) => {
             const mine = m.userSessionId === userSessionId;
@@ -104,13 +113,9 @@ export function LiveTab({ session, loading, isAdmin, onCreateSession, onEndSessi
                 animate={{ opacity: 1, y: 0 }}
                 className={`flex ${mine ? "justify-end" : "justify-start"}`}
               >
-                <div
-                  className={`max-w-[78%] rounded-2xl px-3.5 py-2 text-sm shadow-soft ${
-                    mine
-                      ? "rounded-br-md bg-brand-500 text-white"
-                      : "rounded-bl-md bg-surface-2 text-foreground"
-                  }`}
-                >
+                <div className={`max-w-[78%] rounded-2xl px-3.5 py-2 text-sm shadow-soft ${
+                  mine ? "rounded-br-md bg-brand-500 text-white" : "rounded-bl-md bg-surface-2 text-foreground"
+                }`}>
                   {!mine && (
                     <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                       {m.userSessionId.slice(0, 6)}
@@ -124,7 +129,12 @@ export function LiveTab({ session, loading, isAdmin, onCreateSession, onEndSessi
         )}
       </div>
 
-      {/* Composer */}
+      {sendErr && (
+        <div className="mx-3 mb-1 flex items-center gap-1.5 rounded-lg bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
+          <AlertCircle className="h-3.5 w-3.5" /> {sendErr}
+        </div>
+      )}
+
       <form onSubmit={send} className="flex items-center gap-2 border-t border-border/60 p-3">
         <input
           value={draft}
@@ -142,10 +152,21 @@ export function LiveTab({ session, loading, isAdmin, onCreateSession, onEndSessi
   );
 }
 
-// Admin-only inline session starter.
-function AdminStartSession({ onCreate }: { onCreate: (topic: string) => Promise<void> }) {
+// Admin-only: create a session with EXACT start/end timestamps.
+function AdminStartSession({
+  onCreate,
+}: {
+  onCreate: (topic: string, startIso: string, endIso: string) => Promise<void>;
+}) {
+  const now = new Date();
   const [topic, setTopic] = useState("");
+  const [start, setStart] = useState(toLocalInput(now));
+  const [end, setEnd] = useState(toLocalInput(new Date(now.getTime() + 60 * 60 * 1000)));
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const valid = topic.trim() && start && end && new Date(end) > new Date(start);
+
   return (
     <div className="mt-2 w-full max-w-xs space-y-2 rounded-xl border border-brand-500/30 bg-brand-500/5 p-3 text-left">
       <p className="text-xs font-medium text-brand-700">Admin · start a session</p>
@@ -155,16 +176,29 @@ function AdminStartSession({ onCreate }: { onCreate: (topic: string) => Promise<
         placeholder="Session topic…"
         className="h-9 w-full rounded-lg border border-border bg-card px-3 text-sm outline-none focus:border-brand-400"
       />
+      <label className="block text-[11px] text-muted-foreground">Start
+        <input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)}
+          className="mt-0.5 h-9 w-full rounded-lg border border-border bg-card px-2 text-sm outline-none focus:border-brand-400" />
+      </label>
+      <label className="block text-[11px] text-muted-foreground">End
+        <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)}
+          className="mt-0.5 h-9 w-full rounded-lg border border-border bg-card px-2 text-sm outline-none focus:border-brand-400" />
+      </label>
+      {err && <p className="text-[11px] text-destructive">{err}</p>}
       <Button
         size="sm"
         className="w-full"
-        disabled={!topic.trim() || busy}
+        disabled={!valid || busy}
         onClick={async () => {
-          setBusy(true);
-          try { await onCreate(topic.trim()); } finally { setBusy(false); }
+          setBusy(true); setErr(null);
+          try {
+            await onCreate(topic.trim(), new Date(start).toISOString(), new Date(end).toISOString());
+          } catch (e: unknown) {
+            setErr(e instanceof Error ? e.message : "Could not create session.");
+          } finally { setBusy(false); }
         }}
       >
-        <Plus className="h-3.5 w-3.5" /> Start 1-hour session
+        <Plus className="h-3.5 w-3.5" /> Start session
       </Button>
     </div>
   );

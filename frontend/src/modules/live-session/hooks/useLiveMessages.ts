@@ -1,6 +1,7 @@
-// ── Live Session module · chat messages ──────────────────────────────────────
+// ── Live Session module · chat messages (text + emoji only) ──────────────────
 // Loads the last 100 messages for the active session and subscribes to inserts.
-// Memory is hard-capped at MAX_MESSAGES so thousands of users stay light.
+// Memory is hard-capped at MAX_MESSAGES. Insert errors are surfaced (not
+// swallowed) so the UI can show why a send failed. No media fields exist.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -32,7 +33,7 @@ export function useLiveMessages(sessionId: string | null) {
   const userSessionId = getUserSessionId();
 
   useEffect(() => {
-    setMessages([]);
+    setMessages([]);                 // clear when session changes / ends
     if (!sessionId) return;
     const client = getLiveClient();
     if (!client) return;
@@ -41,7 +42,6 @@ export function useLiveMessages(sessionId: string | null) {
     setLoading(true);
 
     (async () => {
-      // Newest 100, then reverse to chronological order for rendering.
       const { data } = await client
         .from(TABLES.messages)
         .select("*")
@@ -50,32 +50,23 @@ export function useLiveMessages(sessionId: string | null) {
         .limit(MAX_MESSAGES);
       if (cancelled) return;
       const rows = (data ?? []) as Row[];
-      setMessages(rows.map(toMsg).reverse());
+      setMessages(rows.map(toMsg).reverse());      // chronological
       setLoading(false);
     })();
 
     // Subscribe to inserts for THIS session only.
     const ch = client
       .channel(`live:messages:${sessionId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: TABLES.messages,
-          filter: `session_id=eq.${sessionId}`,
-        },
+      .on("postgres_changes",
+        { event: "INSERT", schema: "public", table: TABLES.messages, filter: `session_id=eq.${sessionId}` },
         (payload) => {
           const m = toMsg(payload.new as Row);
           setMessages((prev) => {
-            if (prev.some((x) => x.id === m.id)) return prev;        // de-dupe
+            if (prev.some((x) => x.id === m.id)) return prev;       // de-dupe
             const next = [...prev, m];
-            return next.length > MAX_MESSAGES
-              ? next.slice(next.length - MAX_MESSAGES)               // cap memory
-              : next;
+            return next.length > MAX_MESSAGES ? next.slice(next.length - MAX_MESSAGES) : next;
           });
-        },
-      )
+        })
       .subscribe();
     channelRef.current = ch;
 
@@ -86,17 +77,21 @@ export function useLiveMessages(sessionId: string | null) {
     };
   }, [sessionId]);
 
+  /**
+   * Send a text/emoji message. Throws on failure so the caller can surface the
+   * reason (e.g. RLS rejected because the session is not active).
+   */
   const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || !sessionId) return;
     const client = getLiveClient();
-    if (!client) return;
-    await client.from(TABLES.messages).insert({
+    if (!client) throw new Error("Backend not configured.");
+    const { error } = await client.from(TABLES.messages).insert({
       session_id: sessionId,
-      text: trimmed.slice(0, 2000),
+      text: trimmed.slice(0, 2000),       // text + emoji only; no media
       user_session_id: userSessionId,
     });
-    // No optimistic push needed — the realtime INSERT echoes back to us.
+    if (error) throw error;               // realtime INSERT echoes it back to us
   }, [sessionId, userSessionId]);
 
   return { messages, loading, sendMessage, userSessionId };

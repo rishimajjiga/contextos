@@ -1,22 +1,35 @@
-// ── Live Session module · polls tab ──────────────────────────────────────────
-import { useState } from "react";
+// ── Live Session module · polls tab (session-scoped, image upload) ───────────
+import { useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Clock, Check, Plus, X, ImageIcon } from "lucide-react";
+import { Clock, Check, Plus, X, ImageIcon, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLivePolls } from "../hooks/useLivePolls";
 import { useCountdown } from "../hooks/useCountdown";
 import { useIsAdmin } from "../hooks/useIsAdmin";
-import type { LivePoll, PollTally } from "../types";
+import { uploadPollImage } from "../lib/storage";
+import type { LivePoll, LiveSession, PollTally } from "../types";
 
 interface Props {
   open: boolean;
   isAdmin: boolean;
+  session: LiveSession | null;
 }
 
-export function PollsTab({ open, isAdmin }: Props) {
+export function PollsTab({ open, isAdmin, session }: Props) {
   const { email } = useIsAdmin();
-  const { polls, tallies, myVotes, loading, vote, createPoll } = useLivePolls(open);
+  const sessionId = session?.id ?? null;
+  const { polls, tallies, myVotes, loading, vote, createPoll } = useLivePolls(open && !!sessionId, sessionId);
   const [showCreate, setShowCreate] = useState(false);
+
+  // Polls live inside a session. No session → nothing to show.
+  if (!sessionId) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-2 px-8 text-center">
+        <p className="text-sm font-medium">No active session</p>
+        <p className="text-xs text-muted-foreground">Polls appear once a live session is running.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -33,10 +46,12 @@ export function PollsTab({ open, isAdmin }: Props) {
       )}
 
       <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
-        {isAdmin && showCreate && (
+        {isAdmin && showCreate && session && (
           <AdminCreatePoll
-            onCreate={async (q, opts, img) => {
-              await createPoll(q, opts, img, email ?? "admin");
+            onCreate={async (q, opts, file) => {
+              const imageUrl = file ? await uploadPollImage(file) : null;
+              // Tied to the session: poll expires when the session ends.
+              await createPoll(q, opts, imageUrl, session.endTime, email ?? "admin");
               setShowCreate(false);
             }}
           />
@@ -66,10 +81,7 @@ export function PollsTab({ open, isAdmin }: Props) {
 }
 
 function PollCard({
-  poll,
-  tally,
-  myVote,
-  onVote,
+  poll, tally, myVote, onVote,
 }: {
   poll: LivePoll;
   tally: PollTally;
@@ -82,26 +94,21 @@ function PollCard({
 
   return (
     <div className="rounded-2xl border border-border bg-card/70 p-4 shadow-soft">
+      {/* Image ABOVE the question */}
+      {poll.imageUrl && (
+        <img src={poll.imageUrl} alt="" loading="lazy"
+          className="mb-3 max-h-48 w-full rounded-xl object-cover" />
+      )}
+
       <div className="mb-3 flex items-start justify-between gap-3">
         <p className="text-sm font-semibold leading-snug">{poll.question}</p>
-        <span
-          className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium tabular-nums ${
-            ended ? "bg-muted text-muted-foreground" : "bg-brand-500/10 text-brand-700"
-          }`}
-        >
+        <span className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium tabular-nums ${
+          ended ? "bg-muted text-muted-foreground" : "bg-brand-500/10 text-brand-700"
+        }`}>
           <Clock className="h-3 w-3" />
           {ended ? "Closed" : label}
         </span>
       </div>
-
-      {poll.imageUrl && (
-        <img
-          src={poll.imageUrl}
-          alt=""
-          loading="lazy"
-          className="mb-3 max-h-44 w-full rounded-xl object-cover"
-        />
-      )}
 
       <div className="space-y-2">
         {poll.options.map((opt, i) => {
@@ -117,7 +124,6 @@ function PollCard({
                 chosen ? "border-brand-500" : "border-border"
               } ${locked ? "cursor-default" : "hover:border-brand-400"}`}
             >
-              {/* Animated result bar */}
               {locked && (
                 <motion.div
                   className={`absolute inset-y-0 left-0 ${chosen ? "bg-brand-500/20" : "bg-surface-3/70"}`}
@@ -139,30 +145,43 @@ function PollCard({
       </div>
 
       <p className="mt-2 text-[11px] text-muted-foreground">
-        {tally.total} {tally.total === 1 ? "vote" : "votes"}
-        {voted && !ended && " · you voted"}
+        {tally.total} {tally.total === 1 ? "vote" : "votes"}{voted && !ended && " · you voted"}
       </p>
     </div>
   );
 }
 
-// Admin-only poll creator.
+// Admin-only: create a poll with an optional uploaded image (JPG/PNG/WEBP).
 function AdminCreatePoll({
   onCreate,
 }: {
-  onCreate: (q: string, opts: string[], img: string | null) => Promise<void>;
+  onCreate: (question: string, options: string[], imageFile: File | null) => Promise<void>;
 }) {
   const [question, setQuestion] = useState("");
   const [options, setOptions] = useState<string[]>(["", ""]);
-  const [imageUrl, setImageUrl] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const clean = options.map((o) => o.trim()).filter(Boolean);
   const valid = question.trim() && clean.length >= 2;
 
+  const pickFile = (f: File | null) => {
+    setErr(null);
+    if (!f) { setFile(null); setPreview(null); return; }
+    if (!["image/jpeg", "image/png", "image/webp"].includes(f.type)) {
+      setErr("Only JPG, PNG or WEBP images are allowed."); return;
+    }
+    if (f.size > 5 * 1024 * 1024) { setErr("Image must be under 5 MB."); return; }
+    setFile(f);
+    setPreview(URL.createObjectURL(f));
+  };
+
   return (
     <div className="space-y-2 rounded-2xl border border-brand-500/30 bg-brand-500/5 p-4">
-      <p className="text-xs font-medium text-brand-700">Admin · new poll (24h)</p>
+      <p className="text-xs font-medium text-brand-700">Admin · new poll (ends with session)</p>
       <input
         value={question}
         onChange={(e) => setQuestion(e.target.value)}
@@ -178,44 +197,58 @@ function AdminCreatePoll({
             className="h-9 flex-1 rounded-lg border border-border bg-card px-3 text-sm outline-none focus:border-brand-400"
           />
           {options.length > 2 && (
-            <button
-              onClick={() => setOptions((p) => p.filter((_, j) => j !== i))}
-              className="rounded-lg px-2 text-muted-foreground hover:text-destructive"
-              aria-label="Remove option"
-            >
+            <button onClick={() => setOptions((p) => p.filter((_, j) => j !== i))}
+              className="rounded-lg px-2 text-muted-foreground hover:text-destructive" aria-label="Remove option">
               <X className="h-4 w-4" />
             </button>
           )}
         </div>
       ))}
       {options.length < 6 && (
-        <button
-          onClick={() => setOptions((p) => [...p, ""])}
-          className="text-xs font-medium text-brand-700 hover:text-brand-600"
-        >
-          + Add option
+        <button onClick={() => setOptions((p) => [...p, ""])}
+          className="text-xs font-medium text-brand-700 hover:text-brand-600">+ Add option</button>
+      )}
+
+      {/* Image upload */}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
+      />
+      {preview ? (
+        <div className="relative">
+          <img src={preview} alt="preview" className="max-h-40 w-full rounded-lg object-cover" />
+          <button onClick={() => pickFile(null)}
+            className="absolute right-2 top-2 rounded-full bg-black/60 p-1 text-white hover:bg-black/80" aria-label="Remove image">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ) : (
+        <button onClick={() => fileRef.current?.click()}
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-card py-3 text-xs text-muted-foreground hover:border-brand-400 hover:text-brand-700">
+          <ImageIcon className="h-4 w-4" /> Upload image (JPG, PNG, WEBP)
         </button>
       )}
-      <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3">
-        <ImageIcon className="h-4 w-4 text-muted-foreground" />
-        <input
-          value={imageUrl}
-          onChange={(e) => setImageUrl(e.target.value)}
-          placeholder="Image URL (optional)"
-          className="h-9 flex-1 bg-transparent text-sm outline-none"
-        />
-      </div>
+
+      {err && <p className="flex items-center gap-1 text-[11px] text-destructive"><AlertCircle className="h-3 w-3" /> {err}</p>}
+
       <Button
         size="sm"
         className="w-full"
         disabled={!valid || busy}
         onClick={async () => {
-          setBusy(true);
-          try { await onCreate(question.trim(), clean, imageUrl.trim() || null); }
-          finally { setBusy(false); }
+          setBusy(true); setErr(null);
+          try {
+            await onCreate(question.trim(), clean, file);
+          } catch (e: unknown) {
+            setErr(e instanceof Error ? e.message : "Could not publish poll.");
+          } finally { setBusy(false); }
         }}
       >
-        <Plus className="h-3.5 w-3.5" /> Publish poll
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+        {busy ? "Publishing…" : "Publish poll"}
       </Button>
     </div>
   );

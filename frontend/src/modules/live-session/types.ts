@@ -4,7 +4,7 @@ export interface LiveSession {
   id: string;
   topic: string;
   startTime: string;   // ISO
-  endTime: string;     // ISO (startTime + 1h)
+  endTime: string;     // ISO (admin-defined)
   isActive: boolean;
   createdBy?: string | null;
 }
@@ -19,6 +19,7 @@ export interface LiveMessage {
 
 export interface LivePoll {
   id: string;
+  sessionId: string;   // poll belongs to a session
   question: string;
   imageUrl?: string | null;
   options: string[];
