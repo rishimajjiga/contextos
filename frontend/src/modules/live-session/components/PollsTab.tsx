@@ -7,6 +7,7 @@ import { useLivePolls } from "../hooks/useLivePolls";
 import { useCountdown } from "../hooks/useCountdown";
 import { useIsAdmin } from "../hooks/useIsAdmin";
 import { uploadPollImage } from "../lib/storage";
+import { errMessage } from "../lib/errors";
 import type { LivePoll, LiveSession, PollTally } from "../types";
 
 interface Props {
@@ -243,7 +244,7 @@ function AdminCreatePoll({
           try {
             await onCreate(question.trim(), clean, file);
           } catch (e: unknown) {
-            setErr(e instanceof Error ? e.message : "Could not publish poll.");
+            setErr(errMessage(e, "Could not publish poll."));
           } finally { setBusy(false); }
         }}
       >

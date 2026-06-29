@@ -7,6 +7,7 @@ import { useLiveMessages } from "../hooks/useLiveMessages";
 import { useCountdown } from "../hooks/useCountdown";
 import { useIsAdmin } from "../hooks/useIsAdmin";
 import type { LiveSession } from "../types";
+import { errMessage } from "../lib/errors";
 
 interface Props {
   session: LiveSession | null;
@@ -45,7 +46,7 @@ export function LiveTab({ session, loading, isAdmin, onCreateSession, onEndSessi
       await sendMessage(text);
     } catch (err: unknown) {
       setDraft(text); // restore so the user doesn't lose it
-      setSendErr(err instanceof Error ? err.message : "Failed to send. Try again.");
+      setSendErr(errMessage(err, "Failed to send. Try again."));
     }
   };
 
@@ -194,7 +195,7 @@ function AdminStartSession({
           try {
             await onCreate(topic.trim(), new Date(start).toISOString(), new Date(end).toISOString());
           } catch (e: unknown) {
-            setErr(e instanceof Error ? e.message : "Could not create session.");
+            setErr(errMessage(e, "Could not create session."));
           } finally { setBusy(false); }
         }}
       >
