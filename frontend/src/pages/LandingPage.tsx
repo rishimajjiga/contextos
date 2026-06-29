@@ -308,13 +308,10 @@ export function LandingPage() {
             <Link to="/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
               Pricing
             </Link>
-            <LiveSessionButton />
             <Link to="/sign-in">
               <Button variant="ghost" size="sm">Sign in</Button>
             </Link>
-            <Link to="/sign-up">
-              <Button size="sm">Get started free</Button>
-            </Link>
+            <LiveSessionButton />
           </div>
         </div>
       </nav>
