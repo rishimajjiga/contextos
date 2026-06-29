@@ -57,9 +57,8 @@ export function LivePanel({ open, onClose }: Props) {
   const hidden = isMobile ? { y: "100%" } : { x: "100%" };
   const shown = isMobile ? { y: 0 } : { x: 0 };
 
-  const panelPos = isMobile
-    ? "inset-x-0 bottom-0 h-[92vh] rounded-t-3xl"
-    : "right-0 top-0 h-full w-[45%] min-w-[380px] max-w-[640px] rounded-l-3xl";
+  // Full-screen takeover on every viewport.
+  const panelPos = "inset-0 h-full w-full";
 
   return createPortal(
     <AnimatePresence>
@@ -80,19 +79,12 @@ export function LivePanel({ open, onClose }: Props) {
             role="dialog"
             aria-modal="true"
             aria-label="Live Session"
-            className={`absolute ${panelPos} flex flex-col border-border/60 bg-surface-1/95 shadow-card backdrop-blur-2xl ${
-              isMobile ? "border-t" : "border-l"
-            }`}
+            className={`absolute ${panelPos} flex flex-col bg-surface-1/95 shadow-card backdrop-blur-2xl`}
             initial={hidden}
             animate={shown}
             exit={hidden}
             transition={{ type: "spring", stiffness: 320, damping: 34, mass: 0.9 }}
           >
-            {/* Mobile grab handle */}
-            {isMobile && (
-              <div className="mx-auto mt-2 h-1.5 w-12 shrink-0 rounded-full bg-border" />
-            )}
-
             {/* Header */}
             <div className="flex items-center justify-between gap-3 border-b border-border/60 px-5 py-4">
               <div className="flex items-center gap-2">
@@ -116,7 +108,7 @@ export function LivePanel({ open, onClose }: Props) {
               {!isLiveConfigured() ? (
                 <NotConfigured />
               ) : (
-                <Tabs defaultValue="live" className="flex h-full flex-col">
+                <Tabs defaultValue="live" className="mx-auto flex h-full w-full max-w-3xl flex-col">
                   <div className="px-5 pt-4">
                     <TabsList className="grid w-full grid-cols-2">
                       <TabsTrigger value="live" className="gap-1.5">

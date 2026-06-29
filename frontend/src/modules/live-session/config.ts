@@ -3,7 +3,7 @@
 // touches the rest of the app.
 
 /** Only this email may create sessions / polls (client-side admin gate). */
-export const ADMIN_EMAIL = "majigarrishi291@gmail.com";
+export const ADMIN_EMAIL = "majjigarishi291@gmail.com";
 
 /** Keep at most this many chat messages in memory / rendered. */
 export const MAX_MESSAGES = 100;
