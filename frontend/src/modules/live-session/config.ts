@@ -21,6 +21,9 @@ export const POLL_RESULT_GRACE_MS = 24 * 60 * 60 * 1000;
 export const USER_SESSION_KEY = "contextos.live.userSessionId";
 
 /** WhatsApp community invite (Join button in the live panel). */
+/** Contact for promotions / poll sponsorship (3-dots menu). */
+export const CONTACT_EMAIL = "usecontextos@gmail.com";
+
 export const WHATSAPP_COMMUNITY_URL =
   "https://chat.whatsapp.com/GUG76KgIdNm4AxoFDlbvx3?s=sh&p=a&mlu=1";
 

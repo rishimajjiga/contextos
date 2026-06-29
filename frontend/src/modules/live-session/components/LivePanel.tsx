@@ -7,11 +7,12 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Radio, BarChart3 } from "lucide-react";
+import { X, Radio, BarChart3, MoreVertical, Mail } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { isLiveConfigured } from "../lib/supabaseClient";
 import { useLiveSession } from "../hooks/useLiveSession";
 import { useIsAdmin } from "../hooks/useIsAdmin";
+import { CONTACT_EMAIL } from "../config";
 import { LiveTab } from "./LiveTab";
 import { PollsTab } from "./PollsTab";
 
@@ -26,6 +27,52 @@ function useIsMobile(): boolean {
     return () => mq.removeEventListener("change", on);
   }, []);
   return mobile;
+}
+
+// 3-dots menu — contact for promotions / poll sponsorship.
+function OptionsMenu() {
+  const [open, setOpen] = useState(false);
+  const subject = encodeURIComponent("Promotion / poll sponsorship — ContextOS Live");
+  const body = encodeURIComponent(
+    "Hi ContextOS team,\n\nI'd like to discuss promotions / sponsored polls in the Live Session.\n\nDetails:\n",
+  );
+  const mailto = `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`;
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-label="More options"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      >
+        <MoreVertical className="h-4 w-4" />
+      </button>
+      {open && (
+        <>
+          {/* click-away layer */}
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 z-20 mt-1 w-64 overflow-hidden rounded-xl border border-border bg-card shadow-card">
+            <div className="border-b border-border/60 px-3 py-2">
+              <p className="text-xs font-semibold text-foreground">Promote here</p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                Feature your poll or promotion in the live session.
+              </p>
+            </div>
+            <a
+              href={mailto}
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 px-3 py-2.5 text-sm text-foreground hover:bg-accent"
+            >
+              <Mail className="h-4 w-4 text-brand-600" />
+              <span className="truncate">{CONTACT_EMAIL}</span>
+            </a>
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 interface Props {
@@ -87,13 +134,16 @@ export function LivePanel({ open, onClose, initialTab = "live" }: Props) {
                 </span>
                 <h2 className="text-sm font-semibold">Live Session</h2>
               </div>
-              <button
-                onClick={onClose}
-                aria-label="Close panel"
-                className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-1">
+                <OptionsMenu />
+                <button
+                  onClick={onClose}
+                  aria-label="Close panel"
+                  className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-hidden">
