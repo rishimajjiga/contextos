@@ -1,10 +1,8 @@
-// ── Live Session module · slide-in panel ─────────────────────────────────────
+// ── Live Session module · full-screen panel ──────────────────────────────────
 // Portal-mounted overlay that behaves like an in-page extension popup:
 //   • does NOT navigate or reload (pure React state)
-//   • desktop → right-side drawer (~45% width)
-//   • mobile  → full-screen bottom sheet
-//   • glassmorphism backdrop, 320ms spring-eased slide
-// All listeners initialise on open and tear down on close.
+//   • full-screen takeover (slides in from right on desktop, up on mobile)
+//   • glassmorphism backdrop; listeners init on open and tear down on close.
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -33,15 +31,15 @@ function useIsMobile(): boolean {
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** Which tab to show first (shared poll links open "polls"). */
+  initialTab?: "live" | "polls";
 }
 
-export function LivePanel({ open, onClose }: Props) {
+export function LivePanel({ open, onClose, initialTab = "live" }: Props) {
   const isMobile = useIsMobile();
   const { isAdmin } = useIsAdmin();
-  // Subscriptions activate only while the panel is open.
   const { session, loading, createSession, endSession } = useLiveSession(open);
 
-  // ESC to close + body scroll lock while open.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -56,15 +54,12 @@ export function LivePanel({ open, onClose }: Props) {
 
   const hidden = isMobile ? { y: "100%" } : { x: "100%" };
   const shown = isMobile ? { y: 0 } : { x: 0 };
-
-  // Full-screen takeover on every viewport.
   const panelPos = "inset-0 h-full w-full";
 
   return createPortal(
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-[100] font-sans text-foreground">
-          {/* Glassmorphism backdrop */}
           <motion.div
             className="absolute inset-0 bg-brand-950/30 backdrop-blur-md"
             initial={{ opacity: 0 }}
@@ -74,7 +69,6 @@ export function LivePanel({ open, onClose }: Props) {
             onClick={onClose}
           />
 
-          {/* Drawer / sheet */}
           <motion.div
             role="dialog"
             aria-modal="true"
@@ -85,7 +79,6 @@ export function LivePanel({ open, onClose }: Props) {
             exit={hidden}
             transition={{ type: "spring", stiffness: 320, damping: 34, mass: 0.9 }}
           >
-            {/* Header */}
             <div className="flex items-center justify-between gap-3 border-b border-border/60 px-5 py-4">
               <div className="flex items-center gap-2">
                 <span className="relative flex h-2.5 w-2.5">
@@ -103,12 +96,11 @@ export function LivePanel({ open, onClose }: Props) {
               </button>
             </div>
 
-            {/* Body */}
             <div className="flex-1 overflow-hidden">
               {!isLiveConfigured() ? (
                 <NotConfigured />
               ) : (
-                <Tabs defaultValue="live" className="mx-auto flex h-full w-full max-w-3xl flex-col">
+                <Tabs defaultValue={initialTab} className="mx-auto flex h-full w-full max-w-3xl flex-col">
                   <div className="px-5 pt-4">
                     <TabsList className="grid w-full grid-cols-2">
                       <TabsTrigger value="live" className="gap-1.5">
@@ -150,8 +142,8 @@ function NotConfigured() {
       <p className="text-sm font-medium text-foreground">Live Session isn’t configured yet</p>
       <p className="text-xs text-muted-foreground">
         Add <code className="rounded bg-muted px-1">VITE_SUPABASE_URL</code> and{" "}
-        <code className="rounded bg-muted px-1">VITE_SUPABASE_ANON_KEY</code> to the frontend
-        environment, then run the SQL in <code className="rounded bg-muted px-1">supabase-schema.sql</code>.
+        <code className="rounded bg-muted px-1">VITE_SUPABASE_ANON_KEY</code>, then run the SQL in{" "}
+        <code className="rounded bg-muted px-1">supabase-setup-all.sql</code>.
       </p>
     </div>
   );

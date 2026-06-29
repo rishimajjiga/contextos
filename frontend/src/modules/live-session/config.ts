@@ -27,6 +27,9 @@ export const WHATSAPP_COMMUNITY_URL =
 /** URL query flag that auto-opens the Live panel (used in shared invite links). */
 export const LIVE_SHARE_PARAM = "live";
 
+/** URL query flag that opens the Polls tab to a specific poll (shared links). */
+export const POLL_SHARE_PARAM = "poll";
+
 /** Table names (namespaced — see supabase-setup-all.sql). */
 export const TABLES = {
   sessions: "live_sessions",

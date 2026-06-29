@@ -164,5 +164,14 @@ export function useLivePolls(enabled: boolean, sessionId: string | null) {
     await fetchPolls();
   }, [sessionId, fetchPolls]);
 
-  return { polls, tallies, myVotes, loading, vote, createPoll };
+  /** Admin: permanently delete a poll (cascades to its votes). */
+  const deletePoll = useCallback(async (pollId: string) => {
+    const client = getLiveClient();
+    if (!client) return;
+    setPolls((prev) => prev.filter((p) => p.id !== pollId));      // optimistic
+    const { error } = await client.from(TABLES.polls).delete().eq("id", pollId);
+    if (error) await fetchPolls();                                // restore on failure
+  }, [fetchPolls]);
+
+  return { polls, tallies, myVotes, loading, vote, createPoll, deletePoll };
 }
