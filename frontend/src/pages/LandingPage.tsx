@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { ArrowRight, Brain, FolderKanban, Users, Cpu, Zap, Key, MessageSquare, FileText, Globe, Code2, Chrome, Github, Youtube, Newspaper } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LiveSessionButton } from "@/modules/live-session";
 
 const FEATURES = [
   { icon: Brain, title: "Identity", desc: "Your role, skills, languages, and preferences — captured once, injected everywhere." },
@@ -307,6 +308,7 @@ export function LandingPage() {
             <Link to="/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
               Pricing
             </Link>
+            <LiveSessionButton />
             <Link to="/sign-in">
               <Button variant="ghost" size="sm">Sign in</Button>
             </Link>
