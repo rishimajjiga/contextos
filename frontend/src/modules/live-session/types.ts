@@ -39,3 +39,11 @@ export interface PollTally {
   counts: number[];
   total: number;
 }
+
+export interface LivePromotion {
+  id: string;
+  imageUrl: string;
+  linkUrl?: string | null;
+  isActive: boolean;
+  createdAt: string;
+}

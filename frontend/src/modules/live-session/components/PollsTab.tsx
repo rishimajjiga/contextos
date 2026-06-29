@@ -1,18 +1,19 @@
-// ── Live Session module · polls tab (24h polls, winner result, share, delete) ─
-import { useMemo, useRef, useState } from "react";
+// ── Live Session module · polls tab (polls + winner + promo banners) ─────────
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import {
   Clock, Check, Plus, X, ImageIcon, Loader2, AlertCircle,
-  Trophy, Trash2, Copy, Share2,
+  Trophy, Trash2, Copy, Share2, Megaphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLivePolls } from "../hooks/useLivePolls";
+import { useLivePromotions } from "../hooks/useLivePromotions";
 import { useCountdown } from "../hooks/useCountdown";
 import { useIsAdmin } from "../hooks/useIsAdmin";
 import { uploadPollImage } from "../lib/storage";
 import { pollShareUrl, whatsappShareUrl } from "../lib/share";
 import { errMessage } from "../lib/errors";
-import type { LivePoll, LiveSession, PollTally } from "../types";
+import type { LivePoll, LivePromotion, LiveSession, PollTally } from "../types";
 
 interface Props {
   open: boolean;
@@ -24,18 +25,55 @@ export function PollsTab({ open, isAdmin, session }: Props) {
   const { email } = useIsAdmin();
   const { polls, tallies, myVotes, loading, vote, createPoll, deletePoll } =
     useLivePolls(open, session?.id ?? null);
+  const { promos, createPromotion, deletePromotion } = useLivePromotions(open);
   const [showCreate, setShowCreate] = useState(false);
+  const [showPromo, setShowPromo] = useState(false);
+
+  // Interleave promo banners between poll cards (each promo shown once).
+  const feed = useMemo<ReactNode[]>(() => {
+    const nodes: ReactNode[] = [];
+    let p = 0;
+    polls.forEach((poll, i) => {
+      nodes.push(
+        <PollCard
+          key={poll.id}
+          poll={poll}
+          tally={tallies[poll.id] ?? { counts: poll.options.map(() => 0), total: 0 }}
+          myVote={myVotes[poll.id]}
+          isAdmin={isAdmin}
+          onVote={(idx) => vote(poll.id, idx)}
+          onDelete={() => deletePoll(poll.id)}
+        />,
+      );
+      if (i < polls.length - 1 && p < promos.length) {
+        nodes.push(<PromoBanner key={`promo-${promos[p].id}`} promo={promos[p]} isAdmin={isAdmin} onDelete={() => deletePromotion(promos[p].id)} />);
+        p += 1;
+      }
+    });
+    // any remaining promos (more promos than gaps, or no polls) render after.
+    for (; p < promos.length; p++) {
+      nodes.push(<PromoBanner key={`promo-${promos[p].id}`} promo={promos[p]} isAdmin={isAdmin} onDelete={() => deletePromotion(promos[p].id)} />);
+    }
+    return nodes;
+  }, [polls, tallies, myVotes, promos, isAdmin, vote, deletePoll, deletePromotion]);
 
   return (
     <div className="flex h-full flex-col">
       {isAdmin && (
-        <div className="flex justify-end border-b border-border/60 px-5 py-2">
+        <div className="flex items-center justify-end gap-3 border-b border-border/60 px-5 py-2">
           <button
-            onClick={() => setShowCreate((v) => !v)}
+            onClick={() => { setShowPromo(false); setShowCreate((v) => !v); }}
             className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:text-brand-600"
           >
             {showCreate ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
             {showCreate ? "Cancel" : "New poll"}
+          </button>
+          <button
+            onClick={() => { setShowCreate(false); setShowPromo((v) => !v); }}
+            className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:text-brand-600"
+          >
+            {showPromo ? <X className="h-3.5 w-3.5" /> : <Megaphone className="h-3.5 w-3.5" />}
+            {showPromo ? "Cancel" : "Add promotion"}
           </button>
         </div>
       )}
@@ -51,27 +89,58 @@ export function PollsTab({ open, isAdmin, session }: Props) {
           />
         )}
 
+        {isAdmin && showPromo && (
+          <AdminCreatePromo
+            onCreate={async (file, link) => {
+              const imageUrl = await uploadPollImage(file);
+              await createPromotion(imageUrl, link, email ?? "admin");
+              setShowPromo(false);
+            }}
+          />
+        )}
+
         {loading ? (
           <p className="py-8 text-center text-xs text-muted-foreground">Loading polls…</p>
-        ) : polls.length === 0 ? (
+        ) : feed.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
             <p className="text-sm font-medium">No active polls</p>
             <p className="text-xs text-muted-foreground">New polls from the team appear here live.</p>
           </div>
         ) : (
-          polls.map((p) => (
-            <PollCard
-              key={p.id}
-              poll={p}
-              tally={tallies[p.id] ?? { counts: p.options.map(() => 0), total: 0 }}
-              myVote={myVotes[p.id]}
-              isAdmin={isAdmin}
-              onVote={(idx) => vote(p.id, idx)}
-              onDelete={() => deletePoll(p.id)}
-            />
-          ))
+          feed
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Promotion banner (16:4) ──────────────────────────────────────────────────
+function PromoBanner({ promo, isAdmin, onDelete }: { promo: LivePromotion; isAdmin: boolean; onDelete: () => void }) {
+  const img = (
+    <img
+      src={promo.imageUrl}
+      alt="Promotion"
+      loading="lazy"
+      className="aspect-[16/4] w-full rounded-xl object-cover"
+    />
+  );
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-border shadow-soft">
+      <span className="absolute left-2 top-2 z-10 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white">
+        Ad
+      </span>
+      {isAdmin && (
+        <button
+          onClick={() => { if (window.confirm("Remove this promotion?")) onDelete(); }}
+          className="absolute right-2 top-2 z-10 rounded-full bg-black/50 p-1 text-white hover:bg-black/70"
+          aria-label="Remove promotion"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      )}
+      {promo.linkUrl
+        ? <a href={promo.linkUrl} target="_blank" rel="noopener noreferrer">{img}</a>
+        : img}
     </div>
   );
 }
@@ -129,7 +198,6 @@ function PollCard({
         </div>
       </div>
 
-      {/* Winner banner (after the 24h voting window ends) */}
       {winner && (
         <div className="mb-3 flex items-center gap-2 rounded-xl border border-brand-500/30 bg-brand-500/10 px-3 py-2 text-xs font-medium text-brand-700">
           <Trophy className="h-4 w-4 shrink-0" />
@@ -188,7 +256,6 @@ function PollCard({
   );
 }
 
-// Per-poll share: copy link + share to WhatsApp (with winner text once ended).
 function ShareRow({ poll, winner, total }: { poll: LivePoll; winner: Winner | null; total: number }) {
   const [copied, setCopied] = useState(false);
   const url = pollShareUrl(poll.id);
@@ -287,13 +354,8 @@ function AdminCreatePoll({
           className="text-xs font-medium text-brand-700 hover:text-brand-600">+ Add option</button>
       )}
 
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-        onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
-      />
+      <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+        onChange={(e) => pickFile(e.target.files?.[0] ?? null)} />
       {preview ? (
         <div className="relative">
           <img src={preview} alt="preview" className="max-h-40 w-full rounded-lg object-cover" />
@@ -311,21 +373,86 @@ function AdminCreatePoll({
 
       {err && <p className="flex items-center gap-1 text-[11px] text-destructive"><AlertCircle className="h-3 w-3" /> {err}</p>}
 
-      <Button
-        size="sm"
-        className="w-full"
-        disabled={!valid || busy}
+      <Button size="sm" className="w-full" disabled={!valid || busy}
         onClick={async () => {
           setBusy(true); setErr(null);
-          try {
-            await onCreate(question.trim(), clean, file);
-          } catch (e: unknown) {
-            setErr(errMessage(e, "Could not publish poll."));
-          } finally { setBusy(false); }
-        }}
-      >
+          try { await onCreate(question.trim(), clean, file); }
+          catch (e: unknown) { setErr(errMessage(e, "Could not publish poll.")); }
+          finally { setBusy(false); }
+        }}>
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
         {busy ? "Publishing…" : "Publish poll"}
+      </Button>
+    </div>
+  );
+}
+
+// Admin-only: add a 16:4 promotion banner (optional click-through link).
+function AdminCreatePromo({
+  onCreate,
+}: {
+  onCreate: (imageFile: File, linkUrl: string | null) => Promise<void>;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [link, setLink] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const pickFile = (f: File | null) => {
+    setErr(null);
+    if (!f) { setFile(null); setPreview(null); return; }
+    if (!["image/jpeg", "image/png", "image/webp"].includes(f.type)) {
+      setErr("Only JPG, PNG or WEBP images are allowed."); return;
+    }
+    if (f.size > 5 * 1024 * 1024) { setErr("Image must be under 5 MB."); return; }
+    setFile(f);
+    setPreview(URL.createObjectURL(f));
+  };
+
+  return (
+    <div className="space-y-2 rounded-2xl border border-brand-500/30 bg-brand-500/5 p-4">
+      <p className="flex items-center gap-1.5 text-xs font-medium text-brand-700">
+        <Megaphone className="h-3.5 w-3.5" /> Admin · promotion banner (16:4, e.g. 1600×400)
+      </p>
+
+      <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+        onChange={(e) => pickFile(e.target.files?.[0] ?? null)} />
+      {preview ? (
+        <div className="relative">
+          <img src={preview} alt="preview" className="aspect-[16/4] w-full rounded-lg object-cover" />
+          <button onClick={() => pickFile(null)}
+            className="absolute right-2 top-2 rounded-full bg-black/60 p-1 text-white hover:bg-black/80" aria-label="Remove image">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ) : (
+        <button onClick={() => fileRef.current?.click()}
+          className="flex aspect-[16/4] w-full flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border bg-card text-xs text-muted-foreground hover:border-brand-400 hover:text-brand-700">
+          <ImageIcon className="h-5 w-5" /> Upload 16:4 banner (JPG, PNG, WEBP)
+        </button>
+      )}
+
+      <input
+        value={link}
+        onChange={(e) => setLink(e.target.value)}
+        placeholder="Click-through link (optional, https://…)"
+        className="h-9 w-full rounded-lg border border-border bg-card px-3 text-sm outline-none focus:border-brand-400"
+      />
+
+      {err && <p className="flex items-center gap-1 text-[11px] text-destructive"><AlertCircle className="h-3 w-3" /> {err}</p>}
+
+      <Button size="sm" className="w-full" disabled={!file || busy}
+        onClick={async () => {
+          if (!file) return;
+          setBusy(true); setErr(null);
+          try { await onCreate(file, link.trim() || null); }
+          catch (e: unknown) { setErr(errMessage(e, "Could not add promotion.")); }
+          finally { setBusy(false); }
+        }}>
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Megaphone className="h-3.5 w-3.5" />}
+        {busy ? "Uploading…" : "Publish promotion"}
       </Button>
     </div>
   );

@@ -39,4 +39,5 @@ export const TABLES = {
   messages: "live_messages",
   polls: "live_polls",
   votes: "live_poll_votes",
+  promotions: "live_promotions",
 } as const;
