@@ -2,11 +2,13 @@
 // Drop-in: `import { LiveSessionButton } from "@/modules/live-session"` and
 // render <LiveSessionButton /> inside the existing nav. It renders ONLY a button
 // (matching the design-system) plus a portal-mounted panel — no floating UI.
+// Shared invite links (…/?live=1) auto-open the panel on load.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LivePanel } from "./LivePanel";
+import { LIVE_SHARE_PARAM } from "../config";
 
 interface Props {
   /** Optional className passthrough to fine-tune placement in a nav. */
@@ -17,6 +19,14 @@ interface Props {
 
 export function LiveSessionButton({ className, size = "sm" }: Props) {
   const [open, setOpen] = useState(false);
+
+  // Auto-open when arriving via a shared invite link (…/?live=1).
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get(LIVE_SHARE_PARAM) === "1") setOpen(true);
+    } catch { /* ignore */ }
+  }, []);
 
   return (
     <>

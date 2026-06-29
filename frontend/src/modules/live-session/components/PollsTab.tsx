@@ -1,4 +1,4 @@
-// ── Live Session module · polls tab (session-scoped, image upload) ───────────
+// ── Live Session module · polls tab (independent 24h polls, image upload) ────
 import { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Clock, Check, Plus, X, ImageIcon, Loader2, AlertCircle } from "lucide-react";
@@ -18,19 +18,9 @@ interface Props {
 
 export function PollsTab({ open, isAdmin, session }: Props) {
   const { email } = useIsAdmin();
-  const sessionId = session?.id ?? null;
-  const { polls, tallies, myVotes, loading, vote, createPoll } = useLivePolls(open && !!sessionId, sessionId);
+  // Polls are independent of the session; session id is recorded for reference.
+  const { polls, tallies, myVotes, loading, vote, createPoll } = useLivePolls(open, session?.id ?? null);
   const [showCreate, setShowCreate] = useState(false);
-
-  // Polls live inside a session. No session → nothing to show.
-  if (!sessionId) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 px-8 text-center">
-        <p className="text-sm font-medium">No active session</p>
-        <p className="text-xs text-muted-foreground">Polls appear once a live session is running.</p>
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-full flex-col">
@@ -47,12 +37,11 @@ export function PollsTab({ open, isAdmin, session }: Props) {
       )}
 
       <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
-        {isAdmin && showCreate && session && (
+        {isAdmin && showCreate && (
           <AdminCreatePoll
             onCreate={async (q, opts, file) => {
               const imageUrl = file ? await uploadPollImage(file) : null;
-              // Tied to the session: poll expires when the session ends.
-              await createPoll(q, opts, imageUrl, session.endTime, email ?? "admin");
+              await createPoll(q, opts, imageUrl, email ?? "admin");   // 24h, session-independent
               setShowCreate(false);
             }}
           />
@@ -146,13 +135,14 @@ function PollCard({
       </div>
 
       <p className="mt-2 text-[11px] text-muted-foreground">
-        {tally.total} {tally.total === 1 ? "vote" : "votes"}{voted && !ended && " · you voted"}
+        {tally.total} {tally.total === 1 ? "vote" : "votes"}
+        {ended ? " · final results" : voted ? " · you voted" : ""}
       </p>
     </div>
   );
 }
 
-// Admin-only: create a poll with an optional uploaded image (JPG/PNG/WEBP).
+// Admin-only: create a 24h poll with an optional uploaded image (JPG/PNG/WEBP).
 function AdminCreatePoll({
   onCreate,
 }: {
@@ -182,7 +172,7 @@ function AdminCreatePoll({
 
   return (
     <div className="space-y-2 rounded-2xl border border-brand-500/30 bg-brand-500/5 p-4">
-      <p className="text-xs font-medium text-brand-700">Admin · new poll (ends with session)</p>
+      <p className="text-xs font-medium text-brand-700">Admin · new poll (runs 24 hours)</p>
       <input
         value={question}
         onChange={(e) => setQuestion(e.target.value)}
@@ -210,7 +200,6 @@ function AdminCreatePoll({
           className="text-xs font-medium text-brand-700 hover:text-brand-600">+ Add option</button>
       )}
 
-      {/* Image upload */}
       <input
         ref={fileRef}
         type="file"

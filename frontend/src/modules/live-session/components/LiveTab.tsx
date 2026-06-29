@@ -1,11 +1,13 @@
 // ── Live Session module · chat tab (text + emoji only) ───────────────────────
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { motion } from "framer-motion";
-import { Send, Clock, Plus, Square, AlertCircle } from "lucide-react";
+import { Send, Clock, Plus, Square, AlertCircle, MessageCircle, Share2, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLiveMessages } from "../hooks/useLiveMessages";
 import { useCountdown } from "../hooks/useCountdown";
 import { useIsAdmin } from "../hooks/useIsAdmin";
+import { WHATSAPP_COMMUNITY_URL } from "../config";
+import { liveInviteUrl, whatsappShareUrl } from "../lib/share";
 import type { LiveSession } from "../types";
 import { errMessage } from "../lib/errors";
 
@@ -17,10 +19,60 @@ interface Props {
   onEndSession: (id: string) => Promise<void>;
 }
 
-// Format a Date for a <input type="datetime-local"> value (local, no tz).
 function toLocalInput(d: Date): string {
   const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
   return local.toISOString().slice(0, 16);
+}
+
+// Join WhatsApp community — opens the group in a new tab.
+function WhatsAppButton() {
+  return (
+    <a
+      href={WHATSAPP_COMMUNITY_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center justify-center gap-2 rounded-full bg-[#25D366] px-4 py-2 text-sm font-medium text-white shadow-soft transition-transform hover:scale-[1.02]"
+    >
+      <MessageCircle className="h-4 w-4" />
+      Join WhatsApp community
+    </a>
+  );
+}
+
+// Shareable invite link for the current live session.
+function ShareInvite({ topic }: { topic: string }) {
+  const [copied, setCopied] = useState(false);
+  const url = liveInviteUrl();
+  const message = `🔴 Live now on ContextOS: "${topic}" — join the session: ${url}`;
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch { /* clipboard blocked */ }
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        onClick={copy}
+        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:border-brand-400"
+      >
+        {copied ? <Check className="h-3.5 w-3.5 text-brand-600" /> : <Copy className="h-3.5 w-3.5" />}
+        {copied ? "Link copied" : "Copy invite link"}
+      </button>
+      <a
+        href={whatsappShareUrl(message)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 rounded-full bg-[#25D366] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+      >
+        <Share2 className="h-3.5 w-3.5" />
+        Share to WhatsApp
+      </a>
+    </div>
+  );
 }
 
 export function LiveTab({ session, loading, isAdmin, onCreateSession, onEndSession }: Props) {
@@ -45,7 +97,7 @@ export function LiveTab({ session, loading, isAdmin, onCreateSession, onEndSessi
     try {
       await sendMessage(text);
     } catch (err: unknown) {
-      setDraft(text); // restore so the user doesn't lose it
+      setDraft(text);
       setSendErr(errMessage(err, "Failed to send. Try again."));
     }
   };
@@ -66,6 +118,7 @@ export function LiveTab({ session, loading, isAdmin, onCreateSession, onEndSessi
             Sessions are started by the ContextOS team. Check back soon.
           </p>
         </div>
+        <WhatsAppButton />
         {isAdmin && (
           <AdminStartSession
             onCreate={(topic, startIso, endIso) => onCreateSession(topic, startIso, endIso, email ?? "admin")}
@@ -88,6 +141,19 @@ export function LiveTab({ session, loading, isAdmin, onCreateSession, onEndSessi
           <Clock className="h-3.5 w-3.5" />
           {ended ? "Ended" : label}
         </div>
+      </div>
+
+      {/* Share + community actions */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-5 py-2.5">
+        <ShareInvite topic={session.topic} />
+        <a
+          href={WHATSAPP_COMMUNITY_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-full bg-[#25D366] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+        >
+          <MessageCircle className="h-3.5 w-3.5" /> Join community
+        </a>
       </div>
 
       {isAdmin && !ended && (
