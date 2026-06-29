@@ -33,7 +33,9 @@ export function LiveSessionButton({ className, size = "sm" }: Props) {
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70" />
           <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
         </span>
-        Live Session
+        {/* Compact label on mobile to avoid crowding the nav; full text on sm+ */}
+        <span className="sm:hidden">Live</span>
+        <span className="hidden sm:inline">Live Session</span>
         <Radio className="hidden sm:block" />
       </Button>
 
