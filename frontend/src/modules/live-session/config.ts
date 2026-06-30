@@ -24,8 +24,11 @@ export const USER_SESSION_KEY = "contextos.live.userSessionId";
 /** Google AdSense — fill these with your own IDs to enable the in-feed ad slot.
  *  Leave blank to keep ads off. The slot is shown at most ONCE per polls view,
  *  clearly labelled "Advertisement", and never beside vote buttons. */
-export const ADSENSE_CLIENT = "";   // e.g. "ca-pub-1234567890123456"
+export const ADSENSE_CLIENT = "ca-pub-9871305508619957";
 export const ADSENSE_SLOT   = "";   // e.g. "1234567890" (display ad unit id)
+export function isAdsenseClientSet(): boolean {
+  return /^ca-pub-\d+$/.test(ADSENSE_CLIENT);
+}
 export function isAdsenseConfigured(): boolean {
   return /^ca-pub-\d+$/.test(ADSENSE_CLIENT) && ADSENSE_SLOT.trim().length > 0;
 }
