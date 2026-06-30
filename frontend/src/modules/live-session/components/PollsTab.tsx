@@ -139,8 +139,8 @@ function PromoBanner({ promo, isAdmin, onDelete }: { promo: LivePromotion; isAdm
         {label}
       </span>
 
-      {/* Countdown until the sponsored promo auto-deletes */}
-      {promo.expiresAt && (
+      {/* Countdown until the sponsored promo auto-deletes — admin only */}
+      {isAdmin && promo.expiresAt && (
         <span className="absolute bottom-2 left-2 z-10 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-medium tabular-nums text-white">
           <Clock className="h-3 w-3" />
           {ended ? "Ending…" : `${timeLeft} left`}
@@ -482,7 +482,4 @@ function AdminCreatePromo({
         }}>
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Megaphone className="h-3.5 w-3.5" />}
         {busy ? "Uploading…" : "Publish promotion"}
-      </Button>
-    </div>
-  );
-}
+      </
