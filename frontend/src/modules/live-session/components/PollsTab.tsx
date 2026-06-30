@@ -128,6 +128,7 @@ export function PollsTab({ open, isAdmin, session }: Props) {
 // ── Promotion banner (16:4) ──────────────────────────────────────────────────
 function PromoBanner({ promo, isAdmin, onDelete }: { promo: LivePromotion; isAdmin: boolean; onDelete: () => void }) {
   const label = "Sponsored";
+  const { label: timeLeft, ended } = useCountdown(promo.expiresAt);
   const img = (
     <img src={promo.imageUrl} alt={label} loading="lazy"
       className="aspect-[16/4] w-full rounded-xl object-cover" />
@@ -137,6 +138,15 @@ function PromoBanner({ promo, isAdmin, onDelete }: { promo: LivePromotion; isAdm
       <span className="absolute left-2 top-2 z-10 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white">
         {label}
       </span>
+
+      {/* Countdown until the sponsored promo auto-deletes */}
+      {promo.expiresAt && (
+        <span className="absolute bottom-2 left-2 z-10 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-medium tabular-nums text-white">
+          <Clock className="h-3 w-3" />
+          {ended ? "Ending…" : `${timeLeft} left`}
+        </span>
+      )}
+
       {isAdmin && (
         <button
           onClick={() => { if (window.confirm("Remove this promotion?")) onDelete(); }}
