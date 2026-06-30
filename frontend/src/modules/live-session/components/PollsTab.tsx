@@ -127,7 +127,7 @@ export function PollsTab({ open, isAdmin, session }: Props) {
 
 // ── Promotion banner (16:4) ──────────────────────────────────────────────────
 function PromoBanner({ promo, isAdmin, onDelete }: { promo: LivePromotion; isAdmin: boolean; onDelete: () => void }) {
-  const label = "Sponsored Promotion (Paid)";
+  const label = "Sponsored";
   const img = (
     <img src={promo.imageUrl} alt={label} loading="lazy"
       className="aspect-[16/4] w-full rounded-xl object-cover" />
