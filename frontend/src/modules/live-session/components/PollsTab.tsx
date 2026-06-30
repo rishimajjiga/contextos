@@ -8,7 +8,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { useLivePolls } from "../hooks/useLivePolls";
 import { useLivePromotions } from "../hooks/useLivePromotions";
-import { useCountdown } from "../hooks/useCountdown";
+import { useExpiry } from "../hooks/useExpiry";
+import { Countdown } from "./Countdown";
 import { useIsAdmin } from "../hooks/useIsAdmin";
 import { uploadPollImage } from "../lib/storage";
 import { pollShareUrl, whatsappShareUrl } from "../lib/share";
@@ -128,7 +129,7 @@ export function PollsTab({ open, isAdmin, session }: Props) {
 // ── Promotion banner (16:4) ──────────────────────────────────────────────────
 function PromoBanner({ promo, isAdmin, onDelete }: { promo: LivePromotion; isAdmin: boolean; onDelete: () => void }) {
   const label = "Sponsored";
-  const { label: timeLeft, ended } = useCountdown(promo.expiresAt);
+  const ended = useExpiry(promo.expiresAt);
   const img = (
     <img src={promo.imageUrl} alt={label} loading="lazy"
       className="aspect-[16/4] w-full rounded-xl object-cover" />
@@ -143,7 +144,7 @@ function PromoBanner({ promo, isAdmin, onDelete }: { promo: LivePromotion; isAdm
       {isAdmin && promo.expiresAt && (
         <span className="absolute bottom-2 left-2 z-10 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-medium tabular-nums text-white">
           <Clock className="h-3 w-3" />
-          {ended ? "Ending…" : `${timeLeft} left`}
+          {ended ? "Ending…" : <><Countdown target={promo.expiresAt} /> left</>}
         </span>
       )}
 
@@ -183,7 +184,7 @@ function PollCard({
   onVote: (i: number) => void;
   onDelete: () => void;
 }) {
-  const { label, ended } = useCountdown(poll.expiresAt);
+  const ended = useExpiry(poll.expiresAt);
   const voted = myVote !== undefined;
   const locked = voted || ended;
   const winner = useMemo(() => (ended ? computeWinner(tally) : null), [ended, tally]);
@@ -202,7 +203,7 @@ function PollCard({
             ended ? "bg-muted text-muted-foreground" : "bg-brand-500/10 text-brand-700"
           }`}>
             <Clock className="h-3 w-3" />
-            {ended ? "Closed" : label}
+            {ended ? "Closed" : <Countdown target={poll.expiresAt} />}
           </span>
           {isAdmin && (
             <button

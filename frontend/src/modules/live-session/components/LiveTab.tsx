@@ -1,10 +1,11 @@
 // ── Live Session module · chat tab (text + emoji only) ───────────────────────
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { memo, useEffect, useRef, useState, type FormEvent } from "react";
 import { motion } from "framer-motion";
 import { Send, Clock, Plus, Square, AlertCircle, MessageCircle, Share2, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLiveMessages } from "../hooks/useLiveMessages";
-import { useCountdown } from "../hooks/useCountdown";
+import { useExpiry } from "../hooks/useExpiry";
+import { Countdown } from "./Countdown";
 import { useIsAdmin } from "../hooks/useIsAdmin";
 import { WHATSAPP_COMMUNITY_URL } from "../config";
 import { liveInviteUrl, whatsappShareUrl } from "../lib/share";
@@ -75,11 +76,35 @@ function ShareInvite({ topic }: { topic: string }) {
   );
 }
 
+// Memoised so a new message doesn't re-render every existing bubble.
+const MessageBubble = memo(function MessageBubble(
+  { text, who, mine }: { text: string; who: string; mine: boolean },
+) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`flex ${mine ? "justify-end" : "justify-start"}`}
+    >
+      <div className={`max-w-[78%] rounded-2xl px-3.5 py-2 text-sm shadow-soft ${
+        mine ? "rounded-br-md bg-brand-500 text-white" : "rounded-bl-md bg-surface-2 text-foreground"
+      }`}>
+        {!mine && (
+          <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            {who.slice(0, 6)}
+          </span>
+        )}
+        <span className="break-words">{text}</span>
+      </div>
+    </motion.div>
+  );
+});
+
 export function LiveTab({ session, loading, isAdmin, onCreateSession, onEndSession }: Props) {
   const { email } = useIsAdmin();
   const sessionId = session?.id ?? null;
   const { messages, sendMessage, userSessionId } = useLiveMessages(sessionId);
-  const { label, ended } = useCountdown(session?.endTime);
+  const ended = useExpiry(session?.endTime);
   const [draft, setDraft] = useState("");
   const [sendErr, setSendErr] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -139,7 +164,7 @@ export function LiveTab({ session, loading, isAdmin, onCreateSession, onEndSessi
           ended ? "bg-destructive/10 text-destructive" : "bg-brand-500/10 text-brand-700"
         }`}>
           <Clock className="h-3.5 w-3.5" />
-          {ended ? "Ended" : label}
+          {ended ? "Ended" : <Countdown target={session.endTime} />}
         </div>
       </div>
 
@@ -171,28 +196,14 @@ export function LiveTab({ session, loading, isAdmin, onCreateSession, onEndSessi
         {messages.length === 0 ? (
           <p className="py-8 text-center text-xs text-muted-foreground">No messages yet — say hello 👋</p>
         ) : (
-          messages.map((m) => {
-            const mine = m.userSessionId === userSessionId;
-            return (
-              <motion.div
-                key={m.id}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`flex ${mine ? "justify-end" : "justify-start"}`}
-              >
-                <div className={`max-w-[78%] rounded-2xl px-3.5 py-2 text-sm shadow-soft ${
-                  mine ? "rounded-br-md bg-brand-500 text-white" : "rounded-bl-md bg-surface-2 text-foreground"
-                }`}>
-                  {!mine && (
-                    <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                      {m.userSessionId.slice(0, 6)}
-                    </span>
-                  )}
-                  <span className="break-words">{m.text}</span>
-                </div>
-              </motion.div>
-            );
-          })
+          messages.map((m) => (
+            <MessageBubble
+              key={m.id}
+              text={m.text}
+              who={m.userSessionId}
+              mine={m.userSessionId === userSessionId}
+            />
+          ))
         )}
       </div>
 
