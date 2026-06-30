@@ -138,7 +138,8 @@ create table if not exists public.live_promotions (
   link_url text,
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
-  created_by text
+  created_by text,
+  sponsored boolean not null default false
 );
 alter table public.live_promotions replica identity full;
 do $$ begin

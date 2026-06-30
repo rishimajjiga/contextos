@@ -21,6 +21,15 @@ export const POLL_RESULT_GRACE_MS = 24 * 60 * 60 * 1000;
 export const USER_SESSION_KEY = "contextos.live.userSessionId";
 
 /** WhatsApp community invite (Join button in the live panel). */
+/** Google AdSense — fill these with your own IDs to enable the in-feed ad slot.
+ *  Leave blank to keep ads off. The slot is shown at most ONCE per polls view,
+ *  clearly labelled "Advertisement", and never beside vote buttons. */
+export const ADSENSE_CLIENT = "";   // e.g. "ca-pub-1234567890123456"
+export const ADSENSE_SLOT   = "";   // e.g. "1234567890" (display ad unit id)
+export function isAdsenseConfigured(): boolean {
+  return /^ca-pub-\d+$/.test(ADSENSE_CLIENT) && ADSENSE_SLOT.trim().length > 0;
+}
+
 /** Contact for promotions / poll sponsorship (3-dots menu). */
 export const CONTACT_EMAIL = "usecontextos@gmail.com";
 

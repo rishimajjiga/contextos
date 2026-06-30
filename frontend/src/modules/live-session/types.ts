@@ -44,6 +44,7 @@ export interface LivePromotion {
   id: string;
   imageUrl: string;
   linkUrl?: string | null;
+  sponsored: boolean;        // true = paid sponsored promo; false = your own promo
   isActive: boolean;
   createdAt: string;
 }

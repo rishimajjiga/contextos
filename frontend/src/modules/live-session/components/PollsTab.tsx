@@ -1,4 +1,4 @@
-// ── Live Session module · polls tab (polls + winner + promo banners) ─────────
+// ── Live Session module · polls tab (polls + winner + promos + AdSense) ──────
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import {
@@ -13,6 +13,8 @@ import { useIsAdmin } from "../hooks/useIsAdmin";
 import { uploadPollImage } from "../lib/storage";
 import { pollShareUrl, whatsappShareUrl } from "../lib/share";
 import { errMessage } from "../lib/errors";
+import { isAdsenseConfigured } from "../config";
+import { AdSenseSlot } from "./AdSenseSlot";
 import type { LivePoll, LivePromotion, LiveSession, PollTally } from "../types";
 
 interface Props {
@@ -29,10 +31,29 @@ export function PollsTab({ open, isAdmin, session }: Props) {
   const [showCreate, setShowCreate] = useState(false);
   const [showPromo, setShowPromo] = useState(false);
 
-  // Interleave promo banners between poll cards (each promo shown once).
+  // Build the between-poll fillers in the desired order:
+  //   Your Promotion → AdSense (once) → Sponsored Promotion → (repeat promos)
   const feed = useMemo<ReactNode[]>(() => {
+    const your = promos.filter((p) => !p.sponsored);
+    const spon = promos.filter((p) => p.sponsored);
+    const adAvailable = isAdsenseConfigured() || isAdmin; // admins see the slot hint
+
+    const promoNode = (p: LivePromotion) => (
+      <PromoBanner key={`promo-${p.id}`} promo={p} isAdmin={isAdmin} onDelete={() => deletePromotion(p.id)} />
+    );
+
+    const fillers: ReactNode[] = [];
+    let yi = 0, si = 0;
+    if (your[yi]) fillers.push(promoNode(your[yi++]));
+    if (adAvailable) fillers.push(<AdSenseSlot key="adsense" isAdmin={isAdmin} />);
+    while (yi < your.length || si < spon.length) {
+      if (si < spon.length) fillers.push(promoNode(spon[si++]));
+      if (yi < your.length) fillers.push(promoNode(your[yi++]));
+    }
+
+    // Interleave one filler between each pair of polls; leftovers after the last.
     const nodes: ReactNode[] = [];
-    let p = 0;
+    let f = 0;
     polls.forEach((poll, i) => {
       nodes.push(
         <PollCard
@@ -45,15 +66,9 @@ export function PollsTab({ open, isAdmin, session }: Props) {
           onDelete={() => deletePoll(poll.id)}
         />,
       );
-      if (i < polls.length - 1 && p < promos.length) {
-        nodes.push(<PromoBanner key={`promo-${promos[p].id}`} promo={promos[p]} isAdmin={isAdmin} onDelete={() => deletePromotion(promos[p].id)} />);
-        p += 1;
-      }
+      if (i < polls.length - 1 && f < fillers.length) nodes.push(fillers[f++]);
     });
-    // any remaining promos (more promos than gaps, or no polls) render after.
-    for (; p < promos.length; p++) {
-      nodes.push(<PromoBanner key={`promo-${promos[p].id}`} promo={promos[p]} isAdmin={isAdmin} onDelete={() => deletePromotion(promos[p].id)} />);
-    }
+    for (; f < fillers.length; f++) nodes.push(fillers[f]);
     return nodes;
   }, [polls, tallies, myVotes, promos, isAdmin, vote, deletePoll, deletePromotion]);
 
@@ -91,9 +106,9 @@ export function PollsTab({ open, isAdmin, session }: Props) {
 
         {isAdmin && showPromo && (
           <AdminCreatePromo
-            onCreate={async (file, link) => {
+            onCreate={async (file, link, sponsored) => {
               const imageUrl = await uploadPollImage(file);
-              await createPromotion(imageUrl, link, email ?? "admin");
+              await createPromotion(imageUrl, link, sponsored, email ?? "admin");
               setShowPromo(false);
             }}
           />
@@ -116,23 +131,20 @@ export function PollsTab({ open, isAdmin, session }: Props) {
 
 // ── Promotion banner (16:4) ──────────────────────────────────────────────────
 function PromoBanner({ promo, isAdmin, onDelete }: { promo: LivePromotion; isAdmin: boolean; onDelete: () => void }) {
+  const label = promo.sponsored ? "Sponsored Promotion (Paid)" : "Your Promotion";
   const img = (
-    <img
-      src={promo.imageUrl}
-      alt="Promotion"
-      loading="lazy"
-      className="aspect-[16/4] w-full rounded-xl object-cover"
-    />
+    <img src={promo.imageUrl} alt={label} loading="lazy"
+      className="aspect-[16/4] w-full rounded-xl object-cover" />
   );
   return (
     <div className="relative overflow-hidden rounded-xl border border-border shadow-soft">
-      <span className="absolute left-2 top-2 z-10 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white">
-        Ad
+      <span className="absolute left-2 top-2 z-10 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white">
+        {label}
       </span>
       {isAdmin && (
         <button
           onClick={() => { if (window.confirm("Remove this promotion?")) onDelete(); }}
-          className="absolute right-2 top-2 z-10 rounded-full bg-black/50 p-1 text-white hover:bg-black/70"
+          className="absolute right-2 top-2 z-10 rounded-full bg-black/55 p-1 text-white hover:bg-black/75"
           aria-label="Remove promotion"
         >
           <Trash2 className="h-3.5 w-3.5" />
@@ -387,15 +399,16 @@ function AdminCreatePoll({
   );
 }
 
-// Admin-only: add a 16:4 promotion banner (optional click-through link).
+// Admin-only: add a 16:4 promotion banner (own or paid-sponsored).
 function AdminCreatePromo({
   onCreate,
 }: {
-  onCreate: (imageFile: File, linkUrl: string | null) => Promise<void>;
+  onCreate: (imageFile: File, linkUrl: string | null, sponsored: boolean) => Promise<void>;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [link, setLink] = useState("");
+  const [sponsored, setSponsored] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -441,13 +454,19 @@ function AdminCreatePromo({
         className="h-9 w-full rounded-lg border border-border bg-card px-3 text-sm outline-none focus:border-brand-400"
       />
 
+      <label className="flex items-center gap-2 text-xs text-foreground">
+        <input type="checkbox" checked={sponsored} onChange={(e) => setSponsored(e.target.checked)}
+          className="h-3.5 w-3.5 accent-brand-500" />
+        Paid / sponsored (labels it “Sponsored Promotion (Paid)”)
+      </label>
+
       {err && <p className="flex items-center gap-1 text-[11px] text-destructive"><AlertCircle className="h-3 w-3" /> {err}</p>}
 
       <Button size="sm" className="w-full" disabled={!file || busy}
         onClick={async () => {
           if (!file) return;
           setBusy(true); setErr(null);
-          try { await onCreate(file, link.trim() || null); }
+          try { await onCreate(file, link.trim() || null, sponsored); }
           catch (e: unknown) { setErr(errMessage(e, "Could not add promotion.")); }
           finally { setBusy(false); }
         }}>
