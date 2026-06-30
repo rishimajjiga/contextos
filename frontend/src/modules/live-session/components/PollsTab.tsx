@@ -482,4 +482,7 @@ function AdminCreatePromo({
         }}>
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Megaphone className="h-3.5 w-3.5" />}
         {busy ? "Uploading…" : "Publish promotion"}
-      </
+      </Button>
+    </div>
+  );
+}
