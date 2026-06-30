@@ -1,7 +1,7 @@
-// ── Live Session module · paid promotion banners ─────────────────────────────
+// ── Live Session module · paid sponsored promotion banners ───────────────────
 // Admin-managed paid 16:4 banners shown between poll cards. Each has an
-// admin-set display duration; once expired it stops appearing to users.
-// Realtime + a periodic timer drop expired promos without a page reload.
+// admin-set display duration; once the time is up the promo is AUTO-DELETED
+// from the database (best-effort, client-driven) so it vanishes for everyone.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -27,14 +27,14 @@ const toPromo = (r: Row): LivePromotion => ({
   createdAt: r.created_at,
 });
 
-const live = (p: LivePromotion) => !p.expiresAt || new Date(p.expiresAt).getTime() > Date.now();
+const isExpired = (r: Row) => !!r.expires_at && new Date(r.expires_at).getTime() <= Date.now();
 
 export function useLivePromotions(enabled: boolean) {
-  const [all, setAll] = useState<LivePromotion[]>([]);
-  const [tick, setTick] = useState(0);          // forces re-filter as time passes
+  const [promos, setPromos] = useState<LivePromotion[]>([]);
   const chan = useRef<RealtimeChannel | null>(null);
 
-  const fetchPromos = useCallback(async () => {
+  // Fetch live promos and delete any that have passed their expiry.
+  const refresh = useCallback(async () => {
     const client = getLiveClient();
     if (!client) return;
     const { data } = await client
@@ -42,30 +42,35 @@ export function useLivePromotions(enabled: boolean) {
       .select("*")
       .eq("is_active", true)
       .order("created_at", { ascending: false });
-    setAll(((data ?? []) as Row[]).map(toPromo));
+    const rows = (data ?? []) as Row[];
+
+    const expired = rows.filter(isExpired).map((r) => r.id);
+    const liveRows = rows.filter((r) => !isExpired(r));
+    setPromos(liveRows.map(toPromo));               // show only live ones immediately
+
+    if (expired.length) {
+      // Auto-delete timed-out promos (cascades nothing; row removed for all).
+      await client.from(TABLES.promotions).delete().in("id", expired);
+    }
   }, []);
 
   useEffect(() => {
     if (!enabled) return;
     const client = getLiveClient();
     if (!client) return;
-    fetchPromos();
+    refresh();
     chan.current = client
       .channel("live:promotions")
-      .on("postgres_changes", { event: "*", schema: "public", table: TABLES.promotions }, () => fetchPromos())
+      .on("postgres_changes", { event: "*", schema: "public", table: TABLES.promotions }, () => refresh())
       .subscribe();
-    // Re-evaluate expiry every 30s so timed promos disappear on schedule.
-    const t = setInterval(() => setTick((n) => n + 1), 30000);
+    // Re-check expiry every 30s so promos auto-delete on schedule.
+    const t = setInterval(() => refresh(), 30000);
     return () => {
       if (chan.current) client.removeChannel(chan.current);
       chan.current = null;
       clearInterval(t);
     };
-  }, [enabled, fetchPromos]);
-
-  // Only non-expired promos are shown (to users and admin alike).
-  const promos = all.filter(live);
-  void tick; // referenced so the filter recomputes on each interval tick
+  }, [enabled, refresh]);
 
   /** Admin: add a paid promo with an optional display duration (hours). */
   const createPromotion = useCallback(async (
@@ -87,17 +92,17 @@ export function useLivePromotions(enabled: boolean) {
       created_by: adminEmail,
     });
     if (error) throw error;
-    await fetchPromos();
-  }, [fetchPromos]);
+    await refresh();
+  }, [refresh]);
 
-  /** Admin: delete a promo banner. */
+  /** Admin: delete a promo banner now. */
   const deletePromotion = useCallback(async (id: string) => {
     const client = getLiveClient();
     if (!client) return;
-    setAll((prev) => prev.filter((p) => p.id !== id));
+    setPromos((prev) => prev.filter((p) => p.id !== id));
     const { error } = await client.from(TABLES.promotions).delete().eq("id", id);
-    if (error) await fetchPromos();
-  }, [fetchPromos]);
+    if (error) await refresh();
+  }, [refresh]);
 
   return { promos, createPromotion, deletePromotion };
 }
