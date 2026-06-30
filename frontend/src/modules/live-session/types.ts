@@ -44,7 +44,7 @@ export interface LivePromotion {
   id: string;
   imageUrl: string;
   linkUrl?: string | null;
-  sponsored: boolean;        // true = paid sponsored promo; false = your own promo
+  expiresAt?: string | null;   // admin-set display end; null = no expiry
   isActive: boolean;
   createdAt: string;
 }

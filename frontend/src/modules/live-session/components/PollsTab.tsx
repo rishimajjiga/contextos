@@ -34,22 +34,18 @@ export function PollsTab({ open, isAdmin, session }: Props) {
   // Build the between-poll fillers in the desired order:
   //   Your Promotion → AdSense (once) → Sponsored Promotion → (repeat promos)
   const feed = useMemo<ReactNode[]>(() => {
-    const your = promos.filter((p) => !p.sponsored);
-    const spon = promos.filter((p) => p.sponsored);
     const adAvailable = isAdsenseConfigured() || isAdmin; // admins see the slot hint
 
     const promoNode = (p: LivePromotion) => (
       <PromoBanner key={`promo-${p.id}`} promo={p} isAdmin={isAdmin} onDelete={() => deletePromotion(p.id)} />
     );
 
+    // Filler order: Promotion → AdSense (once) → remaining promotions.
     const fillers: ReactNode[] = [];
-    let yi = 0, si = 0;
-    if (your[yi]) fillers.push(promoNode(your[yi++]));
+    let pi = 0;
+    if (promos[pi]) fillers.push(promoNode(promos[pi++]));
     if (adAvailable) fillers.push(<AdSenseSlot key="adsense" isAdmin={isAdmin} />);
-    while (yi < your.length || si < spon.length) {
-      if (si < spon.length) fillers.push(promoNode(spon[si++]));
-      if (yi < your.length) fillers.push(promoNode(your[yi++]));
-    }
+    for (; pi < promos.length; pi++) fillers.push(promoNode(promos[pi]));
 
     // Interleave one filler between each pair of polls; leftovers after the last.
     const nodes: ReactNode[] = [];
@@ -106,9 +102,9 @@ export function PollsTab({ open, isAdmin, session }: Props) {
 
         {isAdmin && showPromo && (
           <AdminCreatePromo
-            onCreate={async (file, link, sponsored) => {
+            onCreate={async (file, link, durationHours) => {
               const imageUrl = await uploadPollImage(file);
-              await createPromotion(imageUrl, link, sponsored, email ?? "admin");
+              await createPromotion(imageUrl, link, durationHours, email ?? "admin");
               setShowPromo(false);
             }}
           />
@@ -131,7 +127,7 @@ export function PollsTab({ open, isAdmin, session }: Props) {
 
 // ── Promotion banner (16:4) ──────────────────────────────────────────────────
 function PromoBanner({ promo, isAdmin, onDelete }: { promo: LivePromotion; isAdmin: boolean; onDelete: () => void }) {
-  const label = promo.sponsored ? "Sponsored Promotion (Paid)" : "Your Promotion";
+  const label = "Sponsored Promotion (Paid)";
   const img = (
     <img src={promo.imageUrl} alt={label} loading="lazy"
       className="aspect-[16/4] w-full rounded-xl object-cover" />
@@ -403,12 +399,12 @@ function AdminCreatePoll({
 function AdminCreatePromo({
   onCreate,
 }: {
-  onCreate: (imageFile: File, linkUrl: string | null, sponsored: boolean) => Promise<void>;
+  onCreate: (imageFile: File, linkUrl: string | null, durationHours: number | null) => Promise<void>;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [link, setLink] = useState("");
-  const [sponsored, setSponsored] = useState(false);
+  const [hours, setHours] = useState("24");   // display duration; blank = no expiry
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -454,10 +450,14 @@ function AdminCreatePromo({
         className="h-9 w-full rounded-lg border border-border bg-card px-3 text-sm outline-none focus:border-brand-400"
       />
 
-      <label className="flex items-center gap-2 text-xs text-foreground">
-        <input type="checkbox" checked={sponsored} onChange={(e) => setSponsored(e.target.checked)}
-          className="h-3.5 w-3.5 accent-brand-500" />
-        Paid / sponsored (labels it “Sponsored Promotion (Paid)”)
+      <label className="block text-[11px] text-muted-foreground">
+        Display duration (hours) — after this, it stops showing to users. Leave blank to keep until removed.
+        <input
+          type="number" min="1" step="1" value={hours}
+          onChange={(e) => setHours(e.target.value)}
+          placeholder="e.g. 24"
+          className="mt-0.5 h-9 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-brand-400"
+        />
       </label>
 
       {err && <p className="flex items-center gap-1 text-[11px] text-destructive"><AlertCircle className="h-3 w-3" /> {err}</p>}
@@ -466,7 +466,7 @@ function AdminCreatePromo({
         onClick={async () => {
           if (!file) return;
           setBusy(true); setErr(null);
-          try { await onCreate(file, link.trim() || null, sponsored); }
+          try { await onCreate(file, link.trim() || null, hours.trim() ? Math.max(0, parseInt(hours, 10) || 0) : null); }
           catch (e: unknown) { setErr(errMessage(e, "Could not add promotion.")); }
           finally { setBusy(false); }
         }}>

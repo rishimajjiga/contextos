@@ -139,7 +139,8 @@ create table if not exists public.live_promotions (
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
   created_by text,
-  sponsored boolean not null default false
+  sponsored boolean not null default false,
+  expires_at timestamptz
 );
 alter table public.live_promotions replica identity full;
 do $$ begin
