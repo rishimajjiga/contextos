@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { ArrowRight, Brain, FolderKanban, Users, Cpu, Zap, Key, MessageSquare, FileText, Globe, Code2, Chrome, Github, Youtube, Newspaper } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { LiveSessionButton } from "@/modules/live-session";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 
 const FEATURES = [
   { icon: Brain, title: "Identity", desc: "Your role, skills, languages, and preferences — captured once, injected everywhere." },
@@ -297,27 +297,11 @@ function HeroVisual() {
 export function LandingPage() {
   return (
     <div className="min-h-screen bg-surface-0 text-foreground">
-      {/* Nav */}
-      <nav className="fixed top-0 inset-x-0 z-50 border-b border-border/50 bg-surface-0/70 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-2">
-            <img src="/logo_mark.png" alt="ContextOS" className="h-7 w-7 rounded-md" />
-            <span className="text-sm font-semibold">ContextOS</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link to="/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
-              Pricing
-            </Link>
-            <Link to="/sign-in">
-              <Button variant="ghost" size="sm">Sign in</Button>
-            </Link>
-            <LiveSessionButton />
-          </div>
-        </div>
-      </nav>
+      {/* Nav — mobile-first, safe-area-aware header */}
+      <SiteHeader />
 
-      {/* Hero */}
-      <section className="relative flex min-h-screen items-center px-6 pt-24 pb-16 overflow-hidden">
+      {/* Hero — top offset accounts for the fixed header + status-bar inset */}
+      <section className="relative flex min-h-[100dvh] items-center px-6 pt-[calc(6rem+env(safe-area-inset-top,0px))] pb-16 overflow-hidden">
         <Blobs />
         <Particles />
 

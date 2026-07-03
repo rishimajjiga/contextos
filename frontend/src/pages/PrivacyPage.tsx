@@ -176,8 +176,8 @@ export function PrivacyPage() {
       <title>Privacy Policy — ContextOS</title>
 
       {/* Nav */}
-      <nav className="fixed top-0 inset-x-0 z-50 border-b border-border/50 bg-surface-0/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
+      <nav className="fixed top-0 inset-x-0 z-50 border-b border-border/50 bg-surface-0/80 backdrop-blur-xl pt-[env(safe-area-inset-top,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
+        <div className="mx-auto flex h-16 max-w-4xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link to="/" className="flex items-center gap-2">
             <img src="/logo_mark.png" alt="ContextOS" className="h-7 w-7 rounded-md" />
             <span className="text-sm font-semibold">ContextOS</span>
@@ -193,7 +193,7 @@ export function PrivacyPage() {
       </nav>
 
       {/* Hero */}
-      <div className="pt-28 pb-10 px-6 text-center">
+      <div className="pt-[calc(7rem+env(safe-area-inset-top,0px))] pb-10 px-6 text-center">
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-500/15">
           <Shield className="h-6 w-6 text-brand-400" />
         </div>

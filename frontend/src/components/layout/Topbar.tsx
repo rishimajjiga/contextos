@@ -30,7 +30,8 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
   const label = getBreadcrumb(location.pathname);
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-surface-1 px-4 pt-[env(safe-area-inset-top)] sm:px-6">
+    // Header height grows by the status-bar inset instead of clipping the 56px content row
+    <header className="flex h-[calc(3.5rem+env(safe-area-inset-top,0px))] shrink-0 items-center justify-between gap-3 border-b border-border bg-surface-1 pt-[env(safe-area-inset-top,0px)] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] sm:pl-[max(1.5rem,env(safe-area-inset-left,0px))] sm:pr-[max(1.5rem,env(safe-area-inset-right,0px))]">
       <div className="flex min-w-0 items-center gap-2">
         <Button
           variant="ghost"
@@ -44,7 +45,7 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
         <h1 className="truncate text-sm font-semibold text-foreground">{label}</h1>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         <Button
           variant="ghost"
           size="icon"
