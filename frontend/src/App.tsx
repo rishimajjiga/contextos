@@ -37,7 +37,7 @@ const PaymentFailurePage   = lazy(() => import("@/pages/PaymentFailurePage").the
 
 function FullScreenLoader() {
   return (
-    <div className="flex h-screen items-center justify-center bg-surface-0">
+    <div className="flex h-dvh items-center justify-center bg-surface-0">
       <LoadingSpinner size="lg" />
     </div>
   );

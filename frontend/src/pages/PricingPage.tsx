@@ -307,7 +307,7 @@ function StudentModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4 pt-[max(1rem,var(--safe-top))] pb-[max(1rem,var(--safe-bottom))] bg-black/70 backdrop-blur-md">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -469,7 +469,7 @@ export function PricingPage() {
   ];
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden" style={{ background: "#eef3e7" }}>
+    <div className="relative min-h-dvh overflow-x-hidden" style={{ background: "#eef3e7" }}>
 
       {/* ── Aurora background ─────────────────────────────────────────────────── */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
@@ -519,7 +519,8 @@ export function PricingPage() {
       </div>
 
       {/* ── Page layout ───────────────────────────────────────────────────────── */}
-      <div className="relative max-w-6xl mx-auto px-4 pt-8 pb-24">
+      {/* pt clears the status bar — this page renders standalone (no Topbar) */}
+      <div className="relative max-w-6xl mx-auto px-4 pt-[calc(2rem+var(--safe-top))] pb-[max(6rem,calc(5rem+var(--safe-bottom)))]">
         {showStudentModal && <StudentModal onClose={() => setShowStudentModal(false)} />}
 
         {/* Back button */}
@@ -652,7 +653,7 @@ export function PricingPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
 
                 {/* Memories */}
-                <div className="rounded-2xl p-4" style={{ background: "rgba(45,70,35,0.02)", border: "1px solid rgba(45,70,35,0.06)" }}>
+                <div className="rounded-2xl p-4" style={{ background: "#ffffff", border: "1px solid rgba(45,70,35,0.14)", boxShadow: "0 2px 10px -3px rgba(45,80,35,0.08)" }}>
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-lg">🧠</span>
                     <span className="text-[10px] text-foreground/50 font-semibold uppercase tracking-wide">Memories</span>
@@ -667,7 +668,7 @@ export function PricingPage() {
                 </div>
 
                 {/* Projects */}
-                <div className="rounded-2xl p-4" style={{ background: "rgba(45,70,35,0.02)", border: "1px solid rgba(45,70,35,0.06)" }}>
+                <div className="rounded-2xl p-4" style={{ background: "#ffffff", border: "1px solid rgba(45,70,35,0.14)", boxShadow: "0 2px 10px -3px rgba(45,80,35,0.08)" }}>
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-lg">📁</span>
                     <span className="text-[10px] text-foreground/50 font-semibold uppercase tracking-wide">Projects</span>
@@ -682,7 +683,7 @@ export function PricingPage() {
                 </div>
 
                 {/* Auto-inject */}
-                <div className="rounded-2xl p-4" style={{ background: "rgba(45,70,35,0.02)", border: "1px solid rgba(45,70,35,0.06)" }}>
+                <div className="rounded-2xl p-4" style={{ background: "#ffffff", border: "1px solid rgba(45,70,35,0.14)", boxShadow: "0 2px 10px -3px rgba(45,80,35,0.08)" }}>
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-lg">⚡</span>
                     <span className="text-[10px] text-foreground/50 font-semibold uppercase tracking-wide">Auto-inject</span>
@@ -886,8 +887,9 @@ export function PricingPage() {
                 transition={{ type: "spring", stiffness: 280, damping: 22 }}
                 className="relative rounded-3xl flex flex-col"
                 style={{
-                  background: "rgba(45,70,35,0.016)",
-                  border: isTeam ? "1px solid rgba(79,148,55,0.55)" : "1px solid rgba(45,70,35,0.07)",
+                  background: "#ffffff",
+                  border: isTeam ? "1px solid rgba(79,148,55,0.55)" : "1px solid rgba(45,70,35,0.14)",
+                  boxShadow: "0 2px 10px -3px rgba(45,80,35,0.08), 0 16px 40px -18px rgba(45,80,35,0.12)",
                 }}
               >
                 {body}
@@ -902,7 +904,7 @@ export function PricingPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.55 }}
           className="max-w-2xl mx-auto mb-20 rounded-2xl p-5 flex items-start gap-4"
-          style={{ background: "rgba(115,177,79,0.04)", border: "1px solid rgba(115,177,79,0.1)" }}
+          style={{ background: "#f4faee", border: "1px solid rgba(115,177,79,0.3)" }}
         >
           <span className="text-2xl shrink-0 mt-0.5">🎓</span>
           <p className="text-sm leading-relaxed" style={{ color: "rgba(45,70,35,0.72)" }}>
@@ -927,13 +929,13 @@ export function PricingPage() {
               <div
                 key={i}
                 className="rounded-2xl overflow-hidden"
-                style={{ background: "rgba(45,70,35,0.018)", border: "1px solid rgba(45,70,35,0.06)" }}
+                style={{ background: "#ffffff", border: "1px solid rgba(45,70,35,0.14)", boxShadow: "0 2px 10px -3px rgba(45,80,35,0.08)" }}
               >
                 <button
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
                   className="w-full flex items-center justify-between px-5 py-4 text-left gap-3 group"
                 >
-                  <span className="text-sm font-semibold transition-colors" style={{ color: openFaq === i ? "#fff" : "rgba(45,70,35,0.9)" }}>
+                  <span className="text-sm font-semibold transition-colors" style={{ color: openFaq === i ? "#2f6b34" : "rgba(45,70,35,0.9)" }}>
                     {q}
                   </span>
                   <motion.span

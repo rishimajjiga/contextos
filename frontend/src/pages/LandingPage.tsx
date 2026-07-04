@@ -296,12 +296,12 @@ function HeroVisual() {
 
 export function LandingPage() {
   return (
-    <div className="min-h-screen bg-surface-0 text-foreground">
+    <div className="min-h-dvh bg-surface-0 text-foreground">
       {/* Nav — mobile-first, safe-area-aware header */}
       <SiteHeader />
 
       {/* Hero — top offset accounts for the fixed header + status-bar inset */}
-      <section className="relative flex min-h-[100dvh] items-center px-6 pt-[calc(6rem+env(safe-area-inset-top,0px))] pb-16 overflow-hidden">
+      <section className="relative flex min-h-dvh items-center px-6 pt-[calc(6rem+env(safe-area-inset-top,0px))] pb-16 overflow-hidden">
         <Blobs />
         <Particles />
 

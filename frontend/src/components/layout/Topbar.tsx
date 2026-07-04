@@ -30,8 +30,9 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
   const label = getBreadcrumb(location.pathname);
 
   return (
-    // Header height grows by the status-bar inset instead of clipping the 56px content row
-    <header className="flex h-[calc(3.5rem+env(safe-area-inset-top,0px))] shrink-0 items-center justify-between gap-3 border-b border-border bg-surface-1 pt-[env(safe-area-inset-top,0px)] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] sm:pl-[max(1.5rem,env(safe-area-inset-left,0px))] sm:pr-[max(1.5rem,env(safe-area-inset-right,0px))]">
+    // h-topbar-safe + pt-safe: 56px bar grows by the status-bar inset so the
+    // hamburger / search / bell / profile icons never sit under the clock.
+    <header className="flex h-topbar-safe shrink-0 items-center justify-between gap-3 border-b border-border bg-surface-1 pt-safe pl-[max(1rem,var(--safe-left))] pr-[max(1rem,var(--safe-right))] sm:pl-[max(1.5rem,var(--safe-left))] sm:pr-[max(1.5rem,var(--safe-right))]">
       <div className="flex min-w-0 items-center gap-2">
         <Button
           variant="ghost"

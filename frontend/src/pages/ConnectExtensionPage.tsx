@@ -46,7 +46,7 @@ export function ConnectExtensionPage() {
   }
 
   const wrap: React.CSSProperties = {
-    minHeight: "100vh", display: "flex", alignItems: "center",
+    minHeight: "100dvh", display: "flex", alignItems: "center",
     justifyContent: "center", padding: "1.5rem",
     background: "hsl(96 33% 95%)",
   };

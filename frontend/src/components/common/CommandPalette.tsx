@@ -40,7 +40,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]"
+      className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[max(20dvh,calc(var(--safe-top)+1rem))]"
       onClick={onClose}
     >
       <div

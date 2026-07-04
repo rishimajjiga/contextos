@@ -34,7 +34,8 @@ const DialogContent = React.forwardRef<
       className={cn(
         // Mobile: full-width bottom sheet that slides up
         "fixed z-50 bg-card border border-border shadow-xl overflow-y-auto",
-        "inset-x-0 bottom-0 w-full max-h-[92dvh] rounded-t-2xl p-5",
+        // max-h leaves room for the status bar; pb clears the gesture nav bar
+        "inset-x-0 bottom-0 w-full max-h-[calc(100dvh-var(--safe-top)-1.5rem)] rounded-t-2xl p-5 pb-[max(1.25rem,var(--safe-bottom))]",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
         // Desktop: centered modal

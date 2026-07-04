@@ -4,6 +4,15 @@
 
 @layer base {
   :root {
+    /* ── Safe-area insets — status bar / notch / Dynamic Island / punch-hole ──
+       Single source of truth for every header, drawer, modal and overlay.
+       env() resolves to 0px on desktop, so desktop layout is untouched.
+       Requires viewport-fit=cover in index.html (already set). */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+
     /* ── Botanica light sage theme — ContextOS ──────────────────────────────
        Inspired by a calm, premium, plant-forward palette: pale mint canvas,
        crisp near-white cards, deep forest ink, and a leaf-green primary. */
@@ -64,8 +73,13 @@
     -webkit-tap-highlight-color: transparent;
     overflow-x: clip;
     min-height: 100dvh;
-    padding-left: env(safe-area-inset-left, 0px);
-    padding-right: env(safe-area-inset-right, 0px);
+    /* Body itself clears the curved-edge/left/right insets globally.
+       Top/bottom insets are handled by each fixed/sticky surface (headers,
+       drawers, sheets) via the .pt-safe/.pb-safe utilities so full-bleed
+       backdrops can still extend under the status bar while their CONTENT
+       stays below it. */
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
   }
 
   /* Premium serif display headings (botanical, editorial feel) */

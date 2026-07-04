@@ -42,16 +42,11 @@ export function SiteHeader() {
     };
   }, [open]);
 
+  // pt-safe/px-safe: status-bar & notch clearance (Android WebView, TWA,
+  // iOS PWA). The blurred backdrop extends under the status bar; content
+  // starts below it.
   return (
-    <header
-      className="fixed top-0 inset-x-0 z-50 border-b border-border/50 bg-surface-0/70 backdrop-blur-xl"
-      style={{
-        // Status bar / notch clearance on Android WebView, TWA, iOS PWAs.
-        paddingTop: "max(env(safe-area-inset-top, 0px), 0px)",
-        paddingLeft: "env(safe-area-inset-left, 0px)",
-        paddingRight: "env(safe-area-inset-right, 0px)",
-      }}
-    >
+    <header className="fixed top-0 inset-x-0 z-50 border-b border-border/50 bg-surface-0/70 backdrop-blur-xl pt-safe px-safe">
       <nav
         aria-label="Main"
         className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6"
@@ -129,7 +124,7 @@ export function SiteHeader() {
               transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
             >
               <motion.div
-                className="flex flex-col gap-1 overscroll-contain px-4 pb-[max(env(safe-area-inset-bottom,0px),1rem)] pt-3"
+                className="flex flex-col gap-1 overscroll-contain px-4 pb-safe-or-4 pt-3"
                 initial="hidden"
                 animate="show"
                 exit="hidden"
