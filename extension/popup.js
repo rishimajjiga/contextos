@@ -23,6 +23,10 @@ function sendMsg(type, data = {}) {
           const m = res.error.match(/limit:(\d+)/);
           if (m) err.limit = +m[1];
         }
+        // Additive: any API call failing with a usage-limit error surfaces the
+        // key-limit modal (the health check is unauthenticated and never sees
+        // these, so detection must live here, at the single error funnel).
+        try { maybeShowKeyLimitModal(err); } catch (_) {}
         reject(err);
       } else {
         resolve(res.data);
