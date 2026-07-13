@@ -34,6 +34,7 @@ const PrivacyPage          = lazy(() => import("@/pages/PrivacyPage").then(m => 
 const PaymentHistoryPage   = lazy(() => import("@/pages/PaymentHistoryPage").then(m => ({ default: m.PaymentHistoryPage })));
 const PaymentSuccessPage   = lazy(() => import("@/pages/PaymentSuccessPage").then(m => ({ default: m.PaymentSuccessPage })));
 const PaymentFailurePage   = lazy(() => import("@/pages/PaymentFailurePage").then(m => ({ default: m.PaymentFailurePage })));
+const ContextHubPage       = lazy(() => import("@/pages/ContextHubPage").then(m => ({ default: m.ContextHubPage })));
 
 function FullScreenLoader() {
   return (
@@ -91,6 +92,7 @@ export default function App() {
         <Route path="/plans"              element={<PricingPage />} />
         <Route path="/join/:token"        element={<JoinPage />} />
         <Route path="/privacy"            element={<PrivacyPage />} />
+        <Route path="/context-hub"        element={<ContextHubPage />} />
         {/* Payment result pages — public so Razorpay callback_url works without auth */}
         <Route path="/payment/success"    element={<PaymentSuccessPage />} />
         <Route path="/payment/failure"    element={<PaymentFailurePage />} />

@@ -1,6 +1,6 @@
 // ── SiteHeader · mobile-first marketing/site navigation ──────────────────────
 // Desktop (≥768px): identical to the original landing nav — logo, Pricing,
-// Sign in, Live Session. Below 768px: hamburger + animated slide-down menu.
+// Sign in, Context Hub. Below 768px: hamburger + animated slide-down menu.
 //
 // WebView/TWA/Capacitor/PWA hardening:
 // • Respects notch/status-bar via env(safe-area-inset-*) (viewport-fit=cover
@@ -13,9 +13,8 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { LiveSessionButton } from "@/modules/live-session";
 
 const MENU_ID = "site-header-mobile-menu";
 
@@ -68,12 +67,23 @@ export function SiteHeader() {
           <Link to="/sign-in">
             <Button variant="ghost" size="sm">Sign in</Button>
           </Link>
-          <LiveSessionButton />
+          <Link to="/context-hub">
+            <Button size="sm">
+              <span className="sm:hidden">Hub</span>
+              <span className="hidden sm:inline">Context Hub</span>
+              <Send className="hidden sm:block" />
+            </Button>
+          </Link>
         </div>
 
-        {/* Mobile controls — Live CTA stays visible, hamburger opens the rest */}
+        {/* Mobile controls — Hub CTA stays visible, hamburger opens the rest */}
         <div className="flex shrink-0 items-center gap-1.5 md:hidden">
-          <LiveSessionButton />
+          <Link to="/context-hub">
+            <Button size="sm">
+              <span className="sm:hidden">Hub</span>
+              <span className="hidden sm:inline">Context Hub</span>
+            </Button>
+          </Link>
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -146,6 +156,15 @@ export function SiteHeader() {
                     onClick={() => setOpen(false)}
                   >
                     Sign in
+                  </Link>
+                </motion.div>
+                <motion.div variants={{ hidden: { opacity: 0, y: -6 }, show: { opacity: 1, y: 0 } }}>
+                  <Link
+                    to="/context-hub"
+                    className="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium text-foreground transition-colors hover:bg-accent active:bg-accent"
+                    onClick={() => setOpen(false)}
+                  >
+                    Context Hub
                   </Link>
                 </motion.div>
               </motion.div>
