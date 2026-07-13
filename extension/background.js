@@ -92,6 +92,15 @@ chrome.tabs.onUpdated.addListener((_tabId, changeInfo, _tab) => {
 
   chrome.storage.sync.set(toSave, () => {
     console.log("[ContextOS] API key + URLs saved via tabs.onUpdated.", { apiUrl, frontendUrl });
+    // Close every /connect-extension tab (including duplicates) once the key
+    // is saved. The popup's own poll can't do this reliably — the popup closes
+    // as soon as the auth window takes focus. Small delay so the page's
+    // "Connected!" state is visible first.
+    setTimeout(() => {
+      chrome.tabs.query({ url: "*://*/connect-extension*" }, (tabs) => {
+        (tabs || []).forEach((t) => { try { chrome.tabs.remove(t.id); } catch (_) {} });
+      });
+    }, 1600);
   });
 });
 

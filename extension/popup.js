@@ -757,19 +757,38 @@ function initConnectFlow() {
       } catch (_) {}
     }
 
-    // Open a small focused popup window — much better UX than a full tab
-    let authWin;
+    // Reuse an already-open connect tab/window instead of opening a duplicate.
+    // (The extension popup closes when the auth window takes focus, killing the
+    // poll below — so a leftover window plus a second click used to create two.)
+    let authWin = null;
     try {
-      authWin = await chrome.windows.create({
-        url: frontendBase + "/connect-extension",
-        type: "popup",
-        width: 460,
-        height: 660,
-        focused: true,
-      });
-    } catch (_) {
-      // Fallback: open as a normal tab if windows.create isn't available
-      authWin = await chrome.tabs.create({ url: frontendBase + "/connect-extension", active: true });
+      const existing = await chrome.tabs.query({ url: "*://*/connect-extension*" });
+      if (existing.length) {
+        const t = existing[0];
+        try { await chrome.windows.update(t.windowId, { focused: true }); } catch (_) {}
+        try { await chrome.tabs.update(t.id, { active: true }); } catch (_) {}
+        authWin = { id: t.windowId, tabId: t.id };
+        // Close any extra duplicates beyond the first
+        for (const dup of existing.slice(1)) {
+          try { await chrome.tabs.remove(dup.id); } catch (_) {}
+        }
+      }
+    } catch (_) {}
+
+    if (!authWin) {
+      // Open a small focused popup window — much better UX than a full tab
+      try {
+        authWin = await chrome.windows.create({
+          url: frontendBase + "/connect-extension",
+          type: "popup",
+          width: 460,
+          height: 660,
+          focused: true,
+        });
+      } catch (_) {
+        // Fallback: open as a normal tab if windows.create isn't available
+        authWin = await chrome.tabs.create({ url: frontendBase + "/connect-extension", active: true });
+      }
     }
 
     let waited = 0;

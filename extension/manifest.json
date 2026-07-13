@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "ContextOS — Second Brain",
   "description": "Remember everything. Save conversations, projects, prompts, and knowledge across AI tools.",
-  "version": "2.1.3",
+  "version": "2.1.4",
   "permissions": [
     "storage",
     "activeTab",
