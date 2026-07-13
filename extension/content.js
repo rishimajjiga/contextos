@@ -759,6 +759,13 @@ function injectFAB(platform) {
         '<span class="ctx-ph-dot off" id="ctx-status-dot"></span>' +
         '<button class="ctx-ph-close" id="ctx-panel-close">×</button>' +
       '</div>' +
+      // Account row (additive) — connected email · plan badge · team indicator
+      '<div id="ctx-ph-account" style="display:none;align-items:center;gap:6px;padding:5px 14px;background:rgba(79,148,55,0.06);border-bottom:1px solid rgba(45,70,35,0.12);font-size:10.5px;line-height:1.3">' +
+        '<span style="flex-shrink:0">👤</span>' +
+        '<span id="ctx-ph-email" style="font-weight:600;color:rgba(28,46,29,0.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1"></span>' +
+        '<span id="ctx-ph-team" style="display:none;flex-shrink:0" title="Team workspace access">👥</span>' +
+        '<span id="ctx-ph-plan" style="display:none;flex-shrink:0;font-size:9px;font-weight:800;color:#2f6b34;background:rgba(79,148,55,0.14);border:1px solid rgba(79,148,55,0.3);border-radius:8px;padding:1px 6px;white-space:nowrap"></span>' +
+      '</div>' +
       // Tabs
       '<div class="ctx-tabs">' +
         '<button class="ctx-tab ctx-active" data-tab="save">💾 Save</button>' +
@@ -896,6 +903,7 @@ function injectFAB(platform) {
     // Load active tab data
     switchTab(_activeTab);
     refreshDot();
+    loadPanelAccount(); // account row: email · plan · team (additive)
     // Close on outside click
     setTimeout(function() {
       document.addEventListener("click", onOutsideClick);
@@ -2692,7 +2700,7 @@ try {
     var st = document.createElement("style");
     st.id = "ctx-selsave-css";
     st.textContent =
-      "#ctx-selsave-pop{position:fixed;z-index:2147483647;display:flex;align-items:center;gap:5px;" +
+      "#ctx-selsave-pop{position:fixed;inset:auto;margin:0;overflow:visible;z-index:2147483647;display:flex;align-items:center;gap:5px;" +
       "padding:5px 6px;border-radius:12px;background:rgba(255,255,255,0.97);" +
       "border:1.5px solid rgba(79,148,55,0.30);box-shadow:0 4px 18px rgba(45,80,35,0.16),0 1px 3px rgba(45,80,35,0.10);" +
       "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;" +
@@ -2787,6 +2795,15 @@ try {
       });
 
       document.documentElement.appendChild(el);
+      // Browser top layer (Popover API): renders above ANY page element —
+      // modals, chat widgets, sticky menus, cookie banners — regardless of
+      // their z-index. Older browsers fall back to max z-index stacking.
+      try {
+        if (typeof el.showPopover === "function") {
+          el.setAttribute("popover", "manual");
+          el.showPopover();
+        }
+      } catch (_) {}
       place(el, info.rect);
       requestAnimationFrame(function () { el.classList.add("ctx-ssp-show"); });
     });
@@ -2851,3 +2868,43 @@ try {
   window.addEventListener("scroll", hidePop, { passive: true, capture: true });
   window.addEventListener("resize", hidePop, { passive: true });
 })();
+
+// ── Panel account row (additive) — email · plan badge · team indicator ───────
+// Populated lazily on first panel open. Reuses GET_USER_INFO / GET_PLAN /
+// TEAM_INFO; shows email + plan name only (no sensitive data). The FAB stays
+// fully draggable — this row lives inside the existing panel markup.
+var _panelAcctLoaded = false;
+function loadPanelAccount() {
+  if (_panelAcctLoaded) return;
+  var row = document.getElementById("ctx-ph-account");
+  if (!row) return;
+  _panelAcctLoaded = true;
+
+  Promise.resolve(sendMessage("GET_USER_INFO")).then(function (user) {
+    var email = user && user.email;
+    if (!email) return;
+    var emailEl = document.getElementById("ctx-ph-email");
+    if (emailEl) { emailEl.textContent = email; emailEl.title = email; }
+    row.style.display = "flex";
+
+    // Plan badge — "Free Plan" / "Student Plan" / "Team Plan" etc.
+    Promise.resolve(sendMessage("GET_PLAN")).then(function (plan) {
+      var raw = (plan && plan.display_name) || "Free";
+      var label = /plan/i.test(raw) ? raw : raw + " Plan";
+      var badge = document.getElementById("ctx-ph-plan");
+      if (badge) { badge.textContent = label; badge.style.display = ""; }
+    }).catch(function () {});
+
+    // Team workspace indicator — active team members only
+    Promise.resolve(sendMessage("TEAM_INFO")).then(function (t) {
+      if (!(t && t.hasTeam)) return;
+      var dot = document.getElementById("ctx-ph-team");
+      if (dot) {
+        dot.style.display = "";
+        if (t.team && t.team.name) dot.title = t.team.name + " · team workspace";
+      }
+    }).catch(function () {});
+  }).catch(function () {
+    _panelAcctLoaded = false; // allow retry on next open (e.g. was offline)
+  });
+}
