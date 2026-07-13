@@ -1427,14 +1427,22 @@ function isLimitError(err) {
 
 function getWebAppUrl(path) {
   return new Promise(function(resolve) {
-    chrome.storage.sync.get(["apiUrl"], function(r) {
-      try {
-        var u    = new URL(r.apiUrl || "https://contextos-production-d82a.up.railway.app");
-        var port = u.port === "8000" ? "5173" : u.port;
-        resolve(u.protocol + "//" + u.hostname + (port ? ":" + port : "") + path);
-      } catch(_) {
-        resolve("https://contextos-eta.vercel.app" + path);
+    chrome.storage.sync.get(["apiUrl", "frontendUrl"], function(r) {
+      // Prefer the stored frontendUrl (saved during the connect flow) — in
+      // production apiUrl points at the BACKEND, where web-app paths like
+      // /pricing return a JSON 404.
+      if (r.frontendUrl) {
+        try { resolve(new URL(r.frontendUrl).origin + path); return; } catch (_) {}
       }
+      try {
+        var u = new URL(r.apiUrl || "https://contextos-production-d82a.up.railway.app");
+        if (u.hostname === "localhost" || u.hostname === "127.0.0.1") {
+          var port = u.port === "8000" ? "5173" : (u.port || "5173");
+          resolve(u.protocol + "//" + u.hostname + ":" + port + path);
+          return;
+        }
+      } catch (_) {}
+      resolve("https://contextos-eta.vercel.app" + path);
     });
   });
 }
