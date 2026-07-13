@@ -432,6 +432,26 @@ input[type="checkbox"]{
   transition:background .13s;
 }
 .inject-btn:hover{background:rgba(79,148,55,.35)}
+
+/* ── ACCOUNT BAR (additive) — email · plan · team indicator ── */
+#acc-bar{flex-shrink:0;position:relative;display:none;justify-content:flex-end;align-items:center;background:var(--bg1);border-bottom:1px solid var(--border);padding:3px 10px;z-index:60}
+#acc-bar.show{display:flex}
+#acc-chip{display:flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;font-family:inherit;padding:3px 4px;border-radius:8px;max-width:100%}
+#acc-chip:hover{background:var(--bg2)}
+#acc-avatar{width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,#4f9437,#5fa83f);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+#acc-email{font-size:10.5px;font-weight:600;color:var(--muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#acc-plan-badge{font-size:9px;font-weight:800;color:#2f6b34;background:rgba(79,148,55,0.14);border:1px solid rgba(79,148,55,0.30);border-radius:9px;padding:1px 6px;white-space:nowrap;flex-shrink:0}
+#acc-team-dot{font-size:10px;flex-shrink:0}
+.acc-caret{font-size:8px;color:var(--dim)}
+#acc-menu{position:absolute;top:100%;right:8px;margin-top:2px;min-width:190px;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(45,80,35,0.18);padding:6px;z-index:100;display:none}
+#acc-menu.show{display:block}
+.acc-menu-email{font-size:11px;font-weight:700;color:var(--text);padding:5px 8px 1px;word-break:break-all}
+.acc-menu-plan{font-size:10px;font-weight:600;color:var(--muted);padding:0 8px 4px}
+.acc-menu-team{font-size:10px;font-weight:600;color:#2f6b34;background:rgba(79,148,55,0.10);border-radius:6px;margin:0 6px 4px;padding:3px 6px}
+.acc-menu-sep{height:1px;background:var(--border);margin:4px 2px;opacity:.5}
+.acc-menu-item{display:block;width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;font-weight:600;color:var(--text);padding:6px 8px;border-radius:6px}
+.acc-menu-item:hover{background:var(--bg2)}
+.acc-danger{color:var(--red)}
 </style>
 </head>
 <body>
@@ -462,6 +482,26 @@ input[type="checkbox"]{
     <div class="hdr-status" id="hdr-status">
       <span class="hdr-dot off" id="hdr-dot"></span>
       <span id="hdr-status-text">Connecting…</span>
+    </div>
+  </div>
+
+  <!-- Account bar (additive) — connected email · plan · team indicator -->
+  <div id="acc-bar">
+    <button id="acc-chip" title="Account">
+      <span id="acc-avatar">·</span>
+      <span id="acc-email"></span>
+      <span id="acc-plan-badge" style="display:none"></span>
+      <span id="acc-team-dot" title="Team workspace access" style="display:none">👥</span>
+      <span class="acc-caret">▾</span>
+    </button>
+    <div id="acc-menu">
+      <div class="acc-menu-email" id="acc-menu-email"></div>
+      <div class="acc-menu-plan" id="acc-menu-plan"></div>
+      <div class="acc-menu-team" id="acc-menu-team" style="display:none"></div>
+      <div class="acc-menu-sep"></div>
+      <button class="acc-menu-item" id="acc-view-account">View Account</button>
+      <button class="acc-menu-item" id="acc-plan-details">Plan details</button>
+      <button class="acc-menu-item acc-danger" id="acc-logout">Logout</button>
     </div>
   </div>
 

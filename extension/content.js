@@ -393,7 +393,7 @@ function ctxIsOwnUI(el) {
   try {
     return !!(el.closest && el.closest(
       "#ctx-fab, #ctx-panel, #ctx-sidebar, #ctx-dialog, #ctx-suggest-dropdown, " +
-      "#ctx-refresh-banner, #ctx-status-toast, #ctx-suggestion-toast, #ctx-searching-pill"
+      "#ctx-selsave-pop, #ctx-refresh-banner, #ctx-status-toast, #ctx-suggestion-toast, #ctx-searching-pill"
     ));
   } catch (_) { return false; }
 }
@@ -2668,3 +2668,186 @@ try {
     });
   }
 } catch (_) {}
+
+// ═══ Selection Save Popup (additive module) ═══════════════════════════════════
+// Select text on any page → a small "Save to ContextOS" pill appears near the
+// selection. Team-plan members instead get "Save to Personal" / "Save to Team".
+// Reuses the existing SAVE_MEMORY / TEAM_INFO background messages and the
+// status-toast feedback. Nothing in the existing flows is modified — removing
+// this block disables the feature cleanly.
+(function () {
+  "use strict";
+  if (window.__ctxSelSaveInit) return;
+  window.__ctxSelSaveInit = true;
+
+  var POP_ID = "ctx-selsave-pop";
+  var MIN_LEN = 4;
+  var _selText = "";
+  var _saving = false;
+  var _teamCache = { at: 0, hasTeam: false };
+  var _debounce = null;
+
+  function selCSS() {
+    if (document.getElementById("ctx-selsave-css")) return;
+    var st = document.createElement("style");
+    st.id = "ctx-selsave-css";
+    st.textContent =
+      "#ctx-selsave-pop{position:fixed;z-index:2147483647;display:flex;align-items:center;gap:5px;" +
+      "padding:5px 6px;border-radius:12px;background:rgba(255,255,255,0.97);" +
+      "border:1.5px solid rgba(79,148,55,0.30);box-shadow:0 4px 18px rgba(45,80,35,0.16),0 1px 3px rgba(45,80,35,0.10);" +
+      "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;" +
+      "opacity:0;transform:translateY(4px);transition:opacity .15s ease,transform .15s ease;" +
+      "backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}" +
+      "#ctx-selsave-pop.ctx-ssp-show{opacity:1;transform:translateY(0)}" +
+      "#ctx-selsave-pop .ctx-ssp-logo{font-size:13px;line-height:1;margin-left:2px}" +
+      "#ctx-selsave-pop button{border:none;cursor:pointer;border-radius:8px;" +
+      "font-family:inherit;font-size:11.5px;font-weight:600;line-height:1;" +
+      "padding:6px 10px;white-space:nowrap;transition:background .15s ease,color .15s ease}" +
+      "#ctx-selsave-pop button:disabled{opacity:.6;cursor:default}" +
+      "#ctx-selsave-pop .ctx-ssp-primary{background:#4f9437;color:#fff}" +
+      "#ctx-selsave-pop .ctx-ssp-primary:hover:not(:disabled){background:#3d7a2b}" +
+      "#ctx-selsave-pop .ctx-ssp-secondary{background:rgba(79,148,55,0.10);color:#316023;" +
+      "border:1px solid rgba(79,148,55,0.35);padding:5px 9px}" +
+      "#ctx-selsave-pop .ctx-ssp-secondary:hover:not(:disabled){background:rgba(79,148,55,0.18)}";
+    document.documentElement.appendChild(st);
+  }
+
+  function hidePop() {
+    if (_saving) return;
+    var el = document.getElementById(POP_ID);
+    if (el) el.remove();
+  }
+
+  function getSelInfo() {
+    try {
+      var sel = window.getSelection();
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0) return null;
+      var text = sel.toString();
+      if (!text || text.trim().length < MIN_LEN) return null;
+      var anchor = sel.anchorNode;
+      var el = anchor && (anchor.nodeType === 1 ? anchor : anchor.parentElement);
+      if (el && (ctxIsOwnUI(el) || ctxIsEditableEl(el))) return null;
+      var rect = sel.getRangeAt(0).getBoundingClientRect();
+      if (!rect || (!rect.width && !rect.height)) return null;
+      return { text: text.trim().slice(0, MAX_CHARS), rect: rect };
+    } catch (_) { return null; }
+  }
+
+  function getTeam(cb) {
+    if (Date.now() - _teamCache.at < 5 * 60 * 1000) { cb(_teamCache.hasTeam); return; }
+    Promise.resolve(sendMessage("TEAM_INFO"))
+      .then(function (r) {
+        _teamCache = { at: Date.now(), hasTeam: !!(r && r.hasTeam) };
+        cb(_teamCache.hasTeam);
+      })
+      .catch(function () {
+        _teamCache = { at: Date.now(), hasTeam: false };
+        cb(false);
+      });
+  }
+
+  function place(el, rect) {
+    var m = 8;
+    var w = el.offsetWidth, h = el.offsetHeight;
+    var top = rect.top - h - m;
+    if (top < m) top = Math.min(rect.bottom + m, window.innerHeight - h - m);
+    var left = rect.left + rect.width / 2 - w / 2;
+    left = Math.max(m, Math.min(left, window.innerWidth - w - m));
+    el.style.top = Math.round(top) + "px";
+    el.style.left = Math.round(left) + "px";
+  }
+
+  function showPop(info) {
+    selCSS();
+    hidePop();
+    _selText = info.text;
+    getTeam(function (hasTeam) {
+      // Selection may have been cleared while we looked up the team.
+      var sel = window.getSelection();
+      if (!sel || sel.isCollapsed) return;
+      if (document.getElementById(POP_ID)) return;
+
+      var el = document.createElement("div");
+      el.id = POP_ID;
+      el.setAttribute("role", "toolbar");
+      el.setAttribute("aria-label", "Save selection to ContextOS");
+      el.innerHTML = '<span class="ctx-ssp-logo">🧠</span>' + (hasTeam
+        ? '<button type="button" class="ctx-ssp-primary" data-dest="personal">Save to Personal</button>' +
+          '<button type="button" class="ctx-ssp-secondary" data-dest="team">Save to Team</button>'
+        : '<button type="button" class="ctx-ssp-primary" data-dest="">Save to ContextOS</button>');
+
+      // Keep the page selection: don't let the popup steal focus / clear it.
+      el.addEventListener("mousedown", function (e) { e.preventDefault(); e.stopPropagation(); });
+
+      el.querySelectorAll("button").forEach(function (btn) {
+        btn.addEventListener("click", function (e) {
+          e.preventDefault(); e.stopPropagation();
+          doSave(btn.dataset.dest, el);
+        });
+      });
+
+      document.documentElement.appendChild(el);
+      place(el, info.rect);
+      requestAnimationFrame(function () { el.classList.add("ctx-ssp-show"); });
+    });
+  }
+
+  async function doSave(dest, el) {
+    if (_saving) return;
+    _saving = true;
+    var btns = el.querySelectorAll("button");
+    btns.forEach(function (b) { b.disabled = true; });
+    var target = dest ? el.querySelector('[data-dest="' + dest + '"]') : btns[0];
+    if (target) target.textContent = "Saving…";
+    try { ctxStatusToast(navigator.onLine ? "saving" : "offline"); } catch (_) {}
+
+    var title = (document.title || location.hostname || "Selection").trim().slice(0, 120);
+    var payload = { title: title, content: _selText, tags: [] };
+    // Explicit destination only for team-plan users; the single-button flow
+    // sends no visibility field → identical to the existing quick-save path.
+    if (dest === "personal" || dest === "team") payload.visibility = dest;
+
+    try {
+      await sendMessage("SAVE_MEMORY", payload);
+      if (target) target.textContent = "Saved ✓";
+      try { ctxStatusToast("saved"); } catch (_) {}
+      setTimeout(function () { _saving = false; hidePop(); }, 900);
+    } catch (err) {
+      _saving = false;
+      try {
+        if (!navigator.onLine) ctxStatusToast("offline");
+        else if (isLimitError(err)) ctxStatusToast("limit");
+        else if (ctxIsAuthError(err)) ctxStatusToast("signin");
+        else ctxStatusToast("error");
+      } catch (_) {}
+      hidePop();
+    }
+  }
+
+  function maybeShow(e) {
+    if (e && e.target && e.target.closest && e.target.closest("#" + POP_ID)) return;
+    clearTimeout(_debounce);
+    _debounce = setTimeout(function () {
+      var info = getSelInfo();
+      if (info) showPop(info);
+      else hidePop();
+    }, 160);
+  }
+
+  document.addEventListener("mouseup", maybeShow, true);
+  document.addEventListener("keyup", function (e) {
+    if (e.key === "Escape") { hidePop(); return; }
+    if (e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowRight" ||
+        e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "Home" || e.key === "End")) {
+      maybeShow(e);
+    }
+  }, true);
+  document.addEventListener("selectionchange", function () {
+    try {
+      var sel = window.getSelection();
+      if (!sel || sel.isCollapsed) hidePop();
+    } catch (_) {}
+  });
+  window.addEventListener("scroll", hidePop, { passive: true, capture: true });
+  window.addEventListener("resize", hidePop, { passive: true });
+})();

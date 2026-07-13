@@ -833,6 +833,7 @@ async function init() {
   loadUserInfo();  // show user name in header
   loadMemories();  // pre-load memories so tab is instant
   loadPlanUsage(); // show plan usage in header + memories tab
+  initAccountChip(); // account bar: email · plan · team (additive)
 
   // Make footer app link work
   document.getElementById("footer-app-link").onclick = async (e) => {
@@ -843,3 +844,65 @@ async function init() {
 }
 
 init();
+
+// ── Account chip (additive) — connected email · plan · team indicator ────────
+// Slim bar under the header. Reuses GET_USER_INFO / GET_PLAN / TEAM_INFO and
+// the existing disconnect flow for logout — no new auth logic, no secrets
+// displayed (email + plan name only).
+async function initAccountChip() {
+  const bar = document.getElementById("acc-bar");
+  if (!bar) return;
+
+  let user;
+  try { user = await sendMsg("GET_USER_INFO"); } catch (_) { return; }
+  const email = user && user.email;
+  if (!email) return;
+
+  document.getElementById("acc-email").textContent = email;
+  document.getElementById("acc-menu-email").textContent = email;
+  const initial = ((user.name || email).trim()[0] || "?").toUpperCase();
+  document.getElementById("acc-avatar").textContent = initial;
+  bar.classList.add("show");
+
+  // Plan badge — best-effort, non-blocking
+  sendMsg("GET_PLAN").then((plan) => {
+    const raw = plan?.display_name || "Free";
+    const label = /plan/i.test(raw) ? raw : raw + " Plan";
+    const badge = document.getElementById("acc-plan-badge");
+    badge.textContent = label;
+    badge.style.display = "";
+    document.getElementById("acc-menu-plan").textContent = label;
+  }).catch(() => {});
+
+  // Team workspace indicator — only for active team members
+  sendMsg("TEAM_INFO").then((t) => {
+    if (!t?.hasTeam) return;
+    document.getElementById("acc-team-dot").style.display = "";
+    const line = document.getElementById("acc-menu-team");
+    line.textContent = "👥 " + (t.team?.name ? `${t.team.name} · team workspace` : "Team workspace access");
+    line.style.display = "";
+  }).catch(() => {});
+
+  // Dropdown open/close
+  const chip = document.getElementById("acc-chip");
+  const menu = document.getElementById("acc-menu");
+  chip.onclick = (e) => { e.stopPropagation(); menu.classList.toggle("show"); };
+  document.addEventListener("click", (e) => {
+    if (menu.classList.contains("show") && !bar.contains(e.target)) {
+      menu.classList.remove("show");
+    }
+  });
+
+  // Actions — all reuse existing helpers/flows
+  document.getElementById("acc-view-account").onclick = async () => {
+    chrome.tabs.create({ url: await getAppUrl("/profile") });
+  };
+  document.getElementById("acc-plan-details").onclick = async () => {
+    chrome.tabs.create({ url: await getAppUrl("/pricing") });
+  };
+  document.getElementById("acc-logout").onclick = () => {
+    menu.classList.remove("show");
+    // Same confirm + storage-clear flow as the Settings "Disconnect" button.
+    document.getElementById("disconnect-btn").click();
+  };
+}
