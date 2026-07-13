@@ -627,6 +627,9 @@ async function handleMessage(msg) {
     // ── Cache invalidation (called by website-bridge when website saves) ───────
     case "INVALIDATE_CACHE": {
       cacheInvalidate("list:", "search:", "context:", "projects:");
+      // Stamp lastSave so the floating widget's memory panel (content.js
+      // storage listener) refreshes after website-side saves too.
+      await chrome.storage.local.set({ lastSave: Date.now() });
       return { ok: true };
     }
   }

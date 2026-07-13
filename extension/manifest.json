@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "ContextOS — Second Brain",
   "description": "Remember everything. Save conversations, projects, prompts, and knowledge across AI tools.",
-  "version": "2.1.7",
+  "version": "2.2.0",
   "permissions": [
     "storage",
     "activeTab",
@@ -44,7 +44,9 @@
     "https://bolt.new/*",
     "https://stackblitz.com/*",
     "https://chat.qwenlm.ai/*",
-    "https://cursor.com/*"
+    "https://cursor.com/*",
+    "https://usecontextos.com/*",
+    "https://www.usecontextos.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -55,7 +57,9 @@
         "http://localhost:5173/connect-extension*",
         "http://localhost:5174/connect-extension*",
         "https://app.contextos.dev/connect-extension*",
-        "https://contextos-eta.vercel.app/connect-extension*"
+        "https://contextos-eta.vercel.app/connect-extension*",
+        "https://usecontextos.com/connect-extension*",
+        "https://www.usecontextos.com/connect-extension*"
       ],
       "js": [
         "connect.js"
@@ -67,7 +71,9 @@
         "http://localhost:5173/*",
         "http://localhost:5174/*",
         "https://app.contextos.dev/*",
-        "https://contextos-eta.vercel.app/*"
+        "https://contextos-eta.vercel.app/*",
+        "https://usecontextos.com/*",
+        "https://www.usecontextos.com/*"
       ],
       "js": [
         "website-bridge.js"
@@ -93,8 +99,24 @@
         "http://localhost:5173/*",
         "http://localhost:5174/*",
         "https://app.contextos.dev/*",
-        "https://contextos-eta.vercel.app/*"
+        "https://contextos-eta.vercel.app/*",
+        "https://usecontextos.com/*",
+        "https://www.usecontextos.com/*"
       ]
+    },
+    {
+      "matches": [
+        "http://localhost:5173/*",
+        "http://localhost:5174/*",
+        "https://app.contextos.dev/*",
+        "https://contextos-eta.vercel.app/*",
+        "https://usecontextos.com/*",
+        "https://www.usecontextos.com/*"
+      ],
+      "js": [
+        "sync-bridge.js"
+      ],
+      "run_at": "document_idle"
     }
   ],
   "action": {
