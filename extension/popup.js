@@ -739,7 +739,7 @@ function initConnectFlow() {
   btn.onclick = async () => {
     btn.disabled = true;
     btn.textContent = "Opening…";
-    status.textContent = "Complete the connection in the tab that opens.";
+    status.textContent = "Complete the connection in the ContextOS window.";
 
     const stored = await new Promise(r => chrome.storage.sync.get(["apiUrl", "frontendUrl"], r));
     let frontendBase = "https://contextos-eta.vercel.app";
@@ -776,12 +776,22 @@ function initConnectFlow() {
     } catch (_) {}
 
     if (!authWin) {
-      // Open the connect flow as ONE normal tab in the current window. The
-      // extension popup closes automatically as the tab activates, so the
-      // user sees a single surface (previously a detached popup window PLUS
-      // the still-open extension popup read as two). background.js picks up
-      // the key and closes this tab once connected.
-      authWin = await chrome.tabs.create({ url: frontendBase + "/connect-extension", active: true });
+      // Open the connect flow as a small app-style popup window. Combined
+      // with the window.close() below, the user sees exactly ONE surface:
+      // the connect popup. background.js saves the key and closes it when
+      // the connection completes.
+      try {
+        authWin = await chrome.windows.create({
+          url: frontendBase + "/connect-extension",
+          type: "popup",
+          width: 460,
+          height: 660,
+          focused: true,
+        });
+      } catch (_) {
+        // Fallback: open as a normal tab if windows.create isn't available
+        authWin = await chrome.tabs.create({ url: frontendBase + "/connect-extension", active: true });
+      }
     }
 
     // Close the extension popup now that the connect window is open — leaving
