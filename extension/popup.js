@@ -791,6 +791,13 @@ function initConnectFlow() {
       }
     }
 
+    // Close the extension popup now that the connect window is open — leaving
+    // it up makes the flow look like two surfaces for one connection. The
+    // background tabs.onUpdated watcher saves the key and closes the connect
+    // window on success, so nothing below is required for the happy path;
+    // the poll remains only as a fallback if window.close() is blocked.
+    setTimeout(() => { try { window.close(); } catch (_) {} }, 150);
+
     let waited = 0;
     const poll = setInterval(async () => {
       waited++;
