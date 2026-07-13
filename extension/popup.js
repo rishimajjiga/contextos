@@ -108,9 +108,10 @@ async function refreshStatusDot() {
     await sendMsg("HEALTH_CHECK");
     dot.classList.remove("off");
     if (text) text.textContent = "Connected";
-  } catch (_) {
+  } catch (err) {
     dot.classList.add("off");
     if (text) text.textContent = "Offline";
+    maybeShowKeyLimitModal(err); // additive: key usage-limit error modal
   }
 }
 
@@ -904,5 +905,52 @@ async function initAccountChip() {
     menu.classList.remove("show");
     // Same confirm + storage-clear flow as the Settings "Disconnect" button.
     document.getElementById("disconnect-btn").click();
+  };
+}
+
+// ── API key limit modal (additive) ────────────────────────────────────────────
+// Shown when the extension can't connect because the API key's usage limit is
+// reached (LIMIT_REACHED / HTTP 429 from the backend). Premium error state —
+// not a system failure. "Delete API Key" clears the stored key (the connect
+// flow then issues a fresh one automatically); "Upgrade Plan" and "Manage API
+// Keys" open the web app via the existing getAppUrl helper.
+let _klShown = false;
+
+function maybeShowKeyLimitModal(err) {
+  try {
+    const m = (err && err.message) || "";
+    if (!/LIMIT_REACHED|API_ERROR 429/i.test(m)) return;
+    showKeyLimitModal();
+  } catch (_) {}
+}
+
+function showKeyLimitModal() {
+  const ov = document.getElementById("keylimit-overlay");
+  if (!ov || _klShown) return;
+  _klShown = true;
+  ov.classList.add("show");
+
+  const hide = () => { ov.classList.remove("show"); _klShown = false; };
+  document.getElementById("kl-close").onclick = hide;
+  ov.onclick = (e) => { if (e.target === ov) hide(); };
+
+  document.getElementById("kl-upgrade").onclick = async () => {
+    chrome.tabs.create({ url: await getAppUrl("/pricing") });
+  };
+  document.getElementById("kl-manage").onclick = async () => {
+    chrome.tabs.create({ url: await getAppUrl("/api-keys") });
+  };
+
+  document.getElementById("kl-delete").onclick = async () => {
+    const btn = document.getElementById("kl-delete");
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="kl-spin"></span>Removing API Key…';
+    // Brief pause so the loading state is visible, then clear the stored key.
+    await new Promise((r) => setTimeout(r, 700));
+    // apiUrl/frontendUrl are kept so reconnecting is one click — the connect
+    // flow (STORE_CLERK_TOKEN) issues a fresh API key automatically.
+    await new Promise((r) => chrome.storage.sync.remove(["apiKey"], r));
+    window.location.reload(); // popup re-inits → connect screen
   };
 }
