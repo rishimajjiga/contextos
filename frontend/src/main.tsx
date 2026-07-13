@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import { Toaster } from "sonner";
 import App from "./App";
 import "./styles/globals.css";
+import "./styles/premium.css"; // Premium visual overlay — add-only, safe to remove
 
 // Expose the backend API URL as an HTML data attribute so the Chrome extension's
 // content scripts (connect.js, website-bridge.js) can read it without needing
