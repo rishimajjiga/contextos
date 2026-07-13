@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "ContextOS — Second Brain",
   "description": "Remember everything. Save conversations, projects, prompts, and knowledge across AI tools.",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "permissions": [
     "storage",
     "activeTab",
@@ -95,13 +95,7 @@
       "run_at": "document_idle",
       "exclude_matches": [
         "https://chromewebstore.google.com/*",
-        "https://chrome.google.com/webstore/*",
-        "http://localhost:5173/*",
-        "http://localhost:5174/*",
-        "https://app.contextos.dev/*",
-        "https://contextos-eta.vercel.app/*",
-        "https://usecontextos.com/*",
-        "https://www.usecontextos.com/*"
+        "https://chrome.google.com/webstore/*"
       ]
     },
     {
