@@ -299,3 +299,209 @@ a.text-brand-600 {
   text-decoration-thickness: 2px;
   text-underline-offset: 4px;
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   EXTENSION PASS (2026-07-14) — remaining surfaces.
+   Same contract as above: add-only, hooks existing class combos, no markup,
+   logic, or component changes.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── 11. Landing sections — crisper separation & alternating tint ───────── */
+/* Alternating bands already use bg-surface-1; deepen the contrast slightly
+   and upgrade hairlines to a green-tinted border so sections read clearly. */
+section.border-t.border-border {
+  border-top-width: 1px;
+  border-top-color: rgba(34, 197, 94, 0.18);
+}
+
+section.border-t.bg-surface-1 {
+  background-color: hsl(96 32% 93%); /* very light tint, one step off canvas */
+}
+
+footer.border-t.border-border {
+  border-top-color: rgba(34, 197, 94, 0.18);
+  background-color: hsl(96 32% 93%);
+}
+
+/* ── 12. Landing tiles not yet covered ──────────────────────────────────── */
+/* "Works everywhere" logo tiles (border-border/60 bg-surface-1/50) */
+.border-border\/60.bg-surface-1\/50 {
+  border-width: 2px;
+  border-color: var(--premium-border);
+  background-color: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 1px 2px rgba(27, 67, 50, 0.04), 0 8px 20px -12px rgba(27, 67, 50, 0.10);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
+}
+
+.border-border\/60.bg-surface-1\/50:hover {
+  border-color: var(--premium-border-strong);
+  background-color: #ffffff;
+  box-shadow: var(--premium-shadow-card);
+}
+
+/* Landing pricing-teaser highlighted (Pro) tile — elevated + soft glow */
+.border-brand-500.bg-brand-500\/10 {
+  background-color: #ffffff;
+  border-width: 2px;
+  box-shadow:
+    0 2px 6px rgba(27, 67, 50, 0.07),
+    0 18px 40px -14px rgba(27, 67, 50, 0.18),
+    0 0 0 4px rgba(34, 197, 94, 0.10);
+}
+
+/* "How it works" numbered step circles — white core so numbers pop */
+.rounded-full.border-2.border-brand-500\/40 {
+  background-color: #ffffff;
+  color: hsl(142 60% 30%);
+  box-shadow: 0 1px 2px rgba(27, 67, 50, 0.06), 0 8px 18px -10px rgba(34, 197, 94, 0.45);
+}
+
+/* Hero eyebrow pill — brighter, crisper */
+.rounded-full.border-brand-500\/30.bg-brand-500\/10 {
+  background-color: rgba(255, 255, 255, 0.75);
+  border-color: rgba(34, 197, 94, 0.40);
+  color: hsl(142 60% 26%);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(27, 67, 50, 0.05), 0 6px 16px -10px rgba(34, 197, 94, 0.35);
+}
+
+/* ── 13. Muted text — raise contrast for accessibility (WCAG-friendlier) ── */
+.text-muted-foreground {
+  color: hsl(150 18% 32%);
+}
+
+/* ── 14. Badges ─────────────────────────────────────────────────────────── */
+.bg-brand-500\/20.text-brand-400 {
+  color: hsl(142 60% 26%);
+  border-color: rgba(34, 197, 94, 0.28);
+  font-weight: 600;
+}
+
+/* ── 15. Tabs — white active pill, clear inactive track ─────────────────── */
+[role="tablist"].bg-muted {
+  background-color: rgba(27, 67, 50, 0.06);
+  border: 1px solid rgba(34, 197, 94, 0.14);
+  border-radius: 14px;
+}
+
+[role="tab"] {
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+[role="tab"][data-state="active"] {
+  background-color: #ffffff;
+  color: var(--premium-ink);
+  font-weight: 600;
+  box-shadow:
+    0 1px 2px rgba(27, 67, 50, 0.08),
+    0 4px 10px -4px rgba(27, 67, 50, 0.12),
+    inset 0 0 0 1px rgba(34, 197, 94, 0.22);
+  border-radius: 11px;
+}
+
+/* ── 16. Empty states — softer premium panel ────────────────────────────── */
+.border-dashed.border-border {
+  border-width: 2px;
+  border-color: rgba(34, 197, 94, 0.28);
+  background-color: rgba(255, 255, 255, 0.55);
+  border-radius: 24px;
+}
+
+.border-dashed.border-border .bg-muted {
+  background-color: rgba(34, 197, 94, 0.10);
+}
+
+/* ── 17. Loading & skeletons ────────────────────────────────────────────── */
+/* Spinner — brand ring reads clearly on white cards */
+.animate-spin.rounded-full.border-t-brand-500 {
+  border-color: rgba(34, 197, 94, 0.18);
+  border-top-color: hsl(142 60% 34%);
+}
+
+.skeleton {
+  border-radius: 10px;
+}
+
+/* Skeleton cards inherit card polish but shouldn't lift on hover */
+.bg-card.text-card-foreground .skeleton {
+  background-color: rgba(27, 67, 50, 0.06);
+}
+
+/* ── 18. Error / success alert panels ───────────────────────────────────── */
+[role="alert"].border-brand-500\/30 {
+  background-color: rgba(255, 255, 255, 0.90);
+  border-width: 2px;
+  border-color: rgba(34, 197, 94, 0.35);
+  box-shadow: var(--premium-shadow-card);
+  border-radius: 16px;
+}
+
+/* ── 19. Auth pages — frosted header + card polish is inherited; add
+       stronger page framing for the centered auth card container ───────── */
+header.border-b.border-border.px-6 {
+  background-color: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom-color: rgba(34, 197, 94, 0.16);
+}
+
+/* ── 20. Hero CTA hierarchy — primary clearly dominant ──────────────────── */
+/* The primary CTA keeps its glow; outline CTAs get a quieter, whiter look so
+   the hierarchy is unmistakable (Apple/Stripe style). Selectors reuse the
+   existing shadcn outline combo already themed in §4. */
+button.bg-brand-500.shadow-lg,
+a.bg-brand-500.shadow-lg {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    0 2px 4px rgba(27, 67, 50, 0.14),
+    0 14px 34px -10px rgba(34, 197, 94, 0.60);
+}
+
+/* ── 21. Dropdowns / selects (Radix portals render with .bg-popover) ────── */
+[data-radix-popper-content-wrapper] .bg-popover,
+[role="listbox"].bg-popover,
+[role="menu"].bg-popover {
+  border-width: 2px;
+  border-color: var(--premium-border);
+  border-radius: 16px;
+  background-color: #ffffff;
+}
+
+[role="option"],
+[role="menuitem"] {
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+[role="option"][data-highlighted],
+[role="menuitem"][data-highlighted] {
+  background-color: rgba(34, 197, 94, 0.10);
+  color: var(--premium-ink);
+}
+
+/* ── 22. Accessibility — clearer keyboard focus everywhere ──────────────── */
+a:focus-visible,
+button:focus-visible {
+  outline: none;
+  /* box-shadow follows each element's own border-radius — no shape changes */
+  box-shadow:
+    0 0 0 2px #ffffff,
+    0 0 0 5px rgba(34, 197, 94, 0.55);
+}
+
+/* Don't double-ring inputs (they already have their own focus style in §5) */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.13);
+}
+
+/* ── 23. Motion hygiene — every hover transition in this overlay stays in
+       the 150–300ms band; disable lifts for reduced-motion users ────────── */
+@media (prefers-reduced-motion: reduce) {
+  .border-border\/60.bg-surface-1\/50,
+  [role="tab"],
+  [role="option"],
+  [role="menuitem"] {
+    transition: none;
+  }
+}
