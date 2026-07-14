@@ -65,6 +65,11 @@
     overflow-x: clip;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+    /* Disable pull-to-refresh & overscroll glow/bounce at the top of the page
+       (Android WebView/TWA/Chrome; iOS 16+ Safari/WKWebView). Only suppresses
+       the overscroll gesture — normal scrolling, momentum, and pinch zoom are
+       unaffected. */
+    overscroll-behavior-y: none;
   }
 
   body {
@@ -72,6 +77,9 @@
     font-feature-settings: "rlig" 1, "calt" 1;
     -webkit-tap-highlight-color: transparent;
     overflow-x: clip;
+    /* Belt-and-suspenders with html: some WebViews treat body as the scroll
+       root, so the overscroll gesture must be blocked here too. */
+    overscroll-behavior-y: none;
     min-height: 100dvh;
     /* Body itself clears the curved-edge/left/right insets globally.
        Top/bottom insets are handled by each fixed/sticky surface (headers,
