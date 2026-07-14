@@ -3,6 +3,8 @@ import { Link, Outlet } from "react-router-dom";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { CommandPalette } from "@/components/common/CommandPalette";
+import { BubbleExtensionPrompts } from "@/components/common/BubbleExtensionPrompts";
+import { FloatingBrainButton } from "@/components/common/FloatingBrainButton";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { usePlan } from "@/hooks/usePlan";
 import { apiClient } from "@/services/api";
@@ -131,14 +133,16 @@ export function AppLayout() {
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <GracePeriodBanner />
           <TrialEndedBanner />
+          <BubbleExtensionPrompts />
           <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} />
-          <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden overscroll-none touch-pan-y p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
             <div className="mx-auto max-w-6xl animate-fade-in">
               <Outlet />
             </div>
           </main>
         </div>
       </div>
+      <FloatingBrainButton onOpen={() => setCmdOpen(true)} />
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
     </AuthProvider>
   );

@@ -5,9 +5,62 @@ import { toast } from "sonner";
 import { Download } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PlanBadge } from "@/components/common/PlanBadge";
+import { markBubbleDismissedThisSession } from "@/components/common/BubbleExtensionPrompts";
+import { useBubbleExtension } from "@/hooks/useBubbleExtension";
 import { billingService, openRazorpayCheckout, type PlanInfo } from "@/services/billing.service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { apiClient } from "@/services/api";
+
+function BubbleExtensionSettings() {
+  const { isSupported, status, enable, disable } = useBubbleExtension();
+  if (!isSupported) return null;
+
+  const enabled = status === "enabled";
+
+  function handleToggle() {
+    if (enabled) {
+      disable();
+      // Don't immediately re-nag in this same session — the reminder banner
+      // reappears naturally on the next app open per the onboarding spec.
+      markBubbleDismissedThisSession();
+      toast.success("Floating Brain Extension turned off.");
+    } else {
+      const result = enable();
+      if (result === "permission_required") {
+        toast("Grant the overlay permission, then return to the app to finish enabling.");
+      } else {
+        toast.success("Floating Brain Extension turned on.");
+      }
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader><CardTitle>Floating Brain Extension</CardTitle></CardHeader>
+      <CardContent>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-foreground">Floating Brain Extension</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              A floating brain icon lets you save to and access ContextOS instantly from any app.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={enabled}
+            onClick={handleToggle}
+            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${enabled ? "bg-brand-500" : "bg-surface-3"}`}
+          >
+            <span
+              className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-soft transition-transform ${enabled ? "translate-x-[22px]" : "translate-x-0.5"}`}
+            />
+          </button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -136,6 +189,9 @@ export function SettingsPage() {
           </p>
         </CardContent>
       </Card>
+
+      {/* Floating Brain Extension (native app only) */}
+      <BubbleExtensionSettings />
 
       {/* Plan & billing */}
       {plan && (

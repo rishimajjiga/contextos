@@ -52,6 +52,8 @@
 
   html {
     @apply scroll-smooth;
+    overscroll-behavior-y: none;
+    overflow-x: hidden;
   }
 
   body {
@@ -60,6 +62,8 @@
     -webkit-tap-highlight-color: transparent;
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
+    overscroll-behavior-y: none;
+    overflow-x: hidden;
   }
 
   /* Premium serif display headings (botanical, editorial feel) */
