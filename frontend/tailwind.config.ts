@@ -1,5 +1,34 @@
 import type { Config } from "tailwindcss";
 import animate from "tailwindcss-animate";
+import plugin from "tailwindcss/plugin";
+
+/* ── Safe-area utilities ─────────────────────────────────────────────────────
+   Reusable classes backed by the --safe-* CSS variables in globals.css
+   (which resolve to env(safe-area-inset-*), i.e. 0px on desktop).
+
+   .pt-safe / .pb-safe / .pl-safe / .pr-safe / .px-safe  → raw inset padding
+   .pt-safe-or-4 / .pb-safe-or-4                          → max(inset, 1rem)
+   .top-safe                                              → top: inset
+   .h-header-safe    → 64px header that grows by the status-bar inset
+   .h-topbar-safe    → 56px app topbar that grows by the status-bar inset
+   All support responsive/state variants (e.g. sm:px-safe). */
+const safeArea = plugin(({ addUtilities }) => {
+  addUtilities({
+    ".pt-safe": { paddingTop: "var(--safe-top)" },
+    ".pb-safe": { paddingBottom: "var(--safe-bottom)" },
+    ".pl-safe": { paddingLeft: "var(--safe-left)" },
+    ".pr-safe": { paddingRight: "var(--safe-right)" },
+    ".px-safe": {
+      paddingLeft: "var(--safe-left)",
+      paddingRight: "var(--safe-right)",
+    },
+    ".pt-safe-or-4": { paddingTop: "max(var(--safe-top), 1rem)" },
+    ".pb-safe-or-4": { paddingBottom: "max(var(--safe-bottom), 1rem)" },
+    ".top-safe": { top: "var(--safe-top)" },
+    ".h-header-safe": { height: "calc(4rem + var(--safe-top))" },
+    ".h-topbar-safe": { height: "calc(3.5rem + var(--safe-top))" },
+  });
+});
 
 const config: Config = {
   darkMode: ["class"],
@@ -130,7 +159,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [animate],
+  plugins: [animate, safeArea],
 };
 
 export default config;

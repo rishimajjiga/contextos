@@ -120,13 +120,14 @@ export function LivePanel({ open, onClose, initialTab = "live" }: Props) {
             role="dialog"
             aria-modal="true"
             aria-label="Live Session"
-            className={`absolute ${panelPos} flex flex-col bg-surface-1/95 shadow-card backdrop-blur-2xl`}
+            className={`absolute ${panelPos} flex flex-col bg-surface-1/95 shadow-card backdrop-blur-2xl pb-safe px-safe`}
             initial={hidden}
             animate={shown}
             exit={hidden}
             transition={{ type: "spring", stiffness: 320, damping: 34, mass: 0.9 }}
           >
-            <div className="flex items-center justify-between gap-3 border-b border-border/60 px-5 py-4">
+            {/* pt clears the status bar / notch on the full-screen panel */}
+            <div className="flex items-center justify-between gap-3 border-b border-border/60 px-5 py-4 pt-[max(1rem,var(--safe-top))]">
               <div className="flex items-center gap-2">
                 <span className="relative flex h-2.5 w-2.5">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-500/60" />

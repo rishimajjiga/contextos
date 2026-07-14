@@ -32,7 +32,10 @@ export function Sidebar({ mobileOpen, onMobileClose, onClose }: SidebarProps) {
         <SidebarContent pathname={pathname} onClose={close} />
       </nav>
       {mobileOpen && (
-        <nav className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-surface-1 border-r border-border shadow-2xl md:hidden">
+        // Mobile drawer: pt-safe/pb-safe/pl-safe push the header (logo, title,
+        // close button) below the status bar and the footer above the gesture
+        // nav bar; the surface itself still bleeds edge-to-edge.
+        <nav className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-surface-1 border-r border-border shadow-2xl md:hidden pt-safe pb-safe pl-safe">
           <SidebarContent pathname={pathname} onClose={close} />
         </nav>
       )}

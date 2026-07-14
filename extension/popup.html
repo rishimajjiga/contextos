@@ -432,6 +432,53 @@ input[type="checkbox"]{
   transition:background .13s;
 }
 .inject-btn:hover{background:rgba(79,148,55,.35)}
+
+/* ── ACCOUNT BAR (additive) — email · plan · team indicator ── */
+#acc-bar{flex-shrink:0;position:relative;display:none;justify-content:flex-end;align-items:center;background:var(--bg1);border-bottom:1px solid var(--border);padding:3px 10px;z-index:60}
+#acc-bar.show{display:flex}
+#acc-chip{display:flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;font-family:inherit;padding:3px 4px;border-radius:8px;max-width:100%}
+#acc-chip:hover{background:var(--bg2)}
+#acc-avatar{width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,#4f9437,#5fa83f);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+#acc-email{font-size:10.5px;font-weight:600;color:var(--muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#acc-plan-badge{font-size:9px;font-weight:800;color:#2f6b34;background:rgba(79,148,55,0.14);border:1px solid rgba(79,148,55,0.30);border-radius:9px;padding:1px 6px;white-space:nowrap;flex-shrink:0}
+#acc-team-dot{font-size:10px;flex-shrink:0}
+.acc-caret{font-size:8px;color:var(--dim)}
+#acc-menu{position:absolute;top:100%;right:8px;margin-top:2px;min-width:190px;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(45,80,35,0.18);padding:6px;z-index:100;display:none}
+#acc-menu.show{display:block}
+.acc-menu-email{font-size:11px;font-weight:700;color:var(--text);padding:5px 8px 1px;word-break:break-all}
+.acc-menu-plan{font-size:10px;font-weight:600;color:var(--muted);padding:0 8px 4px}
+.acc-menu-team{font-size:10px;font-weight:600;color:#2f6b34;background:rgba(79,148,55,0.10);border-radius:6px;margin:0 6px 4px;padding:3px 6px}
+.acc-menu-sep{height:1px;background:var(--border);margin:4px 2px;opacity:.5}
+.acc-menu-item{display:block;width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;font-weight:600;color:var(--text);padding:6px 8px;border-radius:6px}
+.acc-menu-item:hover{background:var(--bg2)}
+.acc-danger{color:var(--red)}
+
+/* ── API KEY LIMIT MODAL (additive) — premium error state ── */
+#keylimit-overlay{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(28,46,29,0.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#keylimit-overlay.show{display:flex;animation:klFade .2s ease}
+@keyframes klFade{from{opacity:0}to{opacity:1}}
+#keylimit-modal{position:relative;width:100%;max-width:320px;background:#fff;border:1px solid rgba(79,148,55,0.22);border-radius:18px;box-shadow:0 6px 16px rgba(45,80,35,0.10),0 24px 60px rgba(45,80,35,0.25);padding:20px 18px 16px;animation:klPop .22s cubic-bezier(0.34,1.4,0.64,1)}
+@keyframes klPop{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+.kl-brand{display:flex;align-items:center;gap:9px;margin-bottom:14px}
+.kl-logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,rgba(79,148,55,0.14),rgba(95,168,63,0.14));border:1px solid rgba(79,148,55,0.28);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.kl-name{font-size:13px;font-weight:800;color:#1c2e1d;letter-spacing:-.2px}
+.kl-sub{font-size:9.5px;font-weight:600;color:var(--muted);letter-spacing:.2px}
+.kl-chip{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:800;color:#8a5a00;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.30);border-radius:20px;padding:3px 10px;margin-bottom:10px}
+.kl-title{font-size:13.5px;font-weight:700;color:#1c2e1d;line-height:1.35;margin-bottom:6px}
+.kl-desc{font-size:11.5px;color:var(--muted);line-height:1.55;margin-bottom:14px}
+.kl-actions{display:flex;gap:8px;margin-bottom:10px}
+.kl-btn-primary{flex:1.2;background:linear-gradient(135deg,#4f9437,#5fa83f);color:#fff;border:none;border-radius:11px;font-family:inherit;font-size:11.5px;font-weight:800;padding:10px 8px;cursor:pointer;box-shadow:0 4px 14px rgba(79,148,55,0.35);transition:opacity .15s,transform .1s;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+.kl-btn-primary:hover:not(:disabled){opacity:.9}
+.kl-btn-primary:active:not(:disabled){transform:scale(.97)}
+.kl-btn-primary:disabled{opacity:.75;cursor:default}
+.kl-btn-secondary{flex:1;background:#fff;color:#2f6b34;border:1.5px solid rgba(79,148,55,0.40);border-radius:11px;font-family:inherit;font-size:11.5px;font-weight:700;padding:10px 8px;cursor:pointer;transition:background .15s;white-space:nowrap}
+.kl-btn-secondary:hover{background:rgba(79,148,55,0.08)}
+.kl-link{display:block;width:100%;background:none;border:none;cursor:pointer;font-family:inherit;font-size:10.5px;font-weight:600;color:var(--muted);text-align:center;padding:4px}
+.kl-link:hover{color:#2f6b34;text-decoration:underline}
+.kl-dismiss{position:absolute;top:10px;right:12px;background:none;border:none;cursor:pointer;font-size:16px;line-height:1;color:var(--dim);padding:2px}
+.kl-dismiss:hover{color:var(--text)}
+.kl-spin{display:inline-block;width:11px;height:11px;border-radius:50%;border:2px solid rgba(255,255,255,0.35);border-top-color:#fff;animation:klSpin .7s linear infinite}
+@keyframes klSpin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -462,6 +509,26 @@ input[type="checkbox"]{
     <div class="hdr-status" id="hdr-status">
       <span class="hdr-dot off" id="hdr-dot"></span>
       <span id="hdr-status-text">Connecting…</span>
+    </div>
+  </div>
+
+  <!-- Account bar (additive) — connected email · plan · team indicator -->
+  <div id="acc-bar">
+    <button id="acc-chip" title="Account">
+      <span id="acc-avatar">·</span>
+      <span id="acc-email"></span>
+      <span id="acc-plan-badge" style="display:none"></span>
+      <span id="acc-team-dot" title="Team workspace access" style="display:none">👥</span>
+      <span class="acc-caret">▾</span>
+    </button>
+    <div id="acc-menu">
+      <div class="acc-menu-email" id="acc-menu-email"></div>
+      <div class="acc-menu-plan" id="acc-menu-plan"></div>
+      <div class="acc-menu-team" id="acc-menu-team" style="display:none"></div>
+      <div class="acc-menu-sep"></div>
+      <button class="acc-menu-item" id="acc-view-account">View Account</button>
+      <button class="acc-menu-item" id="acc-plan-details">Plan details</button>
+      <button class="acc-menu-item acc-danger" id="acc-logout">Logout</button>
     </div>
   </div>
 
@@ -644,5 +711,28 @@ input[type="checkbox"]{
 </div><!-- end #screen-main -->
 
 <script src="popup.js"></script>
+
+<!-- API key limit modal (additive) — shown when the key's usage limit is reached -->
+<div id="keylimit-overlay">
+  <div id="keylimit-modal" role="alertdialog" aria-labelledby="keylimit-title">
+    <button id="kl-close" class="kl-dismiss" title="Dismiss">×</button>
+    <div class="kl-brand">
+      <span class="kl-logo">🧠</span>
+      <div>
+        <div class="kl-name">ContextOS</div>
+        <div class="kl-sub">Chrome Extension Setup</div>
+      </div>
+    </div>
+    <div class="kl-chip">⚠️ API Key Limit Reached</div>
+    <div class="kl-title" id="keylimit-title">Your current API key has reached its usage limit.</div>
+    <p class="kl-desc">To reconnect ContextOS, delete your existing API key and add a new one, or upgrade your plan for uninterrupted access.</p>
+    <div class="kl-actions">
+      <button id="kl-delete" class="kl-btn-primary">Delete API Key</button>
+      <button id="kl-upgrade" class="kl-btn-secondary">Upgrade Plan</button>
+    </div>
+    <button id="kl-manage" class="kl-link">Manage API Keys →</button>
+  </div>
+</div>
+
 </body>
 </html>

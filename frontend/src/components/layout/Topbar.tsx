@@ -30,7 +30,9 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
   const label = getBreadcrumb(location.pathname);
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-surface-1 px-4 pt-[env(safe-area-inset-top)] sm:px-6">
+    // h-topbar-safe + pt-safe: 56px bar grows by the status-bar inset so the
+    // hamburger / search / bell / profile icons never sit under the clock.
+    <header className="flex h-topbar-safe shrink-0 items-center justify-between gap-3 border-b border-border bg-surface-1 pt-safe pl-[max(1rem,var(--safe-left))] pr-[max(1rem,var(--safe-right))] sm:pl-[max(1.5rem,var(--safe-left))] sm:pr-[max(1.5rem,var(--safe-right))]">
       <div className="flex min-w-0 items-center gap-2">
         <Button
           variant="ghost"
@@ -44,7 +46,7 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
         <h1 className="truncate text-sm font-semibold text-foreground">{label}</h1>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         <Button
           variant="ghost"
           size="icon"

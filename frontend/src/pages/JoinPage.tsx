@@ -41,7 +41,7 @@ export function JoinPage() {
   }, [isLoaded, isSignedIn, token]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface-0 px-4">
+    <div className="flex min-h-dvh items-center justify-center bg-surface-0 px-4">
       <div className="w-full max-w-sm rounded-2xl border border-border bg-surface-1 p-8 text-center shadow-md">
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-500/15">
           <Users className="h-7 w-7 text-brand-400" />

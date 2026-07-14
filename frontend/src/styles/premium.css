@@ -1,0 +1,507 @@
+/* ════════════════════════════════════════════════════════════════════════
+   ContextOS — Premium Visual Overlay
+   ────────────────────────────────────────────────────────────────────────
+   ADD-ONLY stylesheet, imported AFTER globals.css (and after all Tailwind
+   layers), so it wins ties purely by source order.
+
+   It changes ZERO markup, class names, components, or logic. Every rule
+   hooks onto class combinations / elements that already exist in the app.
+   Deleting this file (and its single import line) restores the old look.
+
+   Design direction: Apple / Linear / Notion / Stripe / Vercel.
+   Goal: stronger contrast, premium borders, layered shadows, clearer
+   hierarchy — green kept strictly as an accent.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Design-token overrides ──────────────────────────────────────────── */
+:root {
+  /* Deep forest ink (≈ #1B4332) for maximum text contrast */
+  --foreground: 158 42% 17%;
+  --card-foreground: 158 42% 17%;
+  --popover-foreground: 158 42% 17%;
+
+  /* Pure-white cards so surfaces pop off the sage canvas */
+  --card: 0 0% 100%;
+  --popover: 0 0% 100%;
+
+  /* Lighter, greener hairlines — separation comes from white + shadow now */
+  --border: 142 30% 78%;
+  --input: 142 28% 72%;
+  --ring: 142 55% 38%;
+
+  /* Consistent radius scale: lg 16px / md 14px / sm 12px */
+  --radius: 1rem;
+
+  /* Reusable premium tokens */
+  --premium-border: rgba(34, 197, 94, 0.20);
+  --premium-border-strong: rgba(34, 197, 94, 0.45);
+  --premium-shadow-card:
+    0 1px 2px rgba(27, 67, 50, 0.05),
+    0 4px 12px -4px rgba(27, 67, 50, 0.07),
+    0 20px 44px -20px rgba(27, 67, 50, 0.16);
+  --premium-shadow-hover:
+    0 2px 4px rgba(27, 67, 50, 0.06),
+    0 10px 24px -8px rgba(27, 67, 50, 0.13),
+    0 32px 64px -24px rgba(27, 67, 50, 0.22);
+  --premium-glow:
+    0 0 0 1px rgba(34, 197, 94, 0.10),
+    0 14px 44px -10px rgba(34, 197, 94, 0.34);
+  --premium-ink: #1b4332;
+}
+
+/* ── 2. Typography — clearer hierarchy, darker headings ─────────────────── */
+h1, h2, h3 {
+  color: var(--premium-ink);
+  line-height: 1.18;
+  letter-spacing: -0.015em;
+}
+
+h4, h5, h6 {
+  color: hsl(158 38% 20%);
+  line-height: 1.3;
+}
+
+p {
+  line-height: 1.65;
+}
+
+::selection {
+  background: rgba(34, 197, 94, 0.22);
+  color: var(--premium-ink);
+}
+
+/* ── 3. Cards (shadcn <Card> + .glass-card) ─────────────────────────────── */
+.bg-card.text-card-foreground:not(.border-0):not(.border-none),
+.glass-card {
+  border-width: 2px;
+  border-color: var(--premium-border);
+  background-color: #ffffff;
+  box-shadow: var(--premium-shadow-card);
+  transition:
+    box-shadow 0.25s ease,
+    border-color 0.25s ease,
+    transform 0.25s ease;
+}
+
+/* Card radius: 24px, per the premium radius scale */
+.rounded-2xl.bg-card.text-card-foreground,
+.glass-card {
+  border-radius: 24px;
+}
+
+.bg-card.text-card-foreground:not(.border-0):not(.border-none):hover,
+.glass-card:hover {
+  border-color: var(--premium-border-strong);
+  box-shadow: var(--premium-shadow-hover);
+}
+
+/* Landing-page feature tiles (rounded-xl border bg-surface-2/60 backdrop-blur-md) */
+.bg-surface-2\/60.backdrop-blur-md {
+  border-width: 2px;
+  border-color: var(--premium-border);
+  background-color: rgba(255, 255, 255, 0.78);
+  box-shadow: var(--premium-shadow-card);
+  transition:
+    box-shadow 0.25s ease,
+    border-color 0.25s ease,
+    background-color 0.25s ease,
+    transform 0.25s ease;
+}
+
+.bg-surface-2\/60.backdrop-blur-md:hover {
+  border-color: var(--premium-border-strong);
+  background-color: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--premium-shadow-hover);
+}
+
+/* Gentle hover lift — motion-safe only, so nothing breaks for reduced-motion */
+@media (prefers-reduced-motion: no-preference) {
+  .bg-card.text-card-foreground:not(.border-0):not(.border-none):hover,
+  .glass-card:hover,
+  .bg-surface-2\/60.backdrop-blur-md:hover {
+    transform: translateY(-2px);
+  }
+}
+
+/* ── 4. Buttons ─────────────────────────────────────────────────────────── */
+/* Consistent 16px radius on shadcn pill buttons (Linear/Stripe style) */
+button.rounded-full.whitespace-nowrap,
+a.rounded-full.whitespace-nowrap {
+  border-radius: 16px;
+}
+
+/* Primary — crisp rim, inner highlight, stronger shadow, brighter hover */
+button.bg-brand-500,
+a.bg-brand-500 {
+  border: 2px solid rgba(27, 67, 50, 0.30);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 1px 2px rgba(27, 67, 50, 0.12),
+    0 8px 20px -8px rgba(34, 197, 94, 0.55);
+  transition: all 0.2s ease;
+}
+
+button.bg-brand-500:hover,
+a.bg-brand-500:hover {
+  background-color: #57a13c; /* brighter, not darker */
+  border-color: rgba(27, 67, 50, 0.38);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 2px 4px rgba(27, 67, 50, 0.14),
+    0 12px 28px -8px rgba(34, 197, 94, 0.62);
+}
+
+button.bg-brand-500:active,
+a.bg-brand-500:active {
+  transform: translateY(0) scale(0.985);
+}
+
+/* Secondary / outline — 2px emerald outline, green fill on hover */
+button.border-border.bg-card\/60,
+a.border-border.bg-card\/60 {
+  border-width: 2px;
+  border-color: rgba(34, 197, 94, 0.35);
+  background-color: rgba(255, 255, 255, 0.88);
+  color: var(--premium-ink);
+  box-shadow: 0 1px 2px rgba(27, 67, 50, 0.06), 0 6px 16px -8px rgba(27, 67, 50, 0.10);
+}
+
+button.border-border.bg-card\/60:hover,
+a.border-border.bg-card\/60:hover {
+  border-color: rgba(34, 197, 94, 0.60);
+  background-color: rgba(34, 197, 94, 0.10);
+  color: var(--premium-ink);
+}
+
+button.bg-secondary.text-secondary-foreground,
+a.bg-secondary.text-secondary-foreground {
+  border: 2px solid rgba(34, 197, 94, 0.22);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  button.bg-brand-500:hover,
+  a.bg-brand-500:hover,
+  button.border-border.bg-card\/60:hover,
+  a.border-border.bg-card\/60:hover {
+    transform: translateY(-1px);
+  }
+}
+
+/* ── 5. Inputs — 2px subtle border, softer premium focus ring ───────────── */
+.border-input {
+  border-width: 2px;
+  border-color: rgba(34, 197, 94, 0.22);
+  background-color: rgba(255, 255, 255, 0.92);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.border-input:hover {
+  border-color: rgba(34, 197, 94, 0.38);
+}
+
+.border-input:focus,
+.border-input:focus-visible,
+.border-input:focus-within {
+  border-color: rgba(34, 197, 94, 0.65);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.13);
+  outline: none;
+}
+
+/* ── 6. Navigation ──────────────────────────────────────────────────────── */
+/* Marketing site header — frosted white, hairline bottom border */
+header.fixed.border-b {
+  background-color: rgba(255, 255, 255, 0.85);
+  border-bottom-color: rgba(34, 197, 94, 0.16);
+  box-shadow: 0 8px 24px -20px rgba(27, 67, 50, 0.25);
+}
+
+/* App topbar — frosted white to match */
+header.border-b.bg-surface-1 {
+  background-color: rgba(255, 255, 255, 0.80);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom-color: rgba(34, 197, 94, 0.16);
+}
+
+/* App sidebar — near-white panel, greener hairline */
+nav.border-r.bg-surface-1 {
+  background-color: #fbfdf8;
+  border-right-color: rgba(34, 197, 94, 0.16);
+}
+
+/* Sidebar active item — brand tint + inset accent bar */
+.nav-item.active {
+  background-color: rgba(34, 197, 94, 0.12);
+  color: var(--premium-ink);
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 0 rgba(34, 197, 94, 0.85);
+}
+
+.nav-item {
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* ── 7. Hero image — premium border, large radius, soft glow ────────────── */
+img[src*="hero-brain"] {
+  border: 3px solid rgba(34, 197, 94, 0.35);
+  border-radius: 28px;
+  padding: 6px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.70), rgba(241, 248, 236, 0.45));
+  box-shadow:
+    0 1px 2px rgba(27, 67, 50, 0.06),
+    0 24px 60px -18px rgba(27, 67, 50, 0.20),
+    var(--premium-glow);
+}
+
+/* ── 8. Overlays: dialogs, popovers, dropdowns ──────────────────────────── */
+[role="dialog"].bg-card {
+  border-color: rgba(34, 197, 94, 0.28);
+  box-shadow:
+    0 0 0 1px rgba(34, 197, 94, 0.10),
+    0 24px 80px -24px rgba(27, 67, 50, 0.35);
+}
+
+.bg-popover {
+  border-color: var(--premium-border);
+  box-shadow: var(--premium-shadow-hover);
+}
+
+/* ── 9. Tables ──────────────────────────────────────────────────────────── */
+table thead th {
+  color: var(--premium-ink);
+  font-weight: 600;
+}
+
+table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+table tbody tr:hover {
+  background-color: rgba(34, 197, 94, 0.05);
+}
+
+/* ── 10. Small polish ───────────────────────────────────────────────────── */
+/* Greener scrollbar thumb */
+::-webkit-scrollbar-thumb {
+  background-color: rgba(34, 197, 94, 0.30);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(34, 197, 94, 0.45);
+}
+
+/* Slightly stronger link affordance for brand links */
+a.text-brand-600 {
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   EXTENSION PASS (2026-07-14) — remaining surfaces.
+   Same contract as above: add-only, hooks existing class combos, no markup,
+   logic, or component changes.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── 11. Landing sections — crisper separation & alternating tint ───────── */
+/* Alternating bands already use bg-surface-1; deepen the contrast slightly
+   and upgrade hairlines to a green-tinted border so sections read clearly. */
+section.border-t.border-border {
+  border-top-width: 1px;
+  border-top-color: rgba(34, 197, 94, 0.18);
+}
+
+section.border-t.bg-surface-1 {
+  background-color: hsl(96 32% 93%); /* very light tint, one step off canvas */
+}
+
+footer.border-t.border-border {
+  border-top-color: rgba(34, 197, 94, 0.18);
+  background-color: hsl(96 32% 93%);
+}
+
+/* ── 12. Landing tiles not yet covered ──────────────────────────────────── */
+/* "Works everywhere" logo tiles (border-border/60 bg-surface-1/50) */
+.border-border\/60.bg-surface-1\/50 {
+  border-width: 2px;
+  border-color: var(--premium-border);
+  background-color: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 1px 2px rgba(27, 67, 50, 0.04), 0 8px 20px -12px rgba(27, 67, 50, 0.10);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
+}
+
+.border-border\/60.bg-surface-1\/50:hover {
+  border-color: var(--premium-border-strong);
+  background-color: #ffffff;
+  box-shadow: var(--premium-shadow-card);
+}
+
+/* Landing pricing-teaser highlighted (Pro) tile — elevated + soft glow */
+.border-brand-500.bg-brand-500\/10 {
+  background-color: #ffffff;
+  border-width: 2px;
+  box-shadow:
+    0 2px 6px rgba(27, 67, 50, 0.07),
+    0 18px 40px -14px rgba(27, 67, 50, 0.18),
+    0 0 0 4px rgba(34, 197, 94, 0.10);
+}
+
+/* "How it works" numbered step circles — white core so numbers pop */
+.rounded-full.border-2.border-brand-500\/40 {
+  background-color: #ffffff;
+  color: hsl(142 60% 30%);
+  box-shadow: 0 1px 2px rgba(27, 67, 50, 0.06), 0 8px 18px -10px rgba(34, 197, 94, 0.45);
+}
+
+/* Hero eyebrow pill — brighter, crisper */
+.rounded-full.border-brand-500\/30.bg-brand-500\/10 {
+  background-color: rgba(255, 255, 255, 0.75);
+  border-color: rgba(34, 197, 94, 0.40);
+  color: hsl(142 60% 26%);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(27, 67, 50, 0.05), 0 6px 16px -10px rgba(34, 197, 94, 0.35);
+}
+
+/* ── 13. Muted text — raise contrast for accessibility (WCAG-friendlier) ── */
+.text-muted-foreground {
+  color: hsl(150 18% 32%);
+}
+
+/* ── 14. Badges ─────────────────────────────────────────────────────────── */
+.bg-brand-500\/20.text-brand-400 {
+  color: hsl(142 60% 26%);
+  border-color: rgba(34, 197, 94, 0.28);
+  font-weight: 600;
+}
+
+/* ── 15. Tabs — white active pill, clear inactive track ─────────────────── */
+[role="tablist"].bg-muted {
+  background-color: rgba(27, 67, 50, 0.06);
+  border: 1px solid rgba(34, 197, 94, 0.14);
+  border-radius: 14px;
+}
+
+[role="tab"] {
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+[role="tab"][data-state="active"] {
+  background-color: #ffffff;
+  color: var(--premium-ink);
+  font-weight: 600;
+  box-shadow:
+    0 1px 2px rgba(27, 67, 50, 0.08),
+    0 4px 10px -4px rgba(27, 67, 50, 0.12),
+    inset 0 0 0 1px rgba(34, 197, 94, 0.22);
+  border-radius: 11px;
+}
+
+/* ── 16. Empty states — softer premium panel ────────────────────────────── */
+.border-dashed.border-border {
+  border-width: 2px;
+  border-color: rgba(34, 197, 94, 0.28);
+  background-color: rgba(255, 255, 255, 0.55);
+  border-radius: 24px;
+}
+
+.border-dashed.border-border .bg-muted {
+  background-color: rgba(34, 197, 94, 0.10);
+}
+
+/* ── 17. Loading & skeletons ────────────────────────────────────────────── */
+/* Spinner — brand ring reads clearly on white cards */
+.animate-spin.rounded-full.border-t-brand-500 {
+  border-color: rgba(34, 197, 94, 0.18);
+  border-top-color: hsl(142 60% 34%);
+}
+
+.skeleton {
+  border-radius: 10px;
+}
+
+/* Skeleton cards inherit card polish but shouldn't lift on hover */
+.bg-card.text-card-foreground .skeleton {
+  background-color: rgba(27, 67, 50, 0.06);
+}
+
+/* ── 18. Error / success alert panels ───────────────────────────────────── */
+[role="alert"].border-brand-500\/30 {
+  background-color: rgba(255, 255, 255, 0.90);
+  border-width: 2px;
+  border-color: rgba(34, 197, 94, 0.35);
+  box-shadow: var(--premium-shadow-card);
+  border-radius: 16px;
+}
+
+/* ── 19. Auth pages — frosted header + card polish is inherited; add
+       stronger page framing for the centered auth card container ───────── */
+header.border-b.border-border.px-6 {
+  background-color: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom-color: rgba(34, 197, 94, 0.16);
+}
+
+/* ── 20. Hero CTA hierarchy — primary clearly dominant ──────────────────── */
+/* The primary CTA keeps its glow; outline CTAs get a quieter, whiter look so
+   the hierarchy is unmistakable (Apple/Stripe style). Selectors reuse the
+   existing shadcn outline combo already themed in §4. */
+button.bg-brand-500.shadow-lg,
+a.bg-brand-500.shadow-lg {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    0 2px 4px rgba(27, 67, 50, 0.14),
+    0 14px 34px -10px rgba(34, 197, 94, 0.60);
+}
+
+/* ── 21. Dropdowns / selects (Radix portals render with .bg-popover) ────── */
+[data-radix-popper-content-wrapper] .bg-popover,
+[role="listbox"].bg-popover,
+[role="menu"].bg-popover {
+  border-width: 2px;
+  border-color: var(--premium-border);
+  border-radius: 16px;
+  background-color: #ffffff;
+}
+
+[role="option"],
+[role="menuitem"] {
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+[role="option"][data-highlighted],
+[role="menuitem"][data-highlighted] {
+  background-color: rgba(34, 197, 94, 0.10);
+  color: var(--premium-ink);
+}
+
+/* ── 22. Accessibility — clearer keyboard focus everywhere ──────────────── */
+a:focus-visible,
+button:focus-visible {
+  outline: none;
+  /* box-shadow follows each element's own border-radius — no shape changes */
+  box-shadow:
+    0 0 0 2px #ffffff,
+    0 0 0 5px rgba(34, 197, 94, 0.55);
+}
+
+/* Don't double-ring inputs (they already have their own focus style in §5) */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.13);
+}
+
+/* ── 23. Motion hygiene — every hover transition in this overlay stays in
+       the 150–300ms band; disable lifts for reduced-motion users ────────── */
+@media (prefers-reduced-motion: reduce) {
+  .border-border\/60.bg-surface-1\/50,
+  [role="tab"],
+  [role="option"],
+  [role="menuitem"] {
+    transition: none;
+  }
+}

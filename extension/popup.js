@@ -23,6 +23,10 @@ function sendMsg(type, data = {}) {
           const m = res.error.match(/limit:(\d+)/);
           if (m) err.limit = +m[1];
         }
+        // Additive: any API call failing with a usage-limit error surfaces the
+        // key-limit modal (the health check is unauthenticated and never sees
+        // these, so detection must live here, at the single error funnel).
+        try { maybeShowKeyLimitModal(err); } catch (_) {}
         reject(err);
       } else {
         resolve(res.data);
@@ -108,9 +112,10 @@ async function refreshStatusDot() {
     await sendMsg("HEALTH_CHECK");
     dot.classList.remove("off");
     if (text) text.textContent = "Connected";
-  } catch (_) {
+  } catch (err) {
     dot.classList.add("off");
     if (text) text.textContent = "Offline";
+    maybeShowKeyLimitModal(err); // additive: key usage-limit error modal
   }
 }
 
@@ -734,7 +739,7 @@ function initConnectFlow() {
   btn.onclick = async () => {
     btn.disabled = true;
     btn.textContent = "Opening…";
-    status.textContent = "Sign in to your ContextOS account in the new tab.";
+    status.textContent = "Complete the connection in the ContextOS window.";
 
     const stored = await new Promise(r => chrome.storage.sync.get(["apiUrl", "frontendUrl"], r));
     let frontendBase = "https://contextos-eta.vercel.app";
@@ -752,20 +757,49 @@ function initConnectFlow() {
       } catch (_) {}
     }
 
-    // Open a small focused popup window — much better UX than a full tab
-    let authWin;
+    // Reuse an already-open connect tab/window instead of opening a duplicate.
+    // (The extension popup closes when the auth window takes focus, killing the
+    // poll below — so a leftover window plus a second click used to create two.)
+    let authWin = null;
     try {
-      authWin = await chrome.windows.create({
-        url: frontendBase + "/connect-extension",
-        type: "popup",
-        width: 460,
-        height: 660,
-        focused: true,
-      });
-    } catch (_) {
-      // Fallback: open as a normal tab if windows.create isn't available
-      authWin = await chrome.tabs.create({ url: frontendBase + "/connect-extension", active: true });
+      const existing = await chrome.tabs.query({ url: "*://*/connect-extension*" });
+      if (existing.length) {
+        const t = existing[0];
+        try { await chrome.windows.update(t.windowId, { focused: true }); } catch (_) {}
+        try { await chrome.tabs.update(t.id, { active: true }); } catch (_) {}
+        authWin = { id: t.windowId, tabId: t.id };
+        // Close any extra duplicates beyond the first
+        for (const dup of existing.slice(1)) {
+          try { await chrome.tabs.remove(dup.id); } catch (_) {}
+        }
+      }
+    } catch (_) {}
+
+    if (!authWin) {
+      // Open the connect flow as a small app-style popup window. Combined
+      // with the window.close() below, the user sees exactly ONE surface:
+      // the connect popup. background.js saves the key and closes it when
+      // the connection completes.
+      try {
+        authWin = await chrome.windows.create({
+          url: frontendBase + "/connect-extension",
+          type: "popup",
+          width: 460,
+          height: 660,
+          focused: true,
+        });
+      } catch (_) {
+        // Fallback: open as a normal tab if windows.create isn't available
+        authWin = await chrome.tabs.create({ url: frontendBase + "/connect-extension", active: true });
+      }
     }
+
+    // Close the extension popup now that the connect window is open — leaving
+    // it up makes the flow look like two surfaces for one connection. The
+    // background tabs.onUpdated watcher saves the key and closes the connect
+    // window on success, so nothing below is required for the happy path;
+    // the poll remains only as a fallback if window.close() is blocked.
+    setTimeout(() => { try { window.close(); } catch (_) {} }, 150);
 
     let waited = 0;
     const poll = setInterval(async () => {
@@ -833,6 +867,7 @@ async function init() {
   loadUserInfo();  // show user name in header
   loadMemories();  // pre-load memories so tab is instant
   loadPlanUsage(); // show plan usage in header + memories tab
+  initAccountChip(); // account bar: email · plan · team (additive)
 
   // Make footer app link work
   document.getElementById("footer-app-link").onclick = async (e) => {
@@ -843,3 +878,112 @@ async function init() {
 }
 
 init();
+
+// ── Account chip (additive) — connected email · plan · team indicator ────────
+// Slim bar under the header. Reuses GET_USER_INFO / GET_PLAN / TEAM_INFO and
+// the existing disconnect flow for logout — no new auth logic, no secrets
+// displayed (email + plan name only).
+async function initAccountChip() {
+  const bar = document.getElementById("acc-bar");
+  if (!bar) return;
+
+  let user;
+  try { user = await sendMsg("GET_USER_INFO"); } catch (_) { return; }
+  const email = user && user.email;
+  if (!email) return;
+
+  document.getElementById("acc-email").textContent = email;
+  document.getElementById("acc-menu-email").textContent = email;
+  const initial = ((user.name || email).trim()[0] || "?").toUpperCase();
+  document.getElementById("acc-avatar").textContent = initial;
+  bar.classList.add("show");
+
+  // Plan badge — best-effort, non-blocking
+  sendMsg("GET_PLAN").then((plan) => {
+    const raw = plan?.display_name || "Free";
+    const label = /plan/i.test(raw) ? raw : raw + " Plan";
+    const badge = document.getElementById("acc-plan-badge");
+    badge.textContent = label;
+    badge.style.display = "";
+    document.getElementById("acc-menu-plan").textContent = label;
+  }).catch(() => {});
+
+  // Team workspace indicator — only for active team members
+  sendMsg("TEAM_INFO").then((t) => {
+    if (!t?.hasTeam) return;
+    document.getElementById("acc-team-dot").style.display = "";
+    const line = document.getElementById("acc-menu-team");
+    line.textContent = "👥 " + (t.team?.name ? `${t.team.name} · team workspace` : "Team workspace access");
+    line.style.display = "";
+  }).catch(() => {});
+
+  // Dropdown open/close
+  const chip = document.getElementById("acc-chip");
+  const menu = document.getElementById("acc-menu");
+  chip.onclick = (e) => { e.stopPropagation(); menu.classList.toggle("show"); };
+  document.addEventListener("click", (e) => {
+    if (menu.classList.contains("show") && !bar.contains(e.target)) {
+      menu.classList.remove("show");
+    }
+  });
+
+  // Actions — all reuse existing helpers/flows
+  document.getElementById("acc-view-account").onclick = async () => {
+    chrome.tabs.create({ url: await getAppUrl("/profile") });
+  };
+  document.getElementById("acc-plan-details").onclick = async () => {
+    chrome.tabs.create({ url: await getAppUrl("/pricing") });
+  };
+  document.getElementById("acc-logout").onclick = () => {
+    menu.classList.remove("show");
+    // Same confirm + storage-clear flow as the Settings "Disconnect" button.
+    document.getElementById("disconnect-btn").click();
+  };
+}
+
+// ── API key limit modal (additive) ────────────────────────────────────────────
+// Shown when the extension can't connect because the API key's usage limit is
+// reached (LIMIT_REACHED / HTTP 429 from the backend). Premium error state —
+// not a system failure. "Delete API Key" clears the stored key (the connect
+// flow then issues a fresh one automatically); "Upgrade Plan" and "Manage API
+// Keys" open the web app via the existing getAppUrl helper.
+let _klShown = false;
+
+function maybeShowKeyLimitModal(err) {
+  try {
+    const m = (err && err.message) || "";
+    if (!/LIMIT_REACHED|API_ERROR 429/i.test(m)) return;
+    showKeyLimitModal();
+  } catch (_) {}
+}
+
+function showKeyLimitModal() {
+  const ov = document.getElementById("keylimit-overlay");
+  if (!ov || _klShown) return;
+  _klShown = true;
+  ov.classList.add("show");
+
+  const hide = () => { ov.classList.remove("show"); _klShown = false; };
+  document.getElementById("kl-close").onclick = hide;
+  ov.onclick = (e) => { if (e.target === ov) hide(); };
+
+  document.getElementById("kl-upgrade").onclick = async () => {
+    chrome.tabs.create({ url: await getAppUrl("/pricing") });
+  };
+  document.getElementById("kl-manage").onclick = async () => {
+    chrome.tabs.create({ url: await getAppUrl("/api-keys") });
+  };
+
+  document.getElementById("kl-delete").onclick = async () => {
+    const btn = document.getElementById("kl-delete");
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="kl-spin"></span>Removing API Key…';
+    // Brief pause so the loading state is visible, then clear the stored key.
+    await new Promise((r) => setTimeout(r, 700));
+    // apiUrl/frontendUrl are kept so reconnecting is one click — the connect
+    // flow (STORE_CLERK_TOKEN) issues a fresh API key automatically.
+    await new Promise((r) => chrome.storage.sync.remove(["apiKey"], r));
+    window.location.reload(); // popup re-inits → connect screen
+  };
+}

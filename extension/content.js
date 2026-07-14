@@ -393,7 +393,7 @@ function ctxIsOwnUI(el) {
   try {
     return !!(el.closest && el.closest(
       "#ctx-fab, #ctx-panel, #ctx-sidebar, #ctx-dialog, #ctx-suggest-dropdown, " +
-      "#ctx-refresh-banner, #ctx-status-toast, #ctx-suggestion-toast, #ctx-searching-pill"
+      "#ctx-selsave-pop, #ctx-refresh-banner, #ctx-status-toast, #ctx-suggestion-toast, #ctx-searching-pill"
     ));
   } catch (_) { return false; }
 }
@@ -759,6 +759,13 @@ function injectFAB(platform) {
         '<span class="ctx-ph-dot off" id="ctx-status-dot"></span>' +
         '<button class="ctx-ph-close" id="ctx-panel-close">×</button>' +
       '</div>' +
+      // Account row (additive) — connected email · plan badge · team indicator
+      '<div id="ctx-ph-account" style="display:none;align-items:center;gap:6px;padding:5px 14px;background:rgba(79,148,55,0.06);border-bottom:1px solid rgba(45,70,35,0.12);font-size:10.5px;line-height:1.3">' +
+        '<span style="flex-shrink:0">👤</span>' +
+        '<span id="ctx-ph-email" style="font-weight:600;color:rgba(28,46,29,0.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1"></span>' +
+        '<span id="ctx-ph-team" style="display:none;flex-shrink:0" title="Team workspace access">👥</span>' +
+        '<span id="ctx-ph-plan" style="display:none;flex-shrink:0;font-size:9px;font-weight:800;color:#2f6b34;background:rgba(79,148,55,0.14);border:1px solid rgba(79,148,55,0.3);border-radius:8px;padding:1px 6px;white-space:nowrap"></span>' +
+      '</div>' +
       // Tabs
       '<div class="ctx-tabs">' +
         '<button class="ctx-tab ctx-active" data-tab="save">💾 Save</button>' +
@@ -896,6 +903,7 @@ function injectFAB(platform) {
     // Load active tab data
     switchTab(_activeTab);
     refreshDot();
+    loadPanelAccount(); // account row: email · plan · team (additive)
     // Close on outside click
     setTimeout(function() {
       document.addEventListener("click", onOutsideClick);
@@ -1419,14 +1427,22 @@ function isLimitError(err) {
 
 function getWebAppUrl(path) {
   return new Promise(function(resolve) {
-    chrome.storage.sync.get(["apiUrl"], function(r) {
-      try {
-        var u    = new URL(r.apiUrl || "https://contextos-production-d82a.up.railway.app");
-        var port = u.port === "8000" ? "5173" : u.port;
-        resolve(u.protocol + "//" + u.hostname + (port ? ":" + port : "") + path);
-      } catch(_) {
-        resolve("https://contextos-eta.vercel.app" + path);
+    chrome.storage.sync.get(["apiUrl", "frontendUrl"], function(r) {
+      // Prefer the stored frontendUrl (saved during the connect flow) — in
+      // production apiUrl points at the BACKEND, where web-app paths like
+      // /pricing return a JSON 404.
+      if (r.frontendUrl) {
+        try { resolve(new URL(r.frontendUrl).origin + path); return; } catch (_) {}
       }
+      try {
+        var u = new URL(r.apiUrl || "https://contextos-production-d82a.up.railway.app");
+        if (u.hostname === "localhost" || u.hostname === "127.0.0.1") {
+          var port = u.port === "8000" ? "5173" : (u.port || "5173");
+          resolve(u.protocol + "//" + u.hostname + ":" + port + path);
+          return;
+        }
+      } catch (_) {}
+      resolve("https://contextos-eta.vercel.app" + path);
     });
   });
 }
@@ -2668,3 +2684,235 @@ try {
     });
   }
 } catch (_) {}
+
+// ═══ Selection Save Popup (additive module) ═══════════════════════════════════
+// Select text on any page → a small "Save to ContextOS" pill appears near the
+// selection. Team-plan members instead get "Save to Personal" / "Save to Team".
+// Reuses the existing SAVE_MEMORY / TEAM_INFO background messages and the
+// status-toast feedback. Nothing in the existing flows is modified — removing
+// this block disables the feature cleanly.
+(function () {
+  "use strict";
+  if (window.__ctxSelSaveInit) return;
+  window.__ctxSelSaveInit = true;
+
+  var POP_ID = "ctx-selsave-pop";
+  var MIN_LEN = 4;
+  var _selText = "";
+  var _saving = false;
+  var _teamCache = { at: 0, hasTeam: false };
+  var _debounce = null;
+
+  function selCSS() {
+    if (document.getElementById("ctx-selsave-css")) return;
+    var st = document.createElement("style");
+    st.id = "ctx-selsave-css";
+    st.textContent =
+      "#ctx-selsave-pop{position:fixed;inset:auto;margin:0;overflow:visible;z-index:2147483647;display:flex;align-items:center;gap:5px;" +
+      "padding:5px 6px;border-radius:12px;background:rgba(255,255,255,0.97);" +
+      "border:1.5px solid rgba(79,148,55,0.30);box-shadow:0 4px 18px rgba(45,80,35,0.16),0 1px 3px rgba(45,80,35,0.10);" +
+      "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;" +
+      "opacity:0;transform:translateY(4px);transition:opacity .15s ease,transform .15s ease;" +
+      "backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}" +
+      "#ctx-selsave-pop.ctx-ssp-show{opacity:1;transform:translateY(0)}" +
+      "#ctx-selsave-pop .ctx-ssp-logo{font-size:13px;line-height:1;margin-left:2px}" +
+      "#ctx-selsave-pop button{border:none;cursor:pointer;border-radius:8px;" +
+      "font-family:inherit;font-size:11.5px;font-weight:600;line-height:1;" +
+      "padding:6px 10px;white-space:nowrap;transition:background .15s ease,color .15s ease}" +
+      "#ctx-selsave-pop button:disabled{opacity:.6;cursor:default}" +
+      "#ctx-selsave-pop .ctx-ssp-primary{background:#4f9437;color:#fff}" +
+      "#ctx-selsave-pop .ctx-ssp-primary:hover:not(:disabled){background:#3d7a2b}" +
+      "#ctx-selsave-pop .ctx-ssp-secondary{background:rgba(79,148,55,0.10);color:#316023;" +
+      "border:1px solid rgba(79,148,55,0.35);padding:5px 9px}" +
+      "#ctx-selsave-pop .ctx-ssp-secondary:hover:not(:disabled){background:rgba(79,148,55,0.18)}";
+    document.documentElement.appendChild(st);
+  }
+
+  function hidePop() {
+    if (_saving) return;
+    var el = document.getElementById(POP_ID);
+    if (el) el.remove();
+  }
+
+  function getSelInfo() {
+    try {
+      var sel = window.getSelection();
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0) return null;
+      var text = sel.toString();
+      if (!text || text.trim().length < MIN_LEN) return null;
+      var anchor = sel.anchorNode;
+      var el = anchor && (anchor.nodeType === 1 ? anchor : anchor.parentElement);
+      if (el && (ctxIsOwnUI(el) || ctxIsEditableEl(el))) return null;
+      var rect = sel.getRangeAt(0).getBoundingClientRect();
+      if (!rect || (!rect.width && !rect.height)) return null;
+      return { text: text.trim().slice(0, MAX_CHARS), rect: rect };
+    } catch (_) { return null; }
+  }
+
+  function getTeam(cb) {
+    if (Date.now() - _teamCache.at < 5 * 60 * 1000) { cb(_teamCache.hasTeam); return; }
+    Promise.resolve(sendMessage("TEAM_INFO"))
+      .then(function (r) {
+        _teamCache = { at: Date.now(), hasTeam: !!(r && r.hasTeam) };
+        cb(_teamCache.hasTeam);
+      })
+      .catch(function () {
+        _teamCache = { at: Date.now(), hasTeam: false };
+        cb(false);
+      });
+  }
+
+  function place(el, rect) {
+    var m = 8;
+    var w = el.offsetWidth, h = el.offsetHeight;
+    var top = rect.top - h - m;
+    if (top < m) top = Math.min(rect.bottom + m, window.innerHeight - h - m);
+    var left = rect.left + rect.width / 2 - w / 2;
+    left = Math.max(m, Math.min(left, window.innerWidth - w - m));
+    el.style.top = Math.round(top) + "px";
+    el.style.left = Math.round(left) + "px";
+  }
+
+  function showPop(info) {
+    selCSS();
+    hidePop();
+    _selText = info.text;
+    getTeam(function (hasTeam) {
+      // Selection may have been cleared while we looked up the team.
+      var sel = window.getSelection();
+      if (!sel || sel.isCollapsed) return;
+      if (document.getElementById(POP_ID)) return;
+
+      var el = document.createElement("div");
+      el.id = POP_ID;
+      el.setAttribute("role", "toolbar");
+      el.setAttribute("aria-label", "Save selection to ContextOS");
+      el.innerHTML = '<span class="ctx-ssp-logo">🧠</span>' + (hasTeam
+        ? '<button type="button" class="ctx-ssp-primary" data-dest="personal">Save to Personal</button>' +
+          '<button type="button" class="ctx-ssp-secondary" data-dest="team">Save to Team</button>'
+        : '<button type="button" class="ctx-ssp-primary" data-dest="">Save to ContextOS</button>');
+
+      // Keep the page selection: don't let the popup steal focus / clear it.
+      el.addEventListener("mousedown", function (e) { e.preventDefault(); e.stopPropagation(); });
+
+      el.querySelectorAll("button").forEach(function (btn) {
+        btn.addEventListener("click", function (e) {
+          e.preventDefault(); e.stopPropagation();
+          doSave(btn.dataset.dest, el);
+        });
+      });
+
+      document.documentElement.appendChild(el);
+      // Browser top layer (Popover API): renders above ANY page element —
+      // modals, chat widgets, sticky menus, cookie banners — regardless of
+      // their z-index. Older browsers fall back to max z-index stacking.
+      try {
+        if (typeof el.showPopover === "function") {
+          el.setAttribute("popover", "manual");
+          el.showPopover();
+        }
+      } catch (_) {}
+      place(el, info.rect);
+      requestAnimationFrame(function () { el.classList.add("ctx-ssp-show"); });
+    });
+  }
+
+  async function doSave(dest, el) {
+    if (_saving) return;
+    _saving = true;
+    var btns = el.querySelectorAll("button");
+    btns.forEach(function (b) { b.disabled = true; });
+    var target = dest ? el.querySelector('[data-dest="' + dest + '"]') : btns[0];
+    if (target) target.textContent = "Saving…";
+    try { ctxStatusToast(navigator.onLine ? "saving" : "offline"); } catch (_) {}
+
+    var title = (document.title || location.hostname || "Selection").trim().slice(0, 120);
+    var payload = { title: title, content: _selText, tags: [] };
+    // Explicit destination only for team-plan users; the single-button flow
+    // sends no visibility field → identical to the existing quick-save path.
+    if (dest === "personal" || dest === "team") payload.visibility = dest;
+
+    try {
+      await sendMessage("SAVE_MEMORY", payload);
+      if (target) target.textContent = "Saved ✓";
+      try { ctxStatusToast("saved"); } catch (_) {}
+      setTimeout(function () { _saving = false; hidePop(); }, 900);
+    } catch (err) {
+      _saving = false;
+      try {
+        if (!navigator.onLine) ctxStatusToast("offline");
+        else if (isLimitError(err)) ctxStatusToast("limit");
+        else if (ctxIsAuthError(err)) ctxStatusToast("signin");
+        else ctxStatusToast("error");
+      } catch (_) {}
+      hidePop();
+    }
+  }
+
+  function maybeShow(e) {
+    if (e && e.target && e.target.closest && e.target.closest("#" + POP_ID)) return;
+    clearTimeout(_debounce);
+    _debounce = setTimeout(function () {
+      var info = getSelInfo();
+      if (info) showPop(info);
+      else hidePop();
+    }, 160);
+  }
+
+  document.addEventListener("mouseup", maybeShow, true);
+  document.addEventListener("keyup", function (e) {
+    if (e.key === "Escape") { hidePop(); return; }
+    if (e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowRight" ||
+        e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "Home" || e.key === "End")) {
+      maybeShow(e);
+    }
+  }, true);
+  document.addEventListener("selectionchange", function () {
+    try {
+      var sel = window.getSelection();
+      if (!sel || sel.isCollapsed) hidePop();
+    } catch (_) {}
+  });
+  window.addEventListener("scroll", hidePop, { passive: true, capture: true });
+  window.addEventListener("resize", hidePop, { passive: true });
+})();
+
+// ── Panel account row (additive) — email · plan badge · team indicator ───────
+// Populated lazily on first panel open. Reuses GET_USER_INFO / GET_PLAN /
+// TEAM_INFO; shows email + plan name only (no sensitive data). The FAB stays
+// fully draggable — this row lives inside the existing panel markup.
+var _panelAcctLoaded = false;
+function loadPanelAccount() {
+  if (_panelAcctLoaded) return;
+  var row = document.getElementById("ctx-ph-account");
+  if (!row) return;
+  _panelAcctLoaded = true;
+
+  Promise.resolve(sendMessage("GET_USER_INFO")).then(function (user) {
+    var email = user && user.email;
+    if (!email) return;
+    var emailEl = document.getElementById("ctx-ph-email");
+    if (emailEl) { emailEl.textContent = email; emailEl.title = email; }
+    row.style.display = "flex";
+
+    // Plan badge — "Free Plan" / "Student Plan" / "Team Plan" etc.
+    Promise.resolve(sendMessage("GET_PLAN")).then(function (plan) {
+      var raw = (plan && plan.display_name) || "Free";
+      var label = /plan/i.test(raw) ? raw : raw + " Plan";
+      var badge = document.getElementById("ctx-ph-plan");
+      if (badge) { badge.textContent = label; badge.style.display = ""; }
+    }).catch(function () {});
+
+    // Team workspace indicator — active team members only
+    Promise.resolve(sendMessage("TEAM_INFO")).then(function (t) {
+      if (!(t && t.hasTeam)) return;
+      var dot = document.getElementById("ctx-ph-team");
+      if (dot) {
+        dot.style.display = "";
+        if (t.team && t.team.name) dot.title = t.team.name + " · team workspace";
+      }
+    }).catch(function () {});
+  }).catch(function () {
+    _panelAcctLoaded = false; // allow retry on next open (e.g. was offline)
+  });
+}

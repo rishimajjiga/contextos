@@ -55,7 +55,7 @@ export function UpgradeModal({ resource, limit, plan, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 pt-[max(1rem,var(--safe-top))] pb-[max(1rem,var(--safe-bottom))]"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="bg-surface-1 border border-border rounded-2xl p-8 max-w-md w-full shadow-2xl">

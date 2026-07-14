@@ -307,7 +307,7 @@ function StudentModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4 pt-[max(1rem,var(--safe-top))] pb-[max(1rem,var(--safe-bottom))] bg-black/70 backdrop-blur-md">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -469,7 +469,7 @@ export function PricingPage() {
   ];
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden" style={{ background: "#eef3e7" }}>
+    <div className="relative min-h-dvh overflow-x-hidden" style={{ background: "#eef3e7" }}>
 
       {/* ── Aurora background ─────────────────────────────────────────────────── */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
@@ -519,7 +519,8 @@ export function PricingPage() {
       </div>
 
       {/* ── Page layout ───────────────────────────────────────────────────────── */}
-      <div className="relative max-w-6xl mx-auto px-4 pt-8 pb-24">
+      {/* pt clears the status bar — this page renders standalone (no Topbar) */}
+      <div className="relative max-w-6xl mx-auto px-4 pt-[calc(1rem+var(--safe-top))] pb-[max(6rem,calc(5rem+var(--safe-bottom)))]">
         {showStudentModal && <StudentModal onClose={() => setShowStudentModal(false)} />}
 
         {/* Back button */}
@@ -528,7 +529,7 @@ export function PricingPage() {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4 }}
           onClick={() => navigate("/dashboard")}
-          className="group flex items-center gap-1.5 text-sm text-foreground/50 hover:text-foreground/70 transition-all mb-12"
+          className="group flex items-center gap-1.5 text-sm text-foreground/50 hover:text-foreground/70 transition-all mb-4"
         >
           <svg className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -538,13 +539,13 @@ export function PricingPage() {
 
         {/* ── Hero ──────────────────────────────────────────────────────────────── */}
         <motion.div
-          className="text-center mb-16"
+          className="text-center mb-6"
           initial="hidden"
           animate="show"
           variants={heroContainer}
         >
           {/* Glowing brain icon */}
-          <motion.div variants={fadeInUp} className="flex justify-center mb-7">
+          <motion.div variants={fadeInUp} className="flex justify-center mb-3">
             <div className="relative">
               <div
                 className="absolute inset-0 rounded-2xl blur-2xl"
@@ -553,7 +554,7 @@ export function PricingPage() {
               <motion.div
                 animate={{ boxShadow: ["0 0 20px rgba(79,148,55,0.25)", "0 0 40px rgba(115,177,79,0.72)", "0 0 20px rgba(79,148,55,0.25)"] }}
                 transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                className="relative w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
+                className="relative w-11 h-11 rounded-xl flex items-center justify-center text-xl"
                 style={{
                   background: "linear-gradient(135deg, rgba(79,148,55,0.12), rgba(115,177,79,0.12))",
                   border: "1px solid rgba(79,148,55,0.25)",
@@ -565,13 +566,13 @@ export function PricingPage() {
             </div>
           </motion.div>
 
-          <motion.span variants={fadeInUp} className="text-[11px] font-bold tracking-[0.25em] uppercase text-green-700/70 block mb-4">
+          <motion.span variants={fadeInUp} className="text-[11px] font-bold tracking-[0.25em] uppercase text-green-700/70 block mb-2">
             Pricing
           </motion.span>
 
           <motion.h1
             variants={fadeInUp}
-            className="text-5xl md:text-6xl font-bold tracking-tight mb-5 leading-none"
+            className="text-4xl md:text-5xl font-bold tracking-tight mb-3 leading-none"
             style={{
               background: "linear-gradient(135deg, #1e3a16 10%, #4f9437 95%)",
               WebkitBackgroundClip: "text",
@@ -581,8 +582,8 @@ export function PricingPage() {
             ContextOS Plans
           </motion.h1>
 
-          <motion.p variants={fadeInUp} className="text-foreground/65 text-lg max-w-md mx-auto leading-relaxed">
-            Choose the perfect second brain for your workflow.
+          <motion.p variants={fadeInUp} className="text-foreground/65 text-base max-w-md mx-auto leading-relaxed">
+            Choose your perfect second brain.
           </motion.p>
         </motion.div>
 
@@ -592,8 +593,8 @@ export function PricingPage() {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.4 }}
-          className="flex justify-center mb-14"
+          transition={{ delay: 0.15, duration: 0.4 }}
+          className="flex justify-center mb-8"
         >
           <div
             className="relative flex items-center p-1 gap-1 rounded-2xl"
@@ -638,66 +639,6 @@ export function PricingPage() {
           </div>
         </motion.div>
 
-        {/* ── Usage section (only when signed in + plan loaded) ─────────────── */}
-        <AnimatePresence>
-          {isSignedIn && planInfo && (
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.4 }}
-              className="mb-16"
-            >
-              <p className="text-[11px] font-bold tracking-[0.2em] uppercase text-foreground/45 text-center mb-6">Your usage</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
-
-                {/* Memories */}
-                <div className="rounded-2xl p-4" style={{ background: "rgba(45,70,35,0.02)", border: "1px solid rgba(45,70,35,0.06)" }}>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-lg">🧠</span>
-                    <span className="text-[10px] text-foreground/50 font-semibold uppercase tracking-wide">Memories</span>
-                  </div>
-                  <p className="text-2xl font-bold text-foreground mb-2">
-                    {planInfo.usage.memories.toLocaleString()}
-                    <span className="text-foreground/45 text-sm font-normal ml-0.5">
-                      /{planInfo.limits.memories >= 10000 ? "∞" : planInfo.limits.memories}
-                    </span>
-                  </p>
-                  <UsageBar used={planInfo.usage.memories} limit={planInfo.limits.memories} color="#4f9437" />
-                </div>
-
-                {/* Projects */}
-                <div className="rounded-2xl p-4" style={{ background: "rgba(45,70,35,0.02)", border: "1px solid rgba(45,70,35,0.06)" }}>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-lg">📁</span>
-                    <span className="text-[10px] text-foreground/50 font-semibold uppercase tracking-wide">Projects</span>
-                  </div>
-                  <p className="text-2xl font-bold text-foreground mb-2">
-                    {planInfo.usage.projects}
-                    <span className="text-foreground/45 text-sm font-normal ml-0.5">
-                      /{planInfo.limits.projects >= 1000 ? "∞" : planInfo.limits.projects}
-                    </span>
-                  </p>
-                  <UsageBar used={planInfo.usage.projects} limit={planInfo.limits.projects} color="#6fae54" />
-                </div>
-
-                {/* Auto-inject */}
-                <div className="rounded-2xl p-4" style={{ background: "rgba(45,70,35,0.02)", border: "1px solid rgba(45,70,35,0.06)" }}>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-lg">⚡</span>
-                    <span className="text-[10px] text-foreground/50 font-semibold uppercase tracking-wide">Auto-inject</span>
-                  </div>
-                  <p className="text-2xl font-bold text-foreground mb-2">
-                    {planInfo.limits.daily_inject < 0 || planInfo.limits.daily_inject >= 10000 ? "∞" : planInfo.limits.daily_inject}
-                    <span className="text-foreground/45 text-sm font-normal ml-1">/day</span>
-                  </p>
-                  <div className="h-1.5 rounded-full w-full" style={{ background: "linear-gradient(90deg, rgba(250,204,21,0.3), rgba(234,179,8,0.3))" }} />
-                </div>
-
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* ── Pricing cards ──────────────────────────────────────────────────── */}
         <motion.div
@@ -886,8 +827,9 @@ export function PricingPage() {
                 transition={{ type: "spring", stiffness: 280, damping: 22 }}
                 className="relative rounded-3xl flex flex-col"
                 style={{
-                  background: "rgba(45,70,35,0.016)",
-                  border: isTeam ? "1px solid rgba(79,148,55,0.55)" : "1px solid rgba(45,70,35,0.07)",
+                  background: "#ffffff",
+                  border: isTeam ? "1px solid rgba(79,148,55,0.55)" : "1px solid rgba(45,70,35,0.14)",
+                  boxShadow: "0 2px 10px -3px rgba(45,80,35,0.08), 0 16px 40px -18px rgba(45,80,35,0.12)",
                 }}
               >
                 {body}
@@ -896,13 +838,74 @@ export function PricingPage() {
           })}
         </motion.div>
 
+        {/* ── Usage section (only when signed in + plan loaded) ─────────────── */}
+        <AnimatePresence>
+          {isSignedIn && planInfo && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.4 }}
+              className="mb-16"
+            >
+              <p className="text-[11px] font-bold tracking-[0.2em] uppercase text-foreground/45 text-center mb-6">Your usage</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
+
+                {/* Memories */}
+                <div className="rounded-2xl p-4" style={{ background: "#ffffff", border: "1px solid rgba(45,70,35,0.14)", boxShadow: "0 2px 10px -3px rgba(45,80,35,0.08)" }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-lg">🧠</span>
+                    <span className="text-[10px] text-foreground/50 font-semibold uppercase tracking-wide">Memories</span>
+                  </div>
+                  <p className="text-2xl font-bold text-foreground mb-2">
+                    {planInfo.usage.memories.toLocaleString()}
+                    <span className="text-foreground/45 text-sm font-normal ml-0.5">
+                      /{planInfo.limits.memories >= 10000 ? "∞" : planInfo.limits.memories}
+                    </span>
+                  </p>
+                  <UsageBar used={planInfo.usage.memories} limit={planInfo.limits.memories} color="#4f9437" />
+                </div>
+
+                {/* Projects */}
+                <div className="rounded-2xl p-4" style={{ background: "#ffffff", border: "1px solid rgba(45,70,35,0.14)", boxShadow: "0 2px 10px -3px rgba(45,80,35,0.08)" }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-lg">📁</span>
+                    <span className="text-[10px] text-foreground/50 font-semibold uppercase tracking-wide">Projects</span>
+                  </div>
+                  <p className="text-2xl font-bold text-foreground mb-2">
+                    {planInfo.usage.projects}
+                    <span className="text-foreground/45 text-sm font-normal ml-0.5">
+                      /{planInfo.limits.projects >= 1000 ? "∞" : planInfo.limits.projects}
+                    </span>
+                  </p>
+                  <UsageBar used={planInfo.usage.projects} limit={planInfo.limits.projects} color="#6fae54" />
+                </div>
+
+                {/* Auto-inject */}
+                <div className="rounded-2xl p-4" style={{ background: "#ffffff", border: "1px solid rgba(45,70,35,0.14)", boxShadow: "0 2px 10px -3px rgba(45,80,35,0.08)" }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-lg">⚡</span>
+                    <span className="text-[10px] text-foreground/50 font-semibold uppercase tracking-wide">Auto-inject</span>
+                  </div>
+                  <p className="text-2xl font-bold text-foreground mb-2">
+                    {planInfo.limits.daily_inject < 0 || planInfo.limits.daily_inject >= 10000 ? "∞" : planInfo.limits.daily_inject}
+                    <span className="text-foreground/45 text-sm font-normal ml-1">/day</span>
+                  </p>
+                  <div className="h-1.5 rounded-full w-full" style={{ background: "linear-gradient(90deg, rgba(250,204,21,0.3), rgba(234,179,8,0.3))" }} />
+                </div>
+
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* ── Student email note ─────────────────────────────────────────────── */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.55 }}
           className="max-w-2xl mx-auto mb-20 rounded-2xl p-5 flex items-start gap-4"
-          style={{ background: "rgba(115,177,79,0.04)", border: "1px solid rgba(115,177,79,0.1)" }}
+          style={{ background: "#f4faee", border: "1px solid rgba(115,177,79,0.3)" }}
         >
           <span className="text-2xl shrink-0 mt-0.5">🎓</span>
           <p className="text-sm leading-relaxed" style={{ color: "rgba(45,70,35,0.72)" }}>
@@ -927,13 +930,13 @@ export function PricingPage() {
               <div
                 key={i}
                 className="rounded-2xl overflow-hidden"
-                style={{ background: "rgba(45,70,35,0.018)", border: "1px solid rgba(45,70,35,0.06)" }}
+                style={{ background: "#ffffff", border: "1px solid rgba(45,70,35,0.14)", boxShadow: "0 2px 10px -3px rgba(45,80,35,0.08)" }}
               >
                 <button
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
                   className="w-full flex items-center justify-between px-5 py-4 text-left gap-3 group"
                 >
-                  <span className="text-sm font-semibold transition-colors" style={{ color: openFaq === i ? "#fff" : "rgba(45,70,35,0.9)" }}>
+                  <span className="text-sm font-semibold transition-colors" style={{ color: openFaq === i ? "#2f6b34" : "rgba(45,70,35,0.9)" }}>
                     {q}
                   </span>
                   <motion.span

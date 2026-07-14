@@ -92,6 +92,15 @@ chrome.tabs.onUpdated.addListener((_tabId, changeInfo, _tab) => {
 
   chrome.storage.sync.set(toSave, () => {
     console.log("[ContextOS] API key + URLs saved via tabs.onUpdated.", { apiUrl, frontendUrl });
+    // Close every /connect-extension tab (including duplicates) once the key
+    // is saved. The popup's own poll can't do this reliably — the popup closes
+    // as soon as the auth window takes focus. Small delay so the page's
+    // "Connected!" state is visible first.
+    setTimeout(() => {
+      chrome.tabs.query({ url: "*://*/connect-extension*" }, (tabs) => {
+        (tabs || []).forEach((t) => { try { chrome.tabs.remove(t.id); } catch (_) {} });
+      });
+    }, 1600);
   });
 });
 
@@ -618,6 +627,9 @@ async function handleMessage(msg) {
     // ── Cache invalidation (called by website-bridge when website saves) ───────
     case "INVALIDATE_CACHE": {
       cacheInvalidate("list:", "search:", "context:", "projects:");
+      // Stamp lastSave so the floating widget's memory panel (content.js
+      // storage listener) refreshes after website-side saves too.
+      await chrome.storage.local.set({ lastSave: Date.now() });
       return { ok: true };
     }
   }

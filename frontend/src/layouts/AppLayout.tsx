@@ -120,7 +120,7 @@ export function AppLayout() {
 
   return (
     <AuthProvider>
-      <div className="flex h-[100dvh] overflow-hidden bg-surface-0">
+      <div className="flex h-dvh overflow-hidden bg-surface-0">
         {mobileNavOpen && (
           <button
             type="button"
@@ -135,7 +135,7 @@ export function AppLayout() {
           <TrialEndedBanner />
           <BubbleExtensionPrompts />
           <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} />
-          <main className="flex-1 overflow-y-auto overflow-x-hidden overscroll-none touch-pan-y p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden overscroll-none touch-pan-y p-4 pb-safe-or-4 sm:p-6">
             <div className="mx-auto max-w-6xl animate-fade-in">
               <Outlet />
             </div>
