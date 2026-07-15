@@ -4,7 +4,6 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { CommandPalette } from "@/components/common/CommandPalette";
 import { BubbleExtensionPrompts } from "@/components/common/BubbleExtensionPrompts";
-import { FloatingBrainButton } from "@/components/common/FloatingBrainButton";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { usePlan } from "@/hooks/usePlan";
 import { apiClient } from "@/services/api";
@@ -142,7 +141,6 @@ export function AppLayout() {
           </main>
         </div>
       </div>
-      <FloatingBrainButton onOpen={() => setCmdOpen(true)} />
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
     </AuthProvider>
   );

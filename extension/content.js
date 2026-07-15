@@ -736,8 +736,25 @@ var _panelProjCache = null;
 var _openPanelFn = null;
 var _switchTabFn = null;
 
+// ContextOS's own app pages — the floating brain FAB is redundant there.
+// Everything else (sync-bridge, connect flow, message listeners) still runs.
+function ctxIsOwnApp() {
+  try {
+    var h = window.location.hostname;
+    var p = window.location.port;
+    if ((h === "localhost" || h === "127.0.0.1") && (p === "5173" || p === "5174")) return true;
+    return (
+      h === "app.contextos.dev" ||
+      h === "contextos-eta.vercel.app" ||
+      h === "usecontextos.com" ||
+      h === "www.usecontextos.com"
+    );
+  } catch (_) { return false; }
+}
+
 function injectFAB(platform) {
   _currentPlatform = platform;
+  if (ctxIsOwnApp()) return; // no floating brain on the ContextOS app itself
   if (document.getElementById("ctx-fab")) return;
   injectStyles();
 
