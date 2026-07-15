@@ -100,6 +100,16 @@ async def get_current_user_id(
         )
 
     token = credentials.credentials
+    # Unverified peek at the issuer claim only — used for diagnostics if verification
+    # fails below, never trusted for auth decisions. Cheap way to catch the "frontend
+    # publishable key and backend CLERK_JWKS_URL point at different Clerk instances"
+    # class of bug: the token's iss won't match our configured JWKS host.
+    token_iss = None
+    try:
+        token_iss = jwt.decode(token, options={"verify_signature": False}).get("iss")
+    except Exception:
+        pass
+
     try:
         jwks_client = _get_jwks_client()
         signing_key = jwks_client.get_signing_key_from_jwt(token)
@@ -117,18 +127,25 @@ async def get_current_user_id(
         return clerk_id
 
     except jwt.ExpiredSignatureError:
-        log.debug("auth_token_expired")
+        log.debug("auth_token_expired", token_iss=token_iss)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired")
     except HTTPException:
         raise
     except Exception as exc:
+        jwks_host = settings.clerk_jwks_url.split("/.well-known")[0] if settings.clerk_jwks_url else "NOT_SET"
+        instance_mismatch = bool(token_iss) and jwks_host != "NOT_SET" and token_iss.rstrip("/") != jwks_host.rstrip("/")
         log.warning(
             "auth_jwt_validation_failed",
             error=str(exc),
             error_type=type(exc).__name__,
-            jwks_url=settings.clerk_jwks_url or "NOT_SET",
+            jwks_host=jwks_host,
+            token_iss=token_iss,
+            likely_instance_mismatch=instance_mismatch,
         )
+        # Never echo the raw exception (or Clerk's own error body) to the client —
+        # only a generic, stable message. Full detail is in the server log above,
+        # tagged with this request's X-Request-Id (see LoggingMiddleware).
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid authentication credentials: {exc}",
+            detail="Invalid or expired authentication credentials",
         )

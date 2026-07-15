@@ -14,13 +14,43 @@ export function setTokenGetter(fn: () => Promise<string | null>) {
   getTokenFn = fn;
 }
 
+// Every request gets a short correlation id so a failure can be matched between
+// this browser console, the backend's structured logs (LoggingMiddleware echoes
+// X-Request-Id), and a bug report — without ever needing to show the user
+// (or log) the raw Clerk/axios error object itself.
+function newRequestId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID().slice(0, 8)
+    : Math.random().toString(36).slice(2, 10);
+}
+
 apiClient.interceptors.request.use(async (config) => {
+  const requestId = newRequestId();
+  config.headers["X-Request-Id"] = requestId;
+  (config as any).__requestId = requestId;
+
   if (getTokenFn) {
     try {
       const token = await getTokenFn();
-      if (token) config.headers.Authorization = `Bearer ${token}`;
-    } catch (err) {
-      console.error("[api] getToken() failed:", err);
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      } else {
+        console.warn(`[auth:${requestId}] getToken() returned no token for ${config.method?.toUpperCase()} ${config.url} — request will go out unauthenticated and the backend should reject it with a clean 401.`);
+      }
+    } catch (err: any) {
+      // This is the exact failure point for the Clerk dev-instance session-sync
+      // issue: Clerk's own getToken() call rejects with Clerk's raw API error
+      // (the {"errors":[...],"clerk_trace_id":...} shape). Log every field we
+      // can to the console for debugging, but never let that raw object reach
+      // a UI-facing catch block — the request just proceeds without a token,
+      // so the backend's 401 (handled below) is the single place the user-facing
+      // "please sign in again" flow triggers.
+      console.error(`[auth:${requestId}] Clerk getToken() failed for ${config.method?.toUpperCase()} ${config.url}`, {
+        clerkErrorCode: err?.errors?.[0]?.code,
+        clerkErrorMessage: err?.errors?.[0]?.message,
+        clerkTraceId: err?.clerk_trace_id ?? err?.clerkTraceId,
+        rawError: err,
+      });
     }
   }
   return config;
@@ -73,6 +103,21 @@ apiClient.interceptors.response.use(
     }
 
     const detail = error.response.data?.detail;
+
+    // 401 — the Clerk session token this request carried was missing/expired/invalid.
+    // Previously this fell through to the generic branch below and surfaced whatever
+    // raw detail the server (or an upstream service) returned, which is how a raw
+    // Clerk-shaped error body could end up on screen. Send the user back to sign-in
+    // with a clear message instead of showing them a bare error payload.
+    if (error.response.status === 401) {
+      console.error(`[auth:${cfg?.__requestId ?? "?"}] 401 from ${cfg?.method?.toUpperCase()} ${cfg?.url} — backend detail: ${JSON.stringify(detail)}`);
+      const e: any = new Error("Your session has expired. Please sign in again.");
+      e.code = "SESSION_EXPIRED";
+      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/sign-in")) {
+        window.location.href = "/sign-in";
+      }
+      return Promise.reject(e);
+    }
 
     if (error.response.status === 402) {
       if (detail?.code === "LIMIT_REACHED") {

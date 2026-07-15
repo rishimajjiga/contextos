@@ -3,6 +3,7 @@ app/main.py
 FastAPI application entry point.
 Registers middleware, routers, and lifecycle events.
 """
+import logging
 import structlog
 import sqlalchemy as sa
 from contextlib import asynccontextmanager
@@ -19,6 +20,26 @@ from app.config import settings
 from app.database import engine, Base
 from app.api.v1 import router as v1_router
 from app.middleware.logging import LoggingMiddleware
+
+# Without an explicit configure() call, structlog silently ignores
+# contextvars.bind_contextvars() (used by LoggingMiddleware to attach a
+# request_id) — merge_contextvars must be in the processor chain for that id
+# to actually reach the rendered log line. JSON in production (so Railway's
+# log search can filter by request_id), readable console output locally.
+structlog.configure(
+    processors=[
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.JSONRenderer() if settings.is_production else structlog.dev.ConsoleRenderer(),
+    ],
+    wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+    context_class=dict,
+    logger_factory=structlog.PrintLoggerFactory(),
+    cache_logger_on_first_use=True,
+)
 
 log = structlog.get_logger()
 

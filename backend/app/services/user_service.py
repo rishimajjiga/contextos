@@ -26,15 +26,18 @@ async def _fetch_clerk_user(clerk_id: str) -> dict:
             return resp.json()
         except httpx.HTTPStatusError as exc:
             from fastapi import HTTPException, status
-            if exc.response.status_code == 401:
+            if exc.response.status_code in (401, 403):
                 log.error(
-                    "clerk_api_invalid_secret_key",
+                    "clerk_api_unauthorized",
                     clerk_id=clerk_id,
-                    hint="Check CLERK_SECRET_KEY env var (sk_live_... or sk_test_...)",
+                    status_code=exc.response.status_code,
+                    clerk_response=exc.response.text,
+                    hint="CLERK_SECRET_KEY is invalid, revoked, or belongs to a different Clerk "
+                         "instance than the frontend's publishable key (e.g. test vs. live).",
                 )
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Server misconfiguration: invalid Clerk secret key. Check CLERK_SECRET_KEY env var.",
+                    detail="Server misconfiguration: Clerk rejected the backend's credentials. Check CLERK_SECRET_KEY env var.",
                 ) from exc
             log.warning("clerk_api_error_on_provision", clerk_id=clerk_id, status_code=exc.response.status_code)
             return {}

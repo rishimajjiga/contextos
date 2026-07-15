@@ -36,3 +36,10 @@ alembic/versions/*.py
 
 *.bak
 vite.config.ts.timestamp-*.mjs
+
+# Chrome extension build artifact
+extension.zip
+
+# Android app — not yet reviewed for what should be tracked (build/, .gradle/,
+# local.properties, debug APKs need proper exclusion first). Local-only for now.
+/android/

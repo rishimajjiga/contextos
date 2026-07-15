@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Routes, Route, Navigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
 
@@ -65,7 +65,24 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Mobile browsers/WebViews aggressively bfcache SPA pages: pressing Back can restore
+// a frozen snapshot of the app instead of re-running React, so a page that was
+// authenticated (or not) when it was left can show stale UI on return — e.g. landing
+// back on a signed-in-only screen after signing out, or vice versa. `pageshow` fires
+// on every visit including bfcache restores; `event.persisted` is true only for the
+// restore case, so this only forces a reload when the stale-state risk is real.
+function useBfcacheGuard() {
+  useEffect(() => {
+    function handlePageShow(event: PageTransitionEvent) {
+      if (event.persisted) window.location.reload();
+    }
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
+}
+
 export default function App() {
+  useBfcacheGuard();
   return (
     <Suspense fallback={<FullScreenLoader />}>
       <Routes>
