@@ -6,6 +6,7 @@ import structlog
 from fastapi import APIRouter
 
 from .endpoints.users import router as users_router
+from .endpoints.native_session import router as native_session_router
 from .endpoints.profile import router as profile_router
 from .endpoints.projects import router as projects_router
 from .endpoints.api_keys import router as api_keys_router
@@ -32,6 +33,7 @@ except Exception as _billing_err:
 router = APIRouter()
 
 router.include_router(users_router,         prefix="/users",         tags=["users"])
+router.include_router(native_session_router, prefix="/auth",         tags=["auth"])
 router.include_router(profile_router,       prefix="/profile",       tags=["profile"])
 router.include_router(projects_router,      prefix="/projects",      tags=["projects"])
 router.include_router(threads_router,       prefix="/projects",      tags=["threads"])

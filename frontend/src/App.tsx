@@ -1,8 +1,9 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Routes, Route, Navigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
 
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
+import { ErrorAlert } from "@/components/common/ErrorAlert";
 
 // LandingPage stays eager: it is the public entry / LCP-critical first paint,
 // so we avoid an extra chunk round-trip for first-time visitors.
@@ -24,6 +25,8 @@ const SearchPage           = lazy(() => import("@/pages/SearchPage").then(m => (
 const SettingsPage         = lazy(() => import("@/pages/SettingsPage").then(m => ({ default: m.SettingsPage })));
 const ApiKeysPage          = lazy(() => import("@/pages/ApiKeysPage").then(m => ({ default: m.ApiKeysPage })));
 const SignInPage           = lazy(() => import("@/pages/SignInPage").then(m => ({ default: m.SignInPage })));
+const NativeSignInPage     = lazy(() => import("@/pages/NativeSignInPage").then(m => ({ default: m.NativeSignInPage })));
+const NativeCallbackPage   = lazy(() => import("@/pages/NativeCallbackPage").then(m => ({ default: m.NativeCallbackPage })));
 const SignUpPage           = lazy(() => import("@/pages/SignUpPage").then(m => ({ default: m.SignUpPage })));
 const NotFoundPage         = lazy(() => import("@/pages/NotFoundPage").then(m => ({ default: m.NotFoundPage })));
 const ConnectExtensionPage = lazy(() => import("@/pages/ConnectExtensionPage").then(m => ({ default: m.ConnectExtensionPage })));
@@ -44,17 +47,57 @@ function FullScreenLoader() {
   );
 }
 
+// Clerk's `isLoaded` normally flips to true within a few hundred ms. It can hang
+// indefinitely, though, when Clerk's cross-origin session-sync handshake (its
+// dev-instance default domain, clerk.accounts.dev, talking to this app's own
+// origin via a third-party-cookie-dependent iframe) never resolves — a known
+// Clerk failure mode inside Android WebView, where third-party/cross-origin
+// storage is more restricted than in a full desktop/mobile browser. Without this
+// timeout, ProtectedRoute/PublicRoute would render <FullScreenLoader/> forever:
+// exactly the "black screen after login, works fine in browser" symptom.
+const AUTH_LOAD_TIMEOUT_MS = 8000;
+
+function useAuthLoadTimedOut(isLoaded: boolean): boolean {
+  const [timedOut, setTimedOut] = useState(false);
+  useEffect(() => {
+    if (isLoaded) return;
+    const timer = window.setTimeout(() => {
+      console.error(
+        `[auth] Clerk isLoaded did not resolve within ${AUTH_LOAD_TIMEOUT_MS}ms — likely a stuck cross-origin session-sync handshake with the Clerk dev instance.`
+      );
+      setTimedOut(true);
+    }, AUTH_LOAD_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [isLoaded]);
+  return timedOut;
+}
+
+function AuthLoadTimeoutScreen() {
+  return (
+    <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-surface-0 px-6">
+      <div className="w-full max-w-sm">
+        <ErrorAlert
+          message="Couldn't reach the sign-in server. Check your connection and try again."
+          onRetry={() => window.location.reload()}
+        />
+      </div>
+    </div>
+  );
+}
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isLoaded, isSignedIn } = useAuth();
-  if (!isLoaded) return <FullScreenLoader />;
+  const timedOut = useAuthLoadTimedOut(isLoaded);
+  if (!isLoaded) return timedOut ? <AuthLoadTimeoutScreen /> : <FullScreenLoader />;
   if (!isSignedIn) return <Navigate to="/sign-in" replace />;
   return <>{children}</>;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { isLoaded, isSignedIn } = useAuth();
+  const timedOut = useAuthLoadTimedOut(isLoaded);
   const [params] = useSearchParams();
-  if (!isLoaded) return <FullScreenLoader />;
+  if (!isLoaded) return timedOut ? <AuthLoadTimeoutScreen /> : <FullScreenLoader />;
   if (isSignedIn) {
     // Honour ?redirect_url= so invite links (/join/:token) resume after auth
     // instead of always bouncing to the dashboard.
@@ -105,6 +148,8 @@ export default function App() {
         </Route>
 
         <Route path="/connect-extension"  element={<ConnectExtensionPage />} />
+        <Route path="/native-sign-in"     element={<NativeSignInPage />} />
+        <Route path="/native-callback"    element={<NativeCallbackPage />} />
         <Route path="/pricing"            element={<PricingPage />} />
         <Route path="/plans"              element={<PricingPage />} />
         <Route path="/join/:token"        element={<JoinPage />} />
