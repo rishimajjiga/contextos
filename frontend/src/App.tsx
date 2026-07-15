@@ -4,6 +4,7 @@ import { useAuth } from "@clerk/clerk-react";
 
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { ErrorAlert } from "@/components/common/ErrorAlert";
+import { useNativeHandoff } from "@/hooks/useNativeHandoff";
 
 // LandingPage stays eager: it is the public entry / LCP-critical first paint,
 // so we avoid an extra chunk round-trip for first-time visitors.
@@ -126,6 +127,7 @@ function useBfcacheGuard() {
 
 export default function App() {
   useBfcacheGuard();
+  useNativeHandoff();
   return (
     <Suspense fallback={<FullScreenLoader />}>
       <Routes>
