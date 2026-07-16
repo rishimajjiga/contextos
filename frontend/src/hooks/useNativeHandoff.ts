@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useAuth } from "@clerk/clerk-react";
-import { request } from "@/services/api";
+import { apiClient } from "@/services/api";
 
 const FLAG_KEY = "ctxos_native_handoff";
 
@@ -33,7 +33,7 @@ export function markNativeHandoffPending() {
  * (WebView and the Custom Tab this ran in never share cookies).
  */
 export function useNativeHandoff() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useAuth();
   const firing = useRef(false);
 
   useEffect(() => {
@@ -56,12 +56,25 @@ export function useNativeHandoff() {
 
     (async () => {
       try {
-        const { ticket } = await request<{ ticket: string }>({ method: "POST", url: "/auth/native-ticket" });
-        window.location.href = `contextos://native-sign-in?ticket=${encodeURIComponent(ticket)}`;
-      } catch {
-        // Swallow — the user is still successfully signed in on the website;
-        // worst case they just don't get auto-returned to the app.
+        // apiClient's own interceptor only attaches a token once AuthProvider (see
+        // AppLayout.tsx) has mounted and called setTokenGetter — which never happens
+        // on a bare public route like /native-callback. This hook has to run on ANY
+        // route by design (see markNativeHandoffPending's doc comment), so it can't
+        // depend on that wiring: get the token straight from Clerk and attach it
+        // explicitly instead.
+        const token = await getToken();
+        if (!token) throw new Error("getToken() returned no token");
+        const { data } = await apiClient.post<{ ticket: string }>(
+          "/auth/native-ticket",
+          undefined,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        window.location.href = `contextos://native-sign-in?ticket=${encodeURIComponent(data.ticket)}`;
+      } catch (err) {
+        // The user is still successfully signed in on the website regardless —
+        // worst case they don't get auto-returned and have to switch back manually.
+        console.error("[native-handoff] failed to hand session back to the app", err);
       }
     })();
-  }, [isLoaded, isSignedIn]);
+  }, [isLoaded, isSignedIn, getToken]);
 }
