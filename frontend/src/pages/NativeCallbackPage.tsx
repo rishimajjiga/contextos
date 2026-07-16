@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
+import { readNativeHandoffStatus } from "@/hooks/useNativeHandoff";
 
 // Generous — the hand-off (mint ticket, redirect to contextos://) normally
 // completes in well under a second once isSignedIn flips true. This only
@@ -20,9 +21,13 @@ const STUCK_TIMEOUT_MS = 6000;
  */
 export function NativeCallbackPage() {
   const [stuck, setStuck] = useState(false);
+  const [status, setStatusText] = useState<string | null>(null);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setStuck(true), STUCK_TIMEOUT_MS);
+    const timer = window.setTimeout(() => {
+      setStuck(true);
+      setStatusText(readNativeHandoffStatus());
+    }, STUCK_TIMEOUT_MS);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -31,9 +36,19 @@ export function NativeCallbackPage() {
       <LoadingSpinner size="lg" />
       <p className="text-sm text-muted-foreground">Signed in — returning to the app…</p>
       {stuck && (
-        <p className="max-w-xs text-xs text-muted-foreground/80">
-          Taking longer than expected. You can close this tab and try signing in again from the app.
-        </p>
+        <>
+          <p className="max-w-xs text-xs text-muted-foreground/80">
+            Taking longer than expected. You can close this tab and try signing in again from the app.
+          </p>
+          {/* Temporary, while diagnosing the handoff — no console access into this
+              Custom Tab from outside it, so this is the only way to see what
+              actually happened. Remove once the handoff is confirmed reliable. */}
+          {status && (
+            <p className="max-w-xs break-words rounded-md bg-black/5 px-3 py-2 font-mono text-[10px] text-muted-foreground/70">
+              debug: {status}
+            </p>
+          )}
+        </>
       )}
     </div>
   );

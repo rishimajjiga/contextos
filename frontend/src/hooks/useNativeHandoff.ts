@@ -3,6 +3,29 @@ import { useAuth } from "@clerk/clerk-react";
 import { apiClient } from "@/services/api";
 
 const FLAG_KEY = "ctxos_native_handoff";
+const STATUS_KEY = "ctxos_native_handoff_status";
+
+/**
+ * There's no way to see this Custom Tab's console output from outside it — no
+ * USB debugging, no remote inspect, nothing. Writing status here (readable by
+ * NativeCallbackPage's stuck-fallback UI) is the only way to get any
+ * visibility into what actually happened.
+ */
+function setStatus(status: string) {
+  try {
+    sessionStorage.setItem(STATUS_KEY, status);
+  } catch {
+    // Nothing more to do if storage itself is unavailable.
+  }
+}
+
+export function readNativeHandoffStatus(): string | null {
+  try {
+    return sessionStorage.getItem(STATUS_KEY);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Call once, as soon as a sign-in flow that was opened by the Android app
@@ -21,6 +44,7 @@ export function markNativeHandoffPending() {
     // Storage unavailable (private mode, etc.) — the app just won't auto-return;
     // the user is still signed in on the website either way.
   }
+  setStatus("pending:marked before leaving for Google");
 }
 
 /**
@@ -37,7 +61,12 @@ export function useNativeHandoff() {
   const firing = useRef(false);
 
   useEffect(() => {
-    if (!isLoaded || !isSignedIn || firing.current) return;
+    if (!isLoaded) return;
+    if (!isSignedIn) {
+      setStatus(`not-signed-in:isLoaded=${isLoaded} isSignedIn=${isSignedIn}`);
+      return;
+    }
+    if (firing.current) return;
 
     let pending = false;
     try {
@@ -45,7 +74,10 @@ export function useNativeHandoff() {
     } catch {
       pending = false;
     }
-    if (!pending) return;
+    if (!pending) {
+      setStatus("skipped:no pending flag found (markNativeHandoffPending never ran, or storage lost it)");
+      return;
+    }
 
     firing.current = true;
     try {
@@ -53,6 +85,7 @@ export function useNativeHandoff() {
     } catch {
       // Non-fatal — firing.current already guards against a repeat this session.
     }
+    setStatus("started:isSignedIn is true, flag found, requesting token");
 
     (async () => {
       try {
@@ -63,16 +96,23 @@ export function useNativeHandoff() {
         // depend on that wiring: get the token straight from Clerk and attach it
         // explicitly instead.
         const token = await getToken();
-        if (!token) throw new Error("getToken() returned no token");
+        if (!token) throw new Error("getToken() returned no token (Clerk returned null/empty)");
+        setStatus("got-token:calling /auth/native-ticket");
         const { data } = await apiClient.post<{ ticket: string }>(
           "/auth/native-ticket",
           undefined,
           { headers: { Authorization: `Bearer ${token}` } },
         );
+        setStatus("got-ticket:redirecting to contextos://");
         window.location.href = `contextos://native-sign-in?ticket=${encodeURIComponent(data.ticket)}`;
-      } catch (err) {
+        setStatus("redirected:contextos:// navigation issued");
+      } catch (err: any) {
         // The user is still successfully signed in on the website regardless —
         // worst case they don't get auto-returned and have to switch back manually.
+        const detail = err?.response
+          ? `HTTP ${err.response.status}: ${JSON.stringify(err.response.data)}`
+          : err?.message || String(err);
+        setStatus(`error:${detail}`);
         console.error("[native-handoff] failed to hand session back to the app", err);
       }
     })();
