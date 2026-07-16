@@ -1,7 +1,5 @@
-import { useEffect } from "react";
 import { SignIn } from "@clerk/clerk-react";
 import { useSearchParams } from "react-router-dom";
-import { markNativeHandoffPending } from "@/hooks/useNativeHandoff";
 
 export function SignInPage() {
   // Honour ?redirect_url= so invite links (/join/:token) resume after sign-in.
@@ -11,15 +9,10 @@ export function SignInPage() {
   const signUpUrl = redirect !== "/dashboard"
     ? `/sign-up?redirect_url=${encodeURIComponent(redirect)}`
     : "/sign-up";
-
-  // The Android app opens this exact URL (redirect_url=/native-callback) to restart
-  // the whole sign-in flow inside a Custom Tab — see AppWebViewClient.kt. Marking the
-  // handoff here, before the user ever reaches Google, means it survives regardless of
-  // where Clerk actually lands them afterward (forceRedirectUrl below is not reliably
-  // honored across the full Google -> Clerk -> app redirect chain in practice).
-  useEffect(() => {
-    if (redirect === "/native-callback") markNativeHandoffPending();
-  }, [redirect]);
+  // Native app handoff (redirect_url=/native-callback, from AppWebViewClient.kt) is
+  // marked in PublicRoute, not here — this component's body never renders at all
+  // when the browser already has a valid Clerk session, which the marking has to
+  // survive. See PublicRoute in App.tsx.
 
   return (
     <div className="flex flex-col items-center">

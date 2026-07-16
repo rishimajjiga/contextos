@@ -4,7 +4,7 @@ import { useAuth } from "@clerk/clerk-react";
 
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { ErrorAlert } from "@/components/common/ErrorAlert";
-import { useNativeHandoff } from "@/hooks/useNativeHandoff";
+import { useNativeHandoff, markNativeHandoffPending } from "@/hooks/useNativeHandoff";
 
 // LandingPage stays eager: it is the public entry / LCP-critical first paint,
 // so we avoid an extra chunk round-trip for first-time visitors.
@@ -98,6 +98,17 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   const { isLoaded, isSignedIn } = useAuth();
   const timedOut = useAuthLoadTimedOut(isLoaded);
   const [params] = useSearchParams();
+
+  // Must run unconditionally, before the isSignedIn branch below can bail out
+  // to <Navigate> — if the Custom Tab this loaded in already has a valid Clerk
+  // session from earlier testing (Chrome persists cookies across launches,
+  // unlike the app's own WebView), SignInPage's body never renders at all, so
+  // marking the handoff there (its previous location) silently never ran.
+  useEffect(() => {
+    const raw = params.get("redirect_url") || "";
+    if (raw === "/native-callback") markNativeHandoffPending();
+  }, [params]);
+
   if (!isLoaded) return timedOut ? <AuthLoadTimeoutScreen /> : <FullScreenLoader />;
   if (isSignedIn) {
     // Honour ?redirect_url= so invite links (/join/:token) resume after auth
