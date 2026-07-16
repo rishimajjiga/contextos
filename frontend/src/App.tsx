@@ -28,6 +28,7 @@ const ApiKeysPage          = lazy(() => import("@/pages/ApiKeysPage").then(m => 
 const SignInPage           = lazy(() => import("@/pages/SignInPage").then(m => ({ default: m.SignInPage })));
 const NativeSignInPage     = lazy(() => import("@/pages/NativeSignInPage").then(m => ({ default: m.NativeSignInPage })));
 const NativeCallbackPage   = lazy(() => import("@/pages/NativeCallbackPage").then(m => ({ default: m.NativeCallbackPage })));
+const NativeOAuthCallbackPage = lazy(() => import("@/pages/NativeOAuthCallbackPage").then(m => ({ default: m.NativeOAuthCallbackPage })));
 const SignUpPage           = lazy(() => import("@/pages/SignUpPage").then(m => ({ default: m.SignUpPage })));
 const NotFoundPage         = lazy(() => import("@/pages/NotFoundPage").then(m => ({ default: m.NotFoundPage })));
 const ConnectExtensionPage = lazy(() => import("@/pages/ConnectExtensionPage").then(m => ({ default: m.ConnectExtensionPage })));
@@ -163,6 +164,7 @@ export default function App() {
         <Route path="/connect-extension"  element={<ConnectExtensionPage />} />
         <Route path="/native-sign-in"     element={<NativeSignInPage />} />
         <Route path="/native-callback"    element={<NativeCallbackPage />} />
+        <Route path="/native-oauth-callback" element={<NativeOAuthCallbackPage />} />
         <Route path="/pricing"            element={<PricingPage />} />
         <Route path="/plans"              element={<PricingPage />} />
         <Route path="/join/:token"        element={<JoinPage />} />
