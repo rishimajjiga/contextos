@@ -3,7 +3,6 @@ import { Link, Outlet } from "react-router-dom";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { CommandPalette } from "@/components/common/CommandPalette";
-import { ProductTour } from "@/components/common/ProductTour";
 import { BubbleExtensionPrompts } from "@/components/common/BubbleExtensionPrompts";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { usePlan } from "@/hooks/usePlan";
@@ -143,7 +142,6 @@ export function AppLayout() {
         </div>
       </div>
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
-      <ProductTour />
     </AuthProvider>
   );
 }

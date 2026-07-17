@@ -241,7 +241,6 @@ export function DashboardPage() {
 
       {/* Usage metrics */}
       <motion.div
-        data-tour="usage"
         className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4 mb-6 sm:mb-8"
         initial="hidden"
         animate="show"

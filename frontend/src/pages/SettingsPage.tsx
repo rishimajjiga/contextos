@@ -2,9 +2,8 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
 import { toast } from "sonner";
-import { Download, Sparkles } from "lucide-react";
+import { Download } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
-import { startProductTour } from "@/components/common/ProductTour";
 import { PlanBadge } from "@/components/common/PlanBadge";
 import { markBubbleDismissedThisSession } from "@/components/common/BubbleExtensionPrompts";
 import { useBubbleExtension } from "@/hooks/useBubbleExtension";
@@ -193,29 +192,6 @@ export function SettingsPage() {
 
       {/* Floating Brain Extension (native app only) */}
       <BubbleExtensionSettings />
-
-      {/* Product tour — replay the first-time walkthrough */}
-      <Card data-tour="settings-tour">
-        <CardHeader><CardTitle>Product tour</CardTitle></CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-foreground">Take the tour again</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Replay the guided walkthrough of Memories, Search, Projects, and more.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => { navigate("/dashboard"); startProductTour(); }}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-card/60 px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-brand-500/10"
-            >
-              <Sparkles className="h-3.5 w-3.5 text-brand-500" />
-              Restart tour
-            </button>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Plan & billing */}
       {plan && (
