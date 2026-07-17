@@ -10,6 +10,7 @@ import {
   ArrowRight, Brain, FolderKanban, Users, Cpu, Zap, Key, MessageSquare,
   FileText, Globe, Code2, Chrome, Github, Search, MousePointerClick,
   Sparkles, FolderOpen, RefreshCw, ChevronDown, CloudOff, Shuffle, Tag,
+  Monitor, Smartphone, Lightbulb,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SiteHeader } from "@/components/layout/SiteHeader";
@@ -27,33 +28,39 @@ const FEATURES = [
 ];
 
 const PROBLEMS = [
-  { icon: CloudOff, title: "AI forgets context", desc: "Every new chat starts from zero. You re-explain who you are and what you're building, again and again." },
-  { icon: Shuffle, title: "Prompts disappear", desc: "Your best prompts and answers are buried in old conversations you'll never find." },
-  { icon: FolderOpen, title: "Research gets scattered", desc: "Docs, articles, snippets, and ideas end up spread across ten tabs and five apps." },
+  { icon: Lightbulb, title: "Good ideas get lost", desc: "You find something valuable — an idea, a link, a paragraph — and by tomorrow it's gone." },
+  { icon: Shuffle, title: "Notes end up everywhere", desc: "Screenshots, chat threads, bookmarks, sticky notes — your important stuff is scattered across ten places." },
+  { icon: CloudOff, title: "You can never find it again", desc: "You know you saved it somewhere. You just can't remember where. So you search, give up, and start over." },
 ];
 
 const SOLUTION_STEPS = [
-  { icon: MousePointerClick, title: "Save", desc: "Capture prompts, chats, highlights, and ideas from any website with one click." },
-  { icon: FolderKanban, title: "Organize", desc: "Everything lands in one searchable library — projects, tags, and collections keep it tidy." },
-  { icon: RefreshCw, title: "Reuse", desc: "Inject your context into ChatGPT, Claude, Gemini, and Cursor. No more copy-pasting." },
+  { icon: MousePointerClick, title: "Save", desc: "Select anything on any website. Right-click. Save to ContextOS. That's it." },
+  { icon: FolderKanban, title: "Organize", desc: "Everything is stored automatically in one searchable place — projects, folders, tags, and collections." },
+  { icon: RefreshCw, title: "Reuse", desc: "Find anything in seconds and use it anywhere — websites, AI tools, desktop, and mobile." },
 ];
 
 const HOW_STEPS = [
-  { n: "01", icon: Globe, title: "Browse", desc: "Work anywhere on the web, like you already do." },
-  { n: "02", icon: MousePointerClick, title: "Save Context", desc: "Highlight and save with the extension — right-click or one tap." },
-  { n: "03", icon: RefreshCw, title: "Everything Synced", desc: "Your library is instantly available on every device." },
-  { n: "04", icon: Search, title: "Search Instantly", desc: "Find any memory in seconds and drop it into any AI tool." },
+  { n: "01", icon: Globe, title: "Browse", desc: "Read, research, and work anywhere on the web — like you already do." },
+  { n: "02", icon: MousePointerClick, title: "Save Context", desc: "Spot something worth keeping? Select it, right-click, save." },
+  { n: "03", icon: RefreshCw, title: "Everything Synced", desc: "Your saves follow you — every browser, desktop, and mobile." },
+  { n: "04", icon: Search, title: "Search Instantly", desc: "Type a few words and find exactly what you saved, in seconds." },
 ];
 
 const BENEFITS = [
-  { emoji: "🧠", title: "Never lose prompts", desc: "Every prompt and answer, saved for good." },
-  { emoji: "⚡", title: "Faster AI work", desc: "Skip the re-explaining. Start with full context." },
-  { emoji: "📚", title: "Organized knowledge", desc: "One tidy library instead of scattered tabs." },
-  { emoji: "🔍", title: "Instant search", desc: "Find anything you've saved in seconds." },
-  { emoji: "🌍", title: "Works everywhere", desc: "Any website, any AI tool, any device." },
+  { emoji: "🧠", title: "Never lose ideas", desc: "Anything worth keeping, kept for good." },
+  { emoji: "🔍", title: "Find anything instantly", desc: "A quick search beats digging through tabs." },
+  { emoji: "📚", title: "Everything in one place", desc: "One tidy library instead of ten scattered apps." },
+  { emoji: "🌍", title: "Works everywhere", desc: "Every browser, desktop, and mobile." },
+  { emoji: "⚡", title: "Supercharge your AI", desc: "Reuse your saves in ChatGPT, Claude, and more." },
 ];
 
 const WORKS_WITH = [
+  { icon: Chrome, label: "Chrome" },
+  { icon: Globe, label: "Edge" },
+  { icon: Globe, label: "Brave" },
+  { icon: Globe, label: "Opera" },
+  { icon: Monitor, label: "Desktop" },
+  { icon: Smartphone, label: "Mobile" },
   { icon: MessageSquare, label: "ChatGPT" },
   { icon: Brain, label: "Claude" },
   { icon: Sparkles, label: "Gemini" },
@@ -61,10 +68,6 @@ const WORKS_WITH = [
   { icon: Search, label: "Perplexity" },
   { icon: FileText, label: "Google Docs" },
   { icon: Github, label: "GitHub" },
-  { icon: Chrome, label: "Chrome" },
-  { icon: Globe, label: "Edge" },
-  { icon: Globe, label: "Brave" },
-  { icon: Globe, label: "Opera" },
   { icon: Code2, label: "Stack Overflow" },
 ];
 
@@ -76,11 +79,12 @@ const PLANS = [
 ];
 
 const FAQS = [
-  { q: "What is ContextOS?", a: "ContextOS is a second brain for your browser. Save prompts, chats, ideas, and research from any website into one searchable library, then reuse that context in your favorite AI tools." },
-  { q: "How does the Chrome extension work?", a: "Highlight text on any page, then right-click or use the floating button to save it to ContextOS. Your saved context syncs to your library automatically." },
-  { q: "Which AI tools does it work with?", a: "ContextOS injects your profile and project context into ChatGPT, Claude, Gemini, Cursor, and more. It also ships an MCP server for Claude Desktop and any MCP-compatible client, plus API keys for custom workflows." },
+  { q: "What is ContextOS?", a: "ContextOS is your personal second brain. Whenever you find something important on any website, select it, right-click, and save it. Everything goes into one searchable place you can reach from any browser, desktop, or mobile." },
+  { q: "What can I save?", a: "Anything you can select: ideas, notes, links, articles, research, code snippets, AI chats, prompts, email templates, usernames, project details — any text on any website." },
+  { q: "How do I save something?", a: "Select the text, right-click, and choose Save to ContextOS. You can also use the floating button on any page. Either way, it's saved and searchable in seconds." },
+  { q: "Where can I use my saved information?", a: "Everywhere. Your saves sync across Chrome, Edge, Brave, and Opera, plus desktop and mobile. They also plug into AI tools like ChatGPT, Claude, Gemini, and Cursor whenever you want them there." },
   { q: "Is ContextOS free?", a: "Yes — the Free plan is free forever. Upgrade to Student, Pro, or Team when you need more." },
-  { q: "Can I use it with my team?", a: "Yes. The Team plan gives your whole team a shared knowledge base, so everyone works from the same context and new members onboard faster." },
+  { q: "Can I use it with my team?", a: "Yes. The Team plan gives everyone one shared place for important information, so knowledge stays with the team and new members get up to speed faster." },
 ];
 
 // ── Motion presets ───────────────────────────────────────────────────────────
@@ -350,10 +354,10 @@ function BrowserMockup() {
 // ── Dashboard mockup (decorative) ────────────────────────────────────────────
 function DashboardMockup() {
   const memoryCards = [
-    { title: "System-design prompt", tags: ["prompts", "work"] },
-    { title: "Claude answer — RAG setup", tags: ["ai", "research"] },
-    { title: "Pricing-page copy ideas", tags: ["ideas"] },
-    { title: "Auth flow notes", tags: ["work", "code"] },
+    { title: "Article — deep work tips", tags: ["reading", "ideas"] },
+    { title: "Code snippet — auth flow", tags: ["work", "code"] },
+    { title: "ChatGPT answer — trip plan", tags: ["ai", "travel"] },
+    { title: "Email template — outreach", tags: ["templates"] },
   ];
   return (
     <div className="mx-auto w-full max-w-4xl overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-[0_2px_8px_rgba(30,41,59,0.05),0_28px_70px_-24px_rgba(30,41,59,0.20)]">
@@ -470,26 +474,40 @@ export function LandingPage() {
               className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#2F9E44]/25 bg-white px-4 py-1.5 text-xs font-semibold text-[#2F9E44] shadow-[0_1px_2px_rgba(30,41,59,0.05)]"
             >
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#37B24D]" />
-              ContextOS — your second brain for the browser
+              ContextOS — your personal second brain
             </motion.div>
 
             <motion.h1
               variants={fadeUp}
               className="text-balance text-[44px] font-bold leading-[1.06] tracking-tight text-[#1E293B] sm:text-[64px]"
             >
-              Your AI never{" "}
+              Save{" "}
               <span className="relative whitespace-nowrap text-[#2F9E44]">
-                forgets
+                anything
                 <svg className="absolute -bottom-1.5 left-0 w-full" viewBox="0 0 120 8" fill="none" preserveAspectRatio="none">
                   <path d="M2 6 C30 2, 60 2, 118 5" stroke="#69DB7C" strokeWidth="3" strokeLinecap="round" />
                 </svg>
-              </span>{" "}
-              again.
+              </span>
+              . Find it instantly.
             </motion.h1>
 
             <motion.p variants={fadeUp} className="mt-6 text-lg leading-relaxed text-[#64748B] sm:text-xl">
-              Save prompts, chats, ideas and research from any website into one searchable second brain — then reuse it in ChatGPT, Claude, Gemini, and Cursor.
+              Ideas, notes, links, research, code snippets — save anything important from any website in one click, and find it later on any browser, desktop, or mobile.
             </motion.p>
+
+            {/* the whole product in one line */}
+            <motion.div
+              variants={fadeUp}
+              className="mt-6 inline-flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm font-medium text-[#1E293B] shadow-[0_1px_3px_rgba(30,41,59,0.05)] lg:justify-start"
+            >
+              <span className="rounded-md bg-[#37B24D]/20 px-2 py-0.5">Select text</span>
+              <ArrowRight className="h-3.5 w-3.5 text-[#64748B]" />
+              <span className="inline-flex items-center gap-1.5">
+                <MousePointerClick className="h-4 w-4 text-[#2F9E44]" /> Right-click
+              </span>
+              <ArrowRight className="h-3.5 w-3.5 text-[#64748B]" />
+              <span className="font-semibold text-[#2F9E44]">Save to ContextOS</span>
+            </motion.div>
 
             <motion.div variants={fadeUp} className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
               <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
@@ -517,8 +535,8 @@ export function LandingPage() {
 
             <motion.div variants={fadeUp} className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-[#64748B] lg:justify-start">
               <span>✓ Free to start</span>
-              <span>✓ Works on any website</span>
-              <span>✓ No credit card</span>
+              <span>✓ Save from any website</span>
+              <span>✓ Works on desktop &amp; mobile</span>
             </motion.div>
           </motion.div>
 
@@ -564,8 +582,8 @@ export function LandingPage() {
         <div className="mx-auto max-w-5xl">
           <SectionHeading
             eyebrow="The problem"
-            title="Your best thinking keeps vanishing"
-            sub="AI tools are powerful — but they start every conversation with amnesia."
+            title="Important things keep slipping away"
+            sub="The internet is full of things worth keeping — and no good place to keep them."
           />
           <motion.div initial="hidden" whileInView="show" viewport={inView} variants={stagger} className="grid gap-5 md:grid-cols-3">
             {PROBLEMS.map(({ icon: Icon, title, desc }) => (
@@ -593,7 +611,7 @@ export function LandingPage() {
           <SectionHeading
             eyebrow="The solution"
             title="One second brain. Three steps."
-            sub="ContextOS turns scattered context into a library your AI tools can actually use."
+            sub="ContextOS gives everything you save one home — and makes it findable in seconds."
           />
           <motion.div initial="hidden" whileInView="show" viewport={inView} variants={stagger} className="relative grid gap-10 md:grid-cols-3 md:gap-6">
             {/* connecting line */}
@@ -618,7 +636,7 @@ export function LandingPage() {
           <SectionHeading
             eyebrow="Features"
             title="Everything you know. Organized."
-            sub="Everything you need to give any AI tool instant context about who you are and what you're building."
+            sub="A home for what matters — and, when you want it, a direct line into your favorite AI tools."
           />
           <motion.div initial="hidden" whileInView="show" viewport={inView} variants={stagger} className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map(({ icon: Icon, title, desc }) => (
@@ -649,13 +667,13 @@ export function LandingPage() {
                 Browser extension
               </motion.p>
               <motion.h2 variants={fadeUp} className="mb-4 text-3xl font-bold tracking-tight text-[#1E293B] sm:text-[42px] sm:leading-[1.15]">
-                Capture anything, from any page
+                See it. Select it. Saved.
               </motion.h2>
               <motion.p variants={fadeUp} className="mb-7 text-lg leading-relaxed text-[#64748B]">
-                Highlight text and save it with a right-click or the floating button. AI pages, docs, articles — one-click capture, everywhere.
+                Articles, ideas, code snippets, email templates, login notes, AI chats — if you can select it, you can save it. From any page, in one click.
               </motion.p>
               <motion.ul variants={fadeUp} className="mb-8 space-y-3 text-base text-[#1E293B]">
-                {["Right-click → Save to ContextOS", "Floating capture button on every page", "Save context from AI pages in one click"].map((t) => (
+                {["Select text → Right-click → Save to ContextOS", "Floating save button on every page", "Works on articles, docs, AI chats — any website"].map((t) => (
                   <li key={t} className="flex items-center gap-3">
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#37B24D]/15 text-[10px] font-bold text-[#2F9E44]">✓</span>
                     {t}
@@ -688,7 +706,7 @@ export function LandingPage() {
           <SectionHeading
             eyebrow="Your library"
             title="A calm home for everything you save"
-            sub="Folders, memory cards, tags, collections, and instant search — beautifully organized."
+            sub="Folders, tags, collections, and instant search — everything you've saved, beautifully organized and available on desktop and mobile."
           />
           <motion.div
             initial={{ opacity: 0, y: 28 }}
@@ -704,7 +722,7 @@ export function LandingPage() {
       {/* ── How it works ─────────────────────────────────────────────────── */}
       <section className="border-t border-[#E5E7EB] bg-white px-6 py-20 sm:py-28">
         <div className="mx-auto max-w-6xl">
-          <SectionHeading eyebrow="How it works" title="From browsing to remembering" sub="Four steps. Zero friction." />
+          <SectionHeading eyebrow="How it works" title="From browsing to remembering" sub="Save in one click. Find in one search." />
           <motion.div initial="hidden" whileInView="show" viewport={inView} variants={stagger} className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
             {HOW_STEPS.map(({ n, icon: Icon, title, desc }, i) => (
               <motion.div key={n} variants={fadeUp} className="relative text-center lg:text-left">
@@ -726,7 +744,7 @@ export function LandingPage() {
       {/* ── Benefits ─────────────────────────────────────────────────────── */}
       <section className="px-6 py-20 sm:py-28">
         <div className="mx-auto max-w-6xl">
-          <SectionHeading eyebrow="Why ContextOS" title="Less friction. More flow." />
+          <SectionHeading eyebrow="Why ContextOS" title="Remember everything. Effortlessly." />
           <motion.div initial="hidden" whileInView="show" viewport={inView} variants={stagger} className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             {BENEFITS.map(({ emoji, title, desc }) => (
               <motion.div
@@ -802,10 +820,10 @@ export function LandingPage() {
         />
         <motion.div className="relative mx-auto max-w-xl" initial="hidden" whileInView="show" viewport={inView} variants={stagger}>
           <motion.h2 variants={fadeUp} className="mb-4 text-3xl font-bold tracking-tight text-[#1E293B] sm:text-[42px] sm:leading-[1.15]">
-            Stop starting over.
+            Never lose important information again.
           </motion.h2>
           <motion.p variants={fadeUp} className="mb-9 text-lg leading-relaxed text-[#64748B]">
-            Build your second brain today. Free to start, no credit card required.
+            Start your second brain today. Free to start, no credit card required.
           </motion.p>
           <motion.div variants={fadeUp} className="flex flex-col items-center justify-center gap-3 sm:flex-row">
             <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
@@ -835,7 +853,7 @@ export function LandingPage() {
               <span className="text-lg font-bold text-[#1E293B]">ContextOS</span>
             </div>
             <p className="max-w-xs text-sm leading-relaxed text-[#64748B]">
-              Remember everything. Continue anywhere. Your second brain for the entire browser.
+              Your personal second brain. Save anything from any website, find it instantly, use it anywhere.
             </p>
           </div>
           <div>
