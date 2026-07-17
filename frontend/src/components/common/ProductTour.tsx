@@ -228,7 +228,8 @@ export function ProductTour() {
   let cardStyle: React.CSSProperties;
   const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
   if (isMobileSheet) {
-    cardStyle = { left: 16, right: 16, bottom: 16 };
+    // Bottom sheet, kept above Android gesture nav / iOS home indicator.
+    cardStyle = { left: 16, right: 16, bottom: "calc(16px + env(safe-area-inset-bottom, 0px))" };
   } else if (rect) {
     const gap = PAD + 12;
     const estH = 280; // safe card-height estimate for clamping
