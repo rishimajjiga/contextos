@@ -28,7 +28,7 @@ export function Sidebar({ mobileOpen, onMobileClose, onClose }: SidebarProps) {
 
   return (
     <>
-      <nav className="hidden md:flex h-full w-56 shrink-0 flex-col bg-surface-1 border-r border-border">
+      <nav data-tour="sidebar" className="hidden md:flex h-full w-56 shrink-0 flex-col bg-surface-1 border-r border-border">
         <SidebarContent pathname={pathname} onClose={close} />
       </nav>
       {mobileOpen && (
