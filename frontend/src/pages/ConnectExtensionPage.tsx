@@ -89,13 +89,13 @@ export function ConnectExtensionPage() {
   const wrap: React.CSSProperties = {
     minHeight: "100dvh", display: "flex", alignItems: "center",
     justifyContent: "center", padding: "1.5rem",
-    background: "hsl(96 33% 95%)",
+    background: "#FAFCFB",
   };
   const card: React.CSSProperties = {
-    background: "hsl(96 50% 99%)", border: "1px solid hsl(102 24% 83%)",
+    background: "#FFFFFF", border: "1px solid #E5E7EB",
     borderRadius: "1.25rem", padding: "2.5rem 2rem",
     maxWidth: "420px", width: "100%", textAlign: "center",
-    boxShadow: "0 2px 10px -3px rgba(45,80,35,0.08), 0 16px 40px -18px rgba(45,80,35,0.16)",
+    boxShadow: "0 2px 10px -3px rgba(30,41,59,0.08), 0 16px 40px -18px rgba(30,41,59,0.16)",
   };
 
   return (
@@ -115,12 +115,12 @@ export function ConnectExtensionPage() {
             afterSignInUrl="/connect-extension"
             appearance={{
               variables: {
-                colorPrimary: "#4f9437",
-                colorBackground: "hsl(96 50% 99%)",
-                colorInputBackground: "hsl(100 33% 97%)",
-                colorText: "hsl(130 28% 13%)",
-                colorTextSecondary: "hsl(125 14% 38%)",
-                colorInputText: "hsl(130 28% 13%)",
+                colorPrimary: "#2F9E44",
+                colorBackground: "#FFFFFF",
+                colorInputBackground: "#FAFCFB",
+                colorText: "#1E293B",
+                colorTextSecondary: "#64748B",
+                colorInputText: "#1E293B",
                 borderRadius: "0.75rem",
               },
             }}
@@ -168,7 +168,7 @@ export function ConnectExtensionPage() {
                 disabled={removing}
                 style={{
                   flex: 1.2, padding: "0.65rem 0.5rem",
-                  background: "linear-gradient(135deg,#4f9437,#5fa83f)", color: "#fff",
+                  background: "linear-gradient(135deg,#2F9E44,#37B24D)", color: "#fff",
                   border: "none", borderRadius: "0.75rem",
                   cursor: removing ? "default" : "pointer",
                   fontWeight: 700, fontSize: "0.8rem", opacity: removing ? 0.75 : 1,
@@ -179,8 +179,8 @@ export function ConnectExtensionPage() {
               <button
                 onClick={() => window.open("/pricing", "_blank")}
                 style={{
-                  flex: 1, padding: "0.65rem 0.5rem", background: "#fff", color: "#2f6b34",
-                  border: "1.5px solid rgba(79,148,55,0.4)", borderRadius: "0.75rem",
+                  flex: 1, padding: "0.65rem 0.5rem", background: "#fff", color: "#1E7A34",
+                  border: "1.5px solid rgba(47,158,68,0.4)", borderRadius: "0.75rem",
                   cursor: "pointer", fontWeight: 700, fontSize: "0.8rem",
                 }}
               >
@@ -201,7 +201,7 @@ export function ConnectExtensionPage() {
             <button
               onClick={() => { didConnect.current = false; setStage("connecting"); connectExtension(); }}
               style={{
-                padding: "0.6rem 1.25rem", background: "#4f9437", color: "#fff",
+                padding: "0.6rem 1.25rem", background: "#2F9E44", color: "#fff",
                 border: "none", borderRadius: "999px", cursor: "pointer", fontWeight: 700,
               }}
             >

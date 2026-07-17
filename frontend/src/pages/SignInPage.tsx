@@ -79,15 +79,15 @@ export function SignInPage() {
         signUpUrl={signUpUrl}
         appearance={{
           variables: {
-            colorPrimary: "#4f9437",
-            colorBackground: "hsl(96 50% 99%)",
-            colorInputBackground: "hsl(100 33% 97%)",
-            colorText: "hsl(130 28% 13%)",
-            colorTextSecondary: "hsl(125 14% 38%)",
+            colorPrimary: "#2F9E44",
+            colorBackground: "#FFFFFF",
+            colorInputBackground: "#FAFCFB",
+            colorText: "#1E293B",
+            colorTextSecondary: "#64748B",
             // colorNeutral drives the social-button background — light sage value
             // keeps the Google button on-theme with the rest of the page.
-            colorNeutral: "hsl(102 20% 90%)",
-            colorInputText: "hsl(130 28% 13%)",
+            colorNeutral: "#E5E7EB",
+            colorInputText: "#1E293B",
             borderRadius: "0.75rem",
             fontFamily: "inherit",
           },

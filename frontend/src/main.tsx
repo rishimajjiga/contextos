@@ -31,9 +31,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           closeButton
           toastOptions={{
             style: {
-              background: "hsl(96 50% 99%)",
-              border: "1px solid hsl(102 24% 83%)",
-              color: "hsl(130 28% 13%)",
+              background: "#FFFFFF",
+              border: "1px solid #E5E7EB",
+              color: "#1E293B",
             },
           }}
         />

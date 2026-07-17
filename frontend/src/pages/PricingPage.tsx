@@ -315,14 +315,14 @@ function StudentModal({ onClose }: { onClose: () => void }) {
         transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
         className="relative w-full max-w-md"
       >
-        <div className="relative rounded-2xl p-px" style={{ background: "linear-gradient(135deg, #4f9437, #73b14f)" }}>
+        <div className="relative rounded-2xl p-px" style={{ background: "linear-gradient(135deg, #2F9E44, #37B24D)" }}>
           <div className="rounded-[calc(1rem-1px)] p-6" style={{ background: "#ffffff" }}>
             {/* Modal header */}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div
                   className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                  style={{ background: "linear-gradient(135deg, rgba(79,148,55,0.55), rgba(115,177,79,0.55))", border: "1px solid rgba(79,148,55,0.3)" }}
+                  style={{ background: "linear-gradient(135deg, rgba(47,158,68,0.55), rgba(55,178,77,0.55))", border: "1px solid rgba(47,158,68,0.3)" }}
                 >
                   🎓
                 </div>
@@ -348,17 +348,17 @@ function StudentModal({ onClose }: { onClose: () => void }) {
 
 // ── Usage progress bar ────────────────────────────────────────────────────────
 
-function UsageBar({ used, limit, color = "#4f9437" }: { used: number; limit: number; color?: string }) {
+function UsageBar({ used, limit, color = "#2F9E44" }: { used: number; limit: number; color?: string }) {
   const unlimited = limit <= 0 || limit >= 10000;
   const pct = unlimited ? 100 : Math.min(100, (used / limit) * 100);
   return (
-    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(45,70,35,0.05)" }}>
+    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(30,41,59,0.05)" }}>
       {unlimited ? (
         <div className="h-full w-full rounded-full" style={{ background: "linear-gradient(90deg, rgba(52,211,153,0.4), rgba(16,185,129,0.4))" }} />
       ) : (
         <motion.div
           className="h-full rounded-full"
-          style={{ background: `linear-gradient(90deg, ${color}, rgba(115,177,79,0.6))` }}
+          style={{ background: `linear-gradient(90deg, ${color}, rgba(55,178,77,0.6))` }}
           initial={{ width: 0 }}
           animate={{ width: `${pct}%` }}
           transition={{ duration: 1.2, delay: 0.4, ease: [0.23, 1, 0.32, 1] }}
@@ -469,44 +469,44 @@ export function PricingPage() {
   ];
 
   return (
-    <div className="relative min-h-dvh overflow-x-hidden" style={{ background: "#eef3e7" }}>
+    <div className="relative min-h-dvh overflow-x-hidden" style={{ background: "#FAFCFB" }}>
 
       {/* ── Aurora background ─────────────────────────────────────────────────── */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         {/* Primary glow — top center */}
         <div
           className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[600px] opacity-25 rounded-full"
-          style={{ background: "radial-gradient(ellipse at center, #4f9437 0%, #73b14f 40%, transparent 70%)", filter: "blur(60px)" }}
+          style={{ background: "radial-gradient(ellipse at center, #2F9E44 0%, #37B24D 40%, transparent 70%)", filter: "blur(60px)" }}
         />
         {/* Left emerald blob */}
         <div
           className="absolute top-1/3 -left-48 w-[640px] h-[640px] opacity-12 rounded-full"
-          style={{ background: "radial-gradient(circle, #73b14f 0%, transparent 70%)", filter: "blur(80px)" }}
+          style={{ background: "radial-gradient(circle, #37B24D 0%, transparent 70%)", filter: "blur(80px)" }}
         />
         {/* Right green blob */}
         <div
           className="absolute bottom-1/4 -right-48 w-[560px] h-[560px] opacity-10 rounded-full"
-          style={{ background: "radial-gradient(circle, #4f9437 0%, transparent 70%)", filter: "blur(80px)" }}
+          style={{ background: "radial-gradient(circle, #2F9E44 0%, transparent 70%)", filter: "blur(80px)" }}
         />
         {/* Dot grid */}
         <div
           className="absolute inset-0 opacity-[0.4]"
           style={{
-            backgroundImage: "radial-gradient(rgba(45,70,35,0.06) 1px, transparent 1px)",
+            backgroundImage: "radial-gradient(rgba(30,41,59,0.06) 1px, transparent 1px)",
             backgroundSize: "32px 32px",
           }}
         />
         {/* Floating particles */}
         {[
-          { size: 4,  x: "14%",  y: "18%",  color: "#6fae54", dur: 3.8, delay: 0 },
-          { size: 6,  x: "82%",  y: "12%",  color: "#6fae54", dur: 4.2, delay: 1.4 },
-          { size: 3,  x: "67%",  y: "38%",  color: "#73b14f", dur: 3.5, delay: 0.8 },
-          { size: 5,  x: "8%",   y: "62%",  color: "#73b14f", dur: 4.6, delay: 2.1 },
-          { size: 4,  x: "91%",  y: "52%",  color: "#4f9437", dur: 3.9, delay: 0.4 },
-          { size: 3,  x: "44%",  y: "82%",  color: "#4f9437", dur: 4.1, delay: 1.2 },
-          { size: 6,  x: "28%",  y: "32%",  color: "#6fae54", dur: 4.8, delay: 1.9 },
-          { size: 4,  x: "72%",  y: "68%",  color: "#73b14f", dur: 3.6, delay: 0.6 },
-          { size: 3,  x: "55%",  y: "22%",  color: "#4f9437", dur: 4.3, delay: 2.5 },
+          { size: 4,  x: "14%",  y: "18%",  color: "#37B24D", dur: 3.8, delay: 0 },
+          { size: 6,  x: "82%",  y: "12%",  color: "#37B24D", dur: 4.2, delay: 1.4 },
+          { size: 3,  x: "67%",  y: "38%",  color: "#37B24D", dur: 3.5, delay: 0.8 },
+          { size: 5,  x: "8%",   y: "62%",  color: "#37B24D", dur: 4.6, delay: 2.1 },
+          { size: 4,  x: "91%",  y: "52%",  color: "#2F9E44", dur: 3.9, delay: 0.4 },
+          { size: 3,  x: "44%",  y: "82%",  color: "#2F9E44", dur: 4.1, delay: 1.2 },
+          { size: 6,  x: "28%",  y: "32%",  color: "#37B24D", dur: 4.8, delay: 1.9 },
+          { size: 4,  x: "72%",  y: "68%",  color: "#37B24D", dur: 3.6, delay: 0.6 },
+          { size: 3,  x: "55%",  y: "22%",  color: "#2F9E44", dur: 4.3, delay: 2.5 },
         ].map((p, i) => (
           <motion.div
             key={i}
@@ -549,15 +549,15 @@ export function PricingPage() {
             <div className="relative">
               <div
                 className="absolute inset-0 rounded-2xl blur-2xl"
-                style={{ background: "linear-gradient(135deg, #4f9437, #73b14f)", opacity: 0.5 }}
+                style={{ background: "linear-gradient(135deg, #2F9E44, #37B24D)", opacity: 0.5 }}
               />
               <motion.div
-                animate={{ boxShadow: ["0 0 20px rgba(79,148,55,0.25)", "0 0 40px rgba(115,177,79,0.72)", "0 0 20px rgba(79,148,55,0.25)"] }}
+                animate={{ boxShadow: ["0 0 20px rgba(47,158,68,0.25)", "0 0 40px rgba(55,178,77,0.72)", "0 0 20px rgba(47,158,68,0.25)"] }}
                 transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
                 className="relative w-11 h-11 rounded-xl flex items-center justify-center text-xl"
                 style={{
-                  background: "linear-gradient(135deg, rgba(79,148,55,0.12), rgba(115,177,79,0.12))",
-                  border: "1px solid rgba(79,148,55,0.25)",
+                  background: "linear-gradient(135deg, rgba(47,158,68,0.12), rgba(55,178,77,0.12))",
+                  border: "1px solid rgba(47,158,68,0.25)",
                   backdropFilter: "blur(12px)",
                 }}
               >
@@ -574,7 +574,7 @@ export function PricingPage() {
             variants={fadeInUp}
             className="text-4xl md:text-5xl font-bold tracking-tight mb-3 leading-none"
             style={{
-              background: "linear-gradient(135deg, #1e3a16 10%, #4f9437 95%)",
+              background: "linear-gradient(135deg, #14532D 10%, #2F9E44 95%)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
             }}
@@ -598,7 +598,7 @@ export function PricingPage() {
         >
           <div
             className="relative flex items-center p-1 gap-1 rounded-2xl"
-            style={{ background: "rgba(45,70,35,0.03)", border: "1px solid rgba(45,70,35,0.07)" }}
+            style={{ background: "rgba(30,41,59,0.03)", border: "1px solid rgba(30,41,59,0.07)" }}
           >
             {(["monthly", "annual"] as const).map((mode) => (
               <button
@@ -606,7 +606,7 @@ export function PricingPage() {
                 onClick={() => setBilling(mode)}
                 className="relative flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors z-10"
                 style={{
-                  color: billing === mode ? "#fff" : "rgba(45,70,35,0.72)",
+                  color: billing === mode ? "#fff" : "rgba(30,41,59,0.72)",
                   minWidth: mode === "annual" ? "148px" : "108px",
                 }}
               >
@@ -616,7 +616,7 @@ export function PricingPage() {
                   <motion.div
                     layoutId="billing-toggle-pill"
                     className="absolute inset-0 rounded-xl"
-                    style={{ background: "linear-gradient(135deg, #4f9437, #73b14f)" }}
+                    style={{ background: "linear-gradient(135deg, #2F9E44, #37B24D)" }}
                     transition={{ type: "spring", stiffness: 500, damping: 38 }}
                   />
                 )}
@@ -664,7 +664,7 @@ export function PricingPage() {
                   ) : isPro ? (
                     <span
                       className="text-[11px] font-bold px-3 py-1 rounded-full"
-                      style={{ background: "rgba(79,148,55,0.12)", color: "#2f6b34", border: "1px solid rgba(79,148,55,0.25)" }}
+                      style={{ background: "rgba(47,158,68,0.12)", color: "#1E7A34", border: "1px solid rgba(47,158,68,0.25)" }}
                     >
                       ⭐ Most Popular
                     </span>
@@ -697,7 +697,7 @@ export function PricingPage() {
                 </div>
 
                 {/* Divider */}
-                <div className="h-px mb-4" style={{ background: "rgba(45,70,35,0.06)" }} />
+                <div className="h-px mb-4" style={{ background: "rgba(30,41,59,0.06)" }} />
 
                 {/* Feature list */}
                 <ul className="flex-1 space-y-2 mb-6">
@@ -708,11 +708,11 @@ export function PricingPage() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.35 + fi * 0.04, duration: 0.35 }}
                       className="flex items-start gap-2.5 text-sm"
-                      style={{ color: "rgba(45,70,35,0.92)" }}
+                      style={{ color: "rgba(30,41,59,0.92)" }}
                     >
                       <svg
                         className="w-4 h-4 mt-0.5 shrink-0"
-                        style={{ color: isPro ? "#6fae54" : isStudent ? "#5a9c3e" : isTeam ? "#6fae54" : "#4f9437" }}
+                        style={{ color: isPro ? "#37B24D" : isStudent ? "#2F9E44" : isTeam ? "#37B24D" : "#2F9E44" }}
                         fill="none" stroke="currentColor" viewBox="0 0 24 24"
                       >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
@@ -721,7 +721,7 @@ export function PricingPage() {
                     </motion.li>
                   ))}
                   {plan.missing?.map((f) => (
-                    <li key={f} className="flex items-start gap-2.5 text-sm" style={{ color: "rgba(45,70,35,0.5)" }}>
+                    <li key={f} className="flex items-start gap-2.5 text-sm" style={{ color: "rgba(30,41,59,0.5)" }}>
                       <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
                       </svg>
@@ -741,12 +741,12 @@ export function PricingPage() {
                     isCurrent
                       ? { background: "rgba(52,211,153,0.08)", color: "#2e7d32", border: "1px solid rgba(52,211,153,0.55)", cursor: "default" }
                       : isPro
-                      ? { background: "linear-gradient(135deg, #4f9437, #73b14f)", color: "#fff", boxShadow: "0 0 24px rgba(79,148,55,0.72), 0 4px 16px rgba(115,177,79,0.55)" }
+                      ? { background: "linear-gradient(135deg, #2F9E44, #37B24D)", color: "#fff", boxShadow: "0 0 24px rgba(47,158,68,0.72), 0 4px 16px rgba(55,178,77,0.55)" }
                       : isStudent
-                      ? { background: "linear-gradient(135deg, #2f6b34, #73b14f)", color: "#fff", boxShadow: "0 0 20px rgba(47,107,52,0.25)" }
+                      ? { background: "linear-gradient(135deg, #1E7A34, #37B24D)", color: "#fff", boxShadow: "0 0 20px rgba(47,107,52,0.25)" }
                       : isTeam
-                      ? { background: "rgba(79,148,55,0.9)", color: "#fff" }
-                      : { background: "transparent", color: "rgba(45,70,35,0.85)", border: "1px solid rgba(45,70,35,0.1)" }
+                      ? { background: "rgba(47,158,68,0.9)", color: "#fff" }
+                      : { background: "transparent", color: "rgba(30,41,59,0.85)", border: "1px solid rgba(30,41,59,0.1)" }
                   }
                 >
                   {loading === plan.id ? (
@@ -776,12 +776,12 @@ export function PricingPage() {
                   {/* Outer glow halo */}
                   <div
                     className="absolute -inset-[3px] rounded-[28px] blur-xl opacity-35"
-                    style={{ background: "linear-gradient(135deg, #4f9437, #73b14f)" }}
+                    style={{ background: "linear-gradient(135deg, #2F9E44, #37B24D)" }}
                   />
                   {/* Animated glow pulse */}
                   <motion.div
                     className="absolute -inset-[2px] rounded-[27px] blur-sm opacity-20"
-                    style={{ background: "linear-gradient(135deg, #4f9437, #73b14f)" }}
+                    style={{ background: "linear-gradient(135deg, #2F9E44, #37B24D)" }}
                     animate={{ opacity: [0.15, 0.35, 0.15] }}
                     transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
                   />
@@ -790,7 +790,7 @@ export function PricingPage() {
                     whileHover={{ scale: 1.02 }}
                     transition={{ type: "spring", stiffness: 280, damping: 22 }}
                     className="relative rounded-3xl p-px"
-                    style={{ background: "linear-gradient(135deg, #4f9437, #73b14f, #6fae54)" }}
+                    style={{ background: "linear-gradient(135deg, #2F9E44, #37B24D, #37B24D)" }}
                   >
                     <div className="h-full flex flex-col" style={{ background: "#ffffff", borderRadius: "calc(1.5rem - 1px)" }}>
                       {body}
@@ -808,7 +808,7 @@ export function PricingPage() {
                     whileHover={{ scale: 1.02 }}
                     transition={{ type: "spring", stiffness: 280, damping: 22 }}
                     className="relative rounded-3xl p-px"
-                    style={{ background: "linear-gradient(135deg, rgba(79,148,55,0.5), rgba(115,177,79,0.5))" }}
+                    style={{ background: "linear-gradient(135deg, rgba(47,158,68,0.5), rgba(55,178,77,0.5))" }}
                   >
                     <div className="h-full flex flex-col" style={{ background: "#ffffff", borderRadius: "calc(1.5rem - 1px)" }}>
                       {body}
@@ -828,8 +828,8 @@ export function PricingPage() {
                 className="relative rounded-3xl flex flex-col"
                 style={{
                   background: "#ffffff",
-                  border: isTeam ? "1px solid rgba(79,148,55,0.55)" : "1px solid rgba(45,70,35,0.14)",
-                  boxShadow: "0 2px 10px -3px rgba(45,80,35,0.08), 0 16px 40px -18px rgba(45,80,35,0.12)",
+                  border: isTeam ? "1px solid rgba(47,158,68,0.55)" : "1px solid rgba(30,41,59,0.14)",
+                  boxShadow: "0 2px 10px -3px rgba(30,41,59,0.08), 0 16px 40px -18px rgba(30,41,59,0.12)",
                 }}
               >
                 {body}
@@ -852,7 +852,7 @@ export function PricingPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
 
                 {/* Memories */}
-                <div className="rounded-2xl p-4" style={{ background: "#ffffff", border: "1px solid rgba(45,70,35,0.14)", boxShadow: "0 2px 10px -3px rgba(45,80,35,0.08)" }}>
+                <div className="rounded-2xl p-4" style={{ background: "#ffffff", border: "1px solid rgba(30,41,59,0.14)", boxShadow: "0 2px 10px -3px rgba(30,41,59,0.08)" }}>
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-lg">🧠</span>
                     <span className="text-[10px] text-foreground/50 font-semibold uppercase tracking-wide">Memories</span>
@@ -863,11 +863,11 @@ export function PricingPage() {
                       /{planInfo.limits.memories >= 10000 ? "∞" : planInfo.limits.memories}
                     </span>
                   </p>
-                  <UsageBar used={planInfo.usage.memories} limit={planInfo.limits.memories} color="#4f9437" />
+                  <UsageBar used={planInfo.usage.memories} limit={planInfo.limits.memories} color="#2F9E44" />
                 </div>
 
                 {/* Projects */}
-                <div className="rounded-2xl p-4" style={{ background: "#ffffff", border: "1px solid rgba(45,70,35,0.14)", boxShadow: "0 2px 10px -3px rgba(45,80,35,0.08)" }}>
+                <div className="rounded-2xl p-4" style={{ background: "#ffffff", border: "1px solid rgba(30,41,59,0.14)", boxShadow: "0 2px 10px -3px rgba(30,41,59,0.08)" }}>
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-lg">📁</span>
                     <span className="text-[10px] text-foreground/50 font-semibold uppercase tracking-wide">Projects</span>
@@ -878,11 +878,11 @@ export function PricingPage() {
                       /{planInfo.limits.projects >= 1000 ? "∞" : planInfo.limits.projects}
                     </span>
                   </p>
-                  <UsageBar used={planInfo.usage.projects} limit={planInfo.limits.projects} color="#6fae54" />
+                  <UsageBar used={planInfo.usage.projects} limit={planInfo.limits.projects} color="#37B24D" />
                 </div>
 
                 {/* Auto-inject */}
-                <div className="rounded-2xl p-4" style={{ background: "#ffffff", border: "1px solid rgba(45,70,35,0.14)", boxShadow: "0 2px 10px -3px rgba(45,80,35,0.08)" }}>
+                <div className="rounded-2xl p-4" style={{ background: "#ffffff", border: "1px solid rgba(30,41,59,0.14)", boxShadow: "0 2px 10px -3px rgba(30,41,59,0.08)" }}>
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-lg">⚡</span>
                     <span className="text-[10px] text-foreground/50 font-semibold uppercase tracking-wide">Auto-inject</span>
@@ -905,13 +905,13 @@ export function PricingPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.55 }}
           className="max-w-2xl mx-auto mb-20 rounded-2xl p-5 flex items-start gap-4"
-          style={{ background: "#f4faee", border: "1px solid rgba(115,177,79,0.3)" }}
+          style={{ background: "#f4faee", border: "1px solid rgba(55,178,77,0.3)" }}
         >
           <span className="text-2xl shrink-0 mt-0.5">🎓</span>
-          <p className="text-sm leading-relaxed" style={{ color: "rgba(45,70,35,0.72)" }}>
-            <strong style={{ color: "rgba(45,70,35,0.92)" }}>Student plan</strong> eligibility is checked automatically from your login email.
+          <p className="text-sm leading-relaxed" style={{ color: "rgba(30,41,59,0.72)" }}>
+            <strong style={{ color: "rgba(30,41,59,0.92)" }}>Student plan</strong> eligibility is checked automatically from your login email.
             Sign in with your university or college email to qualify.
-            {" "}Includes <strong style={{ color: "rgba(45,70,35,0.92)" }}>1 month free</strong> — no card required to start.
+            {" "}Includes <strong style={{ color: "rgba(30,41,59,0.92)" }}>1 month free</strong> — no card required to start.
           </p>
         </motion.div>
 
@@ -922,7 +922,7 @@ export function PricingPage() {
           transition={{ delay: 0.45 }}
           className="max-w-2xl mx-auto mb-20"
         >
-          <p className="text-[11px] font-bold tracking-[0.2em] uppercase text-center mb-3" style={{ color: "rgba(45,70,35,0.55)" }}>FAQ</p>
+          <p className="text-[11px] font-bold tracking-[0.2em] uppercase text-center mb-3" style={{ color: "rgba(30,41,59,0.55)" }}>FAQ</p>
           <h2 className="text-2xl font-bold text-foreground text-center mb-10">Common questions</h2>
 
           <div className="space-y-2">
@@ -930,20 +930,20 @@ export function PricingPage() {
               <div
                 key={i}
                 className="rounded-2xl overflow-hidden"
-                style={{ background: "#ffffff", border: "1px solid rgba(45,70,35,0.14)", boxShadow: "0 2px 10px -3px rgba(45,80,35,0.08)" }}
+                style={{ background: "#ffffff", border: "1px solid rgba(30,41,59,0.14)", boxShadow: "0 2px 10px -3px rgba(30,41,59,0.08)" }}
               >
                 <button
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
                   className="w-full flex items-center justify-between px-5 py-4 text-left gap-3 group"
                 >
-                  <span className="text-sm font-semibold transition-colors" style={{ color: openFaq === i ? "#2f6b34" : "rgba(45,70,35,0.9)" }}>
+                  <span className="text-sm font-semibold transition-colors" style={{ color: openFaq === i ? "#1E7A34" : "rgba(30,41,59,0.9)" }}>
                     {q}
                   </span>
                   <motion.span
                     animate={{ rotate: openFaq === i ? 45 : 0 }}
                     transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
                     className="text-xl leading-none shrink-0 font-light transition-colors"
-                    style={{ color: openFaq === i ? "rgba(111,174,84,0.9)" : "rgba(45,70,35,0.55)" }}
+                    style={{ color: openFaq === i ? "rgba(111,174,84,0.9)" : "rgba(30,41,59,0.55)" }}
                   >
                     +
                   </motion.span>
@@ -957,7 +957,7 @@ export function PricingPage() {
                       transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
                       className="overflow-hidden"
                     >
-                      <p className="px-5 pb-5 text-sm leading-relaxed" style={{ color: "rgba(45,70,35,0.72)" }}>{a}</p>
+                      <p className="px-5 pb-5 text-sm leading-relaxed" style={{ color: "rgba(30,41,59,0.72)" }}>{a}</p>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -968,7 +968,7 @@ export function PricingPage() {
 
         {/* ── Footer ────────────────────────────────────────────────────────── */}
         <div className="text-center">
-          <div className="inline-flex items-center gap-2 text-xs" style={{ color: "rgba(45,70,35,0.5)" }}>
+          <div className="inline-flex items-center gap-2 text-xs" style={{ color: "rgba(30,41,59,0.5)" }}>
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>

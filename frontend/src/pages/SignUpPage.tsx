@@ -21,13 +21,13 @@ export function SignUpPage() {
         signInUrl={signInUrl}
         appearance={{
           variables: {
-            colorPrimary: "#4f9437",
-            colorBackground: "hsl(96 50% 99%)",
-            colorInputBackground: "hsl(100 33% 97%)",
-            colorText: "hsl(130 28% 13%)",
-            colorTextSecondary: "hsl(125 14% 38%)",
-            colorInputText: "hsl(130 28% 13%)",
-            colorNeutral: "hsl(102 20% 90%)",
+            colorPrimary: "#2F9E44",
+            colorBackground: "#FFFFFF",
+            colorInputBackground: "#FAFCFB",
+            colorText: "#1E293B",
+            colorTextSecondary: "#64748B",
+            colorInputText: "#1E293B",
+            colorNeutral: "#E5E7EB",
             borderRadius: "0.75rem",
             fontFamily: "inherit",
           },
