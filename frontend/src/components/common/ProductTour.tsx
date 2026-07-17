@@ -221,16 +221,34 @@ export function ProductTour() {
   const vh = window.innerHeight;
   const isMobileSheet = vw < 640;
 
-  // ── Tooltip-card placement (desktop): below the target, else above; clamped
+  // ── Tooltip-card placement (desktop) ─────────────────────────────────────
+  // Preference order: below → above → beside (for tall targets like the
+  // sidebar) → centered. Always clamped fully inside the viewport so the
+  // card with its buttons can never end up off-screen.
   let cardStyle: React.CSSProperties;
+  const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
   if (isMobileSheet) {
     cardStyle = { left: 16, right: 16, bottom: 16 };
   } else if (rect) {
-    const spaceBelow = vh - (rect.top + rect.height) > 250;
-    const top = spaceBelow ? rect.top + rect.height + PAD + 12 : undefined;
-    const bottom = spaceBelow ? undefined : vh - rect.top + PAD + 12;
-    const left = Math.min(Math.max(16, rect.left + rect.width / 2 - CARD_W / 2), vw - CARD_W - 16);
-    cardStyle = { top, bottom, left, width: CARD_W };
+    const gap = PAD + 12;
+    const estH = 280; // safe card-height estimate for clamping
+    const spaceBelow = vh - (rect.top + rect.height);
+    const spaceAbove = rect.top;
+    const spaceRight = vw - (rect.left + rect.width);
+    const centeredX = clamp(rect.left + rect.width / 2 - CARD_W / 2, 16, vw - CARD_W - 16);
+    const centeredY = clamp(rect.top + rect.height / 2 - estH / 2, 16, Math.max(16, vh - estH - 16));
+
+    if (spaceBelow > estH) {
+      cardStyle = { top: rect.top + rect.height + gap, left: centeredX, width: CARD_W };
+    } else if (spaceAbove > estH) {
+      cardStyle = { bottom: vh - rect.top + gap, left: centeredX, width: CARD_W };
+    } else if (spaceRight > CARD_W + 32) {
+      cardStyle = { top: centeredY, left: rect.left + rect.width + gap, width: CARD_W };
+    } else if (rect.left > CARD_W + 32) {
+      cardStyle = { top: centeredY, left: rect.left - CARD_W - gap, width: CARD_W };
+    } else {
+      cardStyle = { top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: Math.min(CARD_W, vw - 32) };
+    }
   } else {
     cardStyle = { top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: Math.min(CARD_W, vw - 32) };
   }
