@@ -19,7 +19,10 @@ log = structlog.get_logger()
 
 # -1 = unlimited
 PLAN_LIMITS = {
-    "free":    {"projects": 1,  "memories": 10, "api_keys": 1,  "daily_inject": 3},
+    # api_keys: 2 on free so one device/client can hold each of a mobile key AND a Chrome
+    # extension key at the same time (the free plan's two supported clients), instead of them
+    # fighting over a single slot.
+    "free":    {"projects": 1,  "memories": 10, "api_keys": 2,  "daily_inject": 3},
     "student": {"projects": 5,  "memories": 200, "api_keys": 1,  "daily_inject": -1},
     "pro":     {"projects": -1, "memories": -1, "api_keys": 5,  "daily_inject": -1},
     "team":    {"projects": -1, "memories": -1, "api_keys": -1, "daily_inject": -1},
