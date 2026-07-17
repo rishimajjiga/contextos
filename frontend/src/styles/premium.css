@@ -14,50 +14,62 @@
    ════════════════════════════════════════════════════════════════════════ */
 
 /* ── 1. Design-token overrides ──────────────────────────────────────────── */
+/* 2026-07-17 redesign: clean near-white canvas (#FAFCFB), slate ink
+   (#1E293B / #64748B), neutral hairlines (#E5E7EB), green #2F9E44 kept
+   strictly as the accent. Wispr Flow / Linear / Notion direction. */
 :root {
-  /* Deep forest ink (≈ #1B4332) for maximum text contrast */
-  --foreground: 158 42% 17%;
-  --card-foreground: 158 42% 17%;
-  --popover-foreground: 158 42% 17%;
+  /* Page canvas — near-white with a whisper of green */
+  --background: 150 25% 98%;       /* #FAFCFB */
 
-  /* Pure-white cards so surfaces pop off the sage canvas */
+  /* Slate ink for maximum readable contrast */
+  --foreground: 217 33% 17%;       /* #1E293B */
+  --card-foreground: 217 33% 17%;
+  --popover-foreground: 217 33% 17%;
+
+  /* Pure-white cards so surfaces pop off the canvas */
   --card: 0 0% 100%;
   --popover: 0 0% 100%;
 
-  /* Lighter, greener hairlines — separation comes from white + shadow now */
-  --border: 142 30% 78%;
-  --input: 142 28% 72%;
-  --ring: 142 55% 38%;
+  /* Neutral hairlines — separation comes from white + shadow */
+  --border: 220 13% 91%;           /* #E5E7EB */
+  --input: 220 13% 88%;
+  --ring: 131 54% 40%;             /* #2F9E44 */
+  --primary: 131 54% 40%;          /* #2F9E44 */
+  --muted-foreground: 215 16% 47%; /* #64748B */
 
   /* Consistent radius scale: lg 16px / md 14px / sm 12px */
   --radius: 1rem;
 
   /* Reusable premium tokens */
-  --premium-border: rgba(34, 197, 94, 0.20);
-  --premium-border-strong: rgba(34, 197, 94, 0.45);
+  --premium-border: #E5E7EB;
+  --premium-border-strong: rgba(47, 158, 68, 0.45);
   --premium-shadow-card:
-    0 1px 2px rgba(27, 67, 50, 0.05),
-    0 4px 12px -4px rgba(27, 67, 50, 0.07),
-    0 20px 44px -20px rgba(27, 67, 50, 0.16);
+    0 1px 2px rgba(30, 41, 59, 0.04),
+    0 4px 12px -4px rgba(30, 41, 59, 0.06),
+    0 20px 44px -20px rgba(30, 41, 59, 0.12);
   --premium-shadow-hover:
-    0 2px 4px rgba(27, 67, 50, 0.06),
-    0 10px 24px -8px rgba(27, 67, 50, 0.13),
-    0 32px 64px -24px rgba(27, 67, 50, 0.22);
+    0 2px 4px rgba(30, 41, 59, 0.05),
+    0 10px 24px -8px rgba(30, 41, 59, 0.10),
+    0 32px 64px -24px rgba(30, 41, 59, 0.16);
   --premium-glow:
-    0 0 0 1px rgba(34, 197, 94, 0.10),
-    0 14px 44px -10px rgba(34, 197, 94, 0.34);
-  --premium-ink: #1b4332;
+    0 0 0 1px rgba(55, 178, 77, 0.10),
+    0 14px 44px -10px rgba(55, 178, 77, 0.28);
+  --premium-ink: #1E293B;
 }
 
-/* ── 2. Typography — clearer hierarchy, darker headings ─────────────────── */
-h1, h2, h3 {
+/* ── 2. Typography — one modern font (Inter), clearer hierarchy ─────────── */
+/* Unlayered rules beat the @layer base serif in globals.css, so headings
+   drop Fraunces for Inter across the app — single-typeface premium look. */
+h1, h2, h3, .font-display {
+  font-family: "Inter var", Inter, system-ui, sans-serif;
   color: var(--premium-ink);
-  line-height: 1.18;
-  letter-spacing: -0.015em;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
 }
 
 h4, h5, h6 {
-  color: hsl(158 38% 20%);
+  font-family: "Inter var", Inter, system-ui, sans-serif;
+  color: var(--premium-ink);
   line-height: 1.3;
 }
 
@@ -66,7 +78,7 @@ p {
 }
 
 ::selection {
-  background: rgba(34, 197, 94, 0.22);
+  background: rgba(55, 178, 77, 0.22);
   color: var(--premium-ink);
 }
 
@@ -130,25 +142,26 @@ a.rounded-full.whitespace-nowrap {
   border-radius: 16px;
 }
 
-/* Primary — crisp rim, inner highlight, stronger shadow, brighter hover */
+/* Primary — brand green #2F9E44, crisp rim, soft green glow */
 button.bg-brand-500,
 a.bg-brand-500 {
-  border: 2px solid rgba(27, 67, 50, 0.30);
+  background-color: #2F9E44;
+  border: 1px solid rgba(30, 41, 59, 0.10);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.24),
-    0 1px 2px rgba(27, 67, 50, 0.12),
-    0 8px 20px -8px rgba(34, 197, 94, 0.55);
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 1px 2px rgba(30, 41, 59, 0.10),
+    0 8px 20px -8px rgba(55, 178, 77, 0.55);
   transition: all 0.2s ease;
 }
 
 button.bg-brand-500:hover,
 a.bg-brand-500:hover {
-  background-color: #57a13c; /* brighter, not darker */
-  border-color: rgba(27, 67, 50, 0.38);
+  background-color: #37B24D; /* brighter, not darker */
+  border-color: rgba(30, 41, 59, 0.14);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 2px 4px rgba(27, 67, 50, 0.14),
-    0 12px 28px -8px rgba(34, 197, 94, 0.62);
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    0 2px 4px rgba(30, 41, 59, 0.12),
+    0 12px 28px -8px rgba(55, 178, 77, 0.62);
 }
 
 button.bg-brand-500:active,
@@ -156,26 +169,26 @@ a.bg-brand-500:active {
   transform: translateY(0) scale(0.985);
 }
 
-/* Secondary / outline — 2px emerald outline, green fill on hover */
+/* Secondary / outline — quiet neutral outline, green tint on hover */
 button.border-border.bg-card\/60,
 a.border-border.bg-card\/60 {
-  border-width: 2px;
-  border-color: rgba(34, 197, 94, 0.35);
-  background-color: rgba(255, 255, 255, 0.88);
+  border-width: 1px;
+  border-color: #E5E7EB;
+  background-color: #ffffff;
   color: var(--premium-ink);
-  box-shadow: 0 1px 2px rgba(27, 67, 50, 0.06), 0 6px 16px -8px rgba(27, 67, 50, 0.10);
+  box-shadow: 0 1px 2px rgba(30, 41, 59, 0.05), 0 6px 16px -8px rgba(30, 41, 59, 0.08);
 }
 
 button.border-border.bg-card\/60:hover,
 a.border-border.bg-card\/60:hover {
-  border-color: rgba(34, 197, 94, 0.60);
-  background-color: rgba(34, 197, 94, 0.10);
+  border-color: rgba(47, 158, 68, 0.45);
+  background-color: rgba(55, 178, 77, 0.08);
   color: var(--premium-ink);
 }
 
 button.bg-secondary.text-secondary-foreground,
 a.bg-secondary.text-secondary-foreground {
-  border: 2px solid rgba(34, 197, 94, 0.22);
+  border: 1px solid #E5E7EB;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -187,11 +200,11 @@ a.bg-secondary.text-secondary-foreground {
   }
 }
 
-/* ── 5. Inputs — 2px subtle border, softer premium focus ring ───────────── */
+/* ── 5. Inputs — neutral border, green focus ring ───────────────────────── */
 .border-input {
-  border-width: 2px;
-  border-color: rgba(34, 197, 94, 0.22);
-  background-color: rgba(255, 255, 255, 0.92);
+  border-width: 1px;
+  border-color: #E5E7EB;
+  background-color: #ffffff;
   transition:
     border-color 0.2s ease,
     box-shadow 0.2s ease,
@@ -199,24 +212,26 @@ a.bg-secondary.text-secondary-foreground {
 }
 
 .border-input:hover {
-  border-color: rgba(34, 197, 94, 0.38);
+  border-color: rgba(47, 158, 68, 0.35);
 }
 
 .border-input:focus,
 .border-input:focus-visible,
 .border-input:focus-within {
-  border-color: rgba(34, 197, 94, 0.65);
+  border-color: rgba(47, 158, 68, 0.65);
   background-color: #ffffff;
-  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.13);
+  box-shadow: 0 0 0 4px rgba(55, 178, 77, 0.15);
   outline: none;
 }
 
 /* ── 6. Navigation ──────────────────────────────────────────────────────── */
-/* Marketing site header — frosted white, hairline bottom border */
+/* Marketing site header — floating frosted white, hairline bottom border */
 header.fixed.border-b {
-  background-color: rgba(255, 255, 255, 0.85);
-  border-bottom-color: rgba(34, 197, 94, 0.16);
-  box-shadow: 0 8px 24px -20px rgba(27, 67, 50, 0.25);
+  background-color: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom-color: #E5E7EB;
+  box-shadow: 0 8px 24px -20px rgba(30, 41, 59, 0.20);
 }
 
 /* App topbar — frosted white to match */
@@ -224,21 +239,21 @@ header.border-b.bg-surface-1 {
   background-color: rgba(255, 255, 255, 0.80);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-bottom-color: rgba(34, 197, 94, 0.16);
+  border-bottom-color: #E5E7EB;
 }
 
-/* App sidebar — near-white panel, greener hairline */
+/* App sidebar — near-white panel, neutral hairline */
 nav.border-r.bg-surface-1 {
-  background-color: #fbfdf8;
-  border-right-color: rgba(34, 197, 94, 0.16);
+  background-color: #FAFCFB;
+  border-right-color: #E5E7EB;
 }
 
 /* Sidebar active item — brand tint + inset accent bar */
 .nav-item.active {
-  background-color: rgba(34, 197, 94, 0.12);
+  background-color: rgba(55, 178, 77, 0.12);
   color: var(--premium-ink);
   font-weight: 600;
-  box-shadow: inset 3px 0 0 0 rgba(34, 197, 94, 0.85);
+  box-shadow: inset 3px 0 0 0 rgba(47, 158, 68, 0.85);
 }
 
 .nav-item {
@@ -247,13 +262,13 @@ nav.border-r.bg-surface-1 {
 
 /* ── 7. Hero image — premium border, large radius, soft glow ────────────── */
 img[src*="hero-brain"] {
-  border: 3px solid rgba(34, 197, 94, 0.35);
-  border-radius: 28px;
+  border: 1px solid #E5E7EB;
+  border-radius: 24px;
   padding: 6px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.70), rgba(241, 248, 236, 0.45));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(250, 252, 251, 0.60));
   box-shadow:
-    0 1px 2px rgba(27, 67, 50, 0.06),
-    0 24px 60px -18px rgba(27, 67, 50, 0.20),
+    0 1px 2px rgba(30, 41, 59, 0.05),
+    0 24px 60px -18px rgba(30, 41, 59, 0.14),
     var(--premium-glow);
 }
 
@@ -311,16 +326,16 @@ a.text-brand-600 {
    and upgrade hairlines to a green-tinted border so sections read clearly. */
 section.border-t.border-border {
   border-top-width: 1px;
-  border-top-color: rgba(34, 197, 94, 0.18);
+  border-top-color: #E5E7EB;
 }
 
 section.border-t.bg-surface-1 {
-  background-color: hsl(96 32% 93%); /* very light tint, one step off canvas */
+  background-color: #ffffff; /* alternating white band on the near-white canvas */
 }
 
 footer.border-t.border-border {
-  border-top-color: rgba(34, 197, 94, 0.18);
-  background-color: hsl(96 32% 93%);
+  border-top-color: #E5E7EB;
+  background-color: #FAFCFB;
 }
 
 /* ── 12. Landing tiles not yet covered ──────────────────────────────────── */
@@ -365,9 +380,9 @@ footer.border-t.border-border {
   box-shadow: 0 1px 2px rgba(27, 67, 50, 0.05), 0 6px 16px -10px rgba(34, 197, 94, 0.35);
 }
 
-/* ── 13. Muted text — raise contrast for accessibility (WCAG-friendlier) ── */
+/* ── 13. Muted text — slate secondary (#64748B), WCAG AA on white ───────── */
 .text-muted-foreground {
-  color: hsl(150 18% 32%);
+  color: #64748B;
 }
 
 /* ── 14. Badges ─────────────────────────────────────────────────────────── */
@@ -504,4 +519,41 @@ select:focus-visible {
   [role="menuitem"] {
     transition: none;
   }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   REDESIGN PASS (2026-07-17) — retheme sage surfaces to the clean palette.
+   Same contract: add-only overrides of existing utility combos. The old
+   sage hexes (#eef3e7 …) are compiled into Tailwind utilities, so they're
+   overridden here; later source order wins at equal specificity.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── 24. Surface utilities → near-white system ──────────────────────────── */
+.bg-surface-0 { background-color: #FAFCFB; }
+.bg-surface-1 { background-color: #F4F7F5; }
+.bg-surface-2 { background-color: #EEF2EF; }
+.bg-surface-3 { background-color: #E8EDE9; }
+.bg-surface-4 { background-color: #E1E7E2; }
+
+/* Frosted variants used by SiteHeader (bg-surface-0/70, /95) */
+.bg-surface-0\/70 { background-color: rgba(255, 255, 255, 0.75); }
+.bg-surface-0\/95 { background-color: rgba(255, 255, 255, 0.95); }
+
+/* ── 25. Brand text/tint utilities → #2F9E44 accent system ──────────────── */
+.text-brand-400, .text-brand-500 { color: #37B24D; }
+.text-brand-600, .text-brand-700 { color: #2F9E44; }
+.bg-brand-500\/10 { background-color: rgba(55, 178, 77, 0.10); }
+.bg-brand-500\/15 { background-color: rgba(55, 178, 77, 0.15); }
+.bg-brand-500\/20 { background-color: rgba(55, 178, 77, 0.20); }
+.border-brand-500 { border-color: #2F9E44; }
+
+/* Gradient text — brand green pair (#2F9E44 → #69DB7C) */
+.gradient-text {
+  background-image: linear-gradient(90deg, #2F9E44, #69DB7C);
+}
+
+/* ── 26. Typography scale polish (18px body feel on marketing pages) ────── */
+::-moz-selection {
+  background: rgba(55, 178, 77, 0.22);
+  color: var(--premium-ink);
 }
