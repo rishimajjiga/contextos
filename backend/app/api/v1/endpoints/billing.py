@@ -14,10 +14,22 @@ Routes added:
   GET  /billing/payments    — returns paginated payment history for the signed-in user
   POST /billing/reconcile   — recovery: auto-fix subscription mismatches from payment records
 """
+import calendar as _calendar
 import hashlib
 import hmac
 import uuid
 from datetime import datetime, timedelta, timezone
+
+
+def _add_months(dt: datetime, months: int) -> datetime:
+    """Calendar-accurate month addition (Jan 18 + 2 → Mar 18; clamps day for
+    short months, e.g. Jan 31 + 1 → Feb 28/29). Used for offer periods so the
+    dates users see match real billing-cycle boundaries."""
+    month_index = dt.month - 1 + months
+    year = dt.year + month_index // 12
+    month = month_index % 12 + 1
+    day = min(dt.day, _calendar.monthrange(year, month)[1])
+    return dt.replace(year=year, month=month, day=day)
 from sqlalchemy import select, desc, func
 # Python 3.12+ compatibility shim: razorpay uses pkg_resources which is not
 # bundled with Python 3.12+. Inject a minimal stub before importing razorpay.
@@ -435,13 +447,15 @@ async def _apply_offer_if_eligible_existing(db: AsyncSession, user_id: str) -> b
         log.warning("offer_existing_pause_failed", user_id=user_id, error=str(exc))
         return False
 
-    # 2 free months appended after the currently paid period
+    # 2 free calendar months appended after the currently paid period
+    # (e.g. paid Jan 18 → Feb 18 becomes access Jan 18 → Apr 18, billing
+    # resumes Apr 18 at ₹499/month).
     base = (
         sub.current_period_end
         if (sub.current_period_end and sub.current_period_end > now)
         else now
     )
-    offer_end = base + timedelta(days=60)
+    offer_end = _add_months(base, 2)
     sub.offer_used = True
     sub.offer_applied = True
     sub.offer_started_at = pays[-1].purchase_date
@@ -532,24 +546,38 @@ async def get_plan(
                 and sub.stripe_subscription_id
                 and datetime.now(timezone.utc) >= sub.offer_end_date - timedelta(days=28)
             ):
+                resumed = False
                 try:
                     _rzp_client().subscription.resume(
                         sub.stripe_subscription_id, {"resume_at": "now"}
                     )
+                    resumed = True
                     log.info(
                         "new_member_offer_billing_resumed",
                         user_id=user_id,
                         subscription_id=sub.stripe_subscription_id,
                     )
                 except Exception as exc:
-                    # Not paused / already resumed — treat the offer as complete
                     log.warning(
                         "new_member_offer_resume_failed",
                         user_id=user_id,
                         error=str(exc),
                     )
-                sub.offer_applied = False  # free period concluded either way
-                await db.commit()
+                # Clear offer_applied only when Razorpay actually resumed —
+                # otherwise keep it set so the next plan fetch retries (a
+                # transient failure must never strand a paused subscription).
+                # Safety valve: 7 days past the offer end, stop retrying and
+                # flag loudly for manual reconciliation.
+                give_up = datetime.now(timezone.utc) > sub.offer_end_date + timedelta(days=7)
+                if resumed or give_up:
+                    if give_up and not resumed:
+                        log.error(
+                            "new_member_offer_resume_gave_up",
+                            user_id=user_id,
+                            subscription_id=sub.stripe_subscription_id,
+                        )
+                    sub.offer_applied = False
+                    await db.commit()
         except Exception as exc:
             log.warning("new_member_offer_resume_check_failed", user_id=user_id, error=str(exc))
 
@@ -751,7 +779,15 @@ async def verify_payment(
                     )
 
                 if paused:
-                    offer_end = now + timedelta(days=90)  # 3-month access period
+                    # Paid month + 2 free calendar months. The paid period end
+                    # comes from Razorpay (already written to the sub above),
+                    # so DB dates track real cycle boundaries.
+                    paid_end = (
+                        sub.current_period_end
+                        if (sub.current_period_end and sub.current_period_end > now)
+                        else _add_months(now, 1)
+                    )
+                    offer_end = _add_months(paid_end, 2)
                     sub.offer_used = True
                     sub.offer_applied = True
                     sub.offer_started_at = now

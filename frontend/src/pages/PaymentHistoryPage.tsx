@@ -86,14 +86,14 @@ function ProOfferTimeline({ plan }: { plan: PlanInfo | null }) {
           <div className="flex items-center gap-2">
             <Badge className="text-[10px]">Active</Badge>
             <Badge variant="outline" className="border-brand-400/40 text-[10px] text-brand-600">
-              🎁 New Member Offer Applied
+              🎁 Pro Bonus Offer Applied
             </Badge>
           </div>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
         <p className="mb-3 text-sm font-medium text-foreground">
-          You received 2 bonus months of Pro.
+          You received 2 extra months of Pro at no additional cost.
         </p>
         <div className="mb-4 flex flex-wrap gap-x-6 gap-y-1.5 text-xs text-muted-foreground">
           <span>

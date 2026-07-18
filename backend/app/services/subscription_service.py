@@ -291,6 +291,7 @@ async def get_plan_info(db: AsyncSession, user_id: str) -> dict:
             "started_at": offer_started.isoformat() if offer_started else None,
             "end_date": offer_end.isoformat() if offer_end else None,
             "free_months": int(getattr(sub, "offer_free_months", 0) or 0),
+            "bonus_months": int(getattr(sub, "offer_free_months", 0) or 0),
             "free_months_remaining": offer_free_months_remaining,
         },
         "next_payment_date": next_payment_date.isoformat() if next_payment_date else None,
