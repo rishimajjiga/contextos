@@ -444,8 +444,12 @@ async def _apply_offer_if_eligible_existing(db: AsyncSession, user_id: str) -> b
     except Exception as exc:
         log.warning("offer_existing_rzp_fetch_failed", user_id=user_id, error=str(exc))
         return False
-    if rzp_sub.get("plan_id") != settings.razorpay_pro_plan_id:
-        _offer_ineligible_cache.add(user_id)  # annual or non-Pro Razorpay plan
+    if not _is_monthly_pro_plan(client, rzp_sub.get("plan_id")):
+        # Only cache permanent ineligibility when the configured plan id gave a
+        # definitive answer — with an empty config a transient plan-fetch
+        # failure must NOT brand the user ineligible forever.
+        if settings.razorpay_pro_plan_id:
+            _offer_ineligible_cache.add(user_id)  # annual or non-Pro Razorpay plan
         return False
     if rzp_sub.get("status") not in ("active", "authenticated"):
         return False
@@ -480,6 +484,38 @@ async def _apply_offer_if_eligible_existing(db: AsyncSession, user_id: str) -> b
         subscription_id=sub.stripe_subscription_id,
     )
     return True
+
+
+def _is_monthly_pro_plan(client, plan_id: str | None) -> bool:
+    """True if plan_id is the monthly ₹499 Pro plan — the ONLY plan the
+    New Member Offer applies to.
+
+    Prefers the configured RAZORPAY_PRO_PLAN_ID (exact match; also excludes
+    annual Pro, which has its own id). If that setting is EMPTY — a
+    misconfiguration that previously made every user silently ineligible —
+    fall back to Razorpay as the source of truth: a monthly-period plan
+    billing exactly ₹499 INR. Annual (period=yearly), Student and Team
+    (different amounts) still never qualify, so the promotion rules are
+    unchanged.
+    """
+    if not plan_id:
+        return False
+    if settings.razorpay_pro_plan_id:
+        return plan_id == settings.razorpay_pro_plan_id
+    # Loud, not silent: this should be configured in production.
+    log.error("razorpay_pro_plan_id_not_configured_falling_back_to_plan_fetch")
+    try:
+        plan = client.plan.fetch(plan_id)
+    except Exception as exc:
+        log.warning("offer_plan_fetch_failed", plan_id=plan_id, error=str(exc))
+        return False
+    item = plan.get("item", {}) or {}
+    return (
+        plan.get("period") == "monthly"
+        and int(plan.get("interval") or 1) == 1
+        and item.get("amount") == 49900
+        and item.get("currency", "INR") == "INR"
+    )
 
 
 def _as_utc(dt: datetime | None) -> datetime | None:
@@ -817,7 +853,7 @@ async def verify_payment(
     # and other plans are excluded by the monthly-Pro plan_id check.
     try:
         is_monthly_pro = (
-            resolved_plan == "pro" and plan_id == settings.razorpay_pro_plan_id
+            resolved_plan == "pro" and _is_monthly_pro_plan(client, plan_id)
         )
         if is_monthly_pro and not bool(getattr(sub, "offer_used", False)):
             prior_pro_payment = (

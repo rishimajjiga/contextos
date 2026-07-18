@@ -65,9 +65,25 @@ class FakeSubscriptionAPI:
         return {"id": sub_id, "status": "active"}
 
 
+class FakePlanAPI:
+    """Razorpay plan.fetch — used by the empty-config fallback."""
+    def __init__(self, period: str = "monthly", amount: int = 49900):
+        self.period = period
+        self.amount = amount
+
+    def fetch(self, plan_id):
+        return {
+            "id": plan_id,
+            "period": self.period,
+            "interval": 1,
+            "item": {"amount": self.amount, "currency": "INR"},
+        }
+
+
 class FakeRzpClient:
-    def __init__(self, subscription_api: FakeSubscriptionAPI):
+    def __init__(self, subscription_api: FakeSubscriptionAPI, plan_api=None):
         self.subscription = subscription_api
+        self.plan = plan_api or FakePlanAPI()
 
 
 @pytest_asyncio.fixture
@@ -315,3 +331,36 @@ async def test_offer_resume_when_due(db_session, pro_user, monkeypatch):
     await db_session.refresh(pro_user)
     assert pro_user.offer_applied is False
     assert pro_user.offer_used is True
+
+
+# ── 9. Empty RAZORPAY_PRO_PLAN_ID must not silently disqualify everyone ───────
+
+@pytest.mark.asyncio
+async def test_empty_plan_id_config_falls_back_to_razorpay(db_session, pro_user, monkeypatch):
+    """Regression: with RAZORPAY_PRO_PLAN_ID unset, every user used to fail the
+    monthly-Pro check (real plan_id != "") and got cached as permanently
+    ineligible. The fallback asks Razorpay: monthly period + ₹499 → eligible."""
+    api = FakeSubscriptionAPI()
+    monkeypatch.setattr(billing, "_rzp_client", lambda: FakeRzpClient(api, FakePlanAPI()))
+    monkeypatch.setattr(settings, "razorpay_pro_plan_id", "", raising=False)
+
+    assert await _apply_offer_if_eligible_existing(db_session, TEST_USER_ID) is True
+    assert len(api.pause_calls) == 1
+    await db_session.refresh(pro_user)
+    assert pro_user.offer_used is True
+
+
+@pytest.mark.asyncio
+async def test_empty_plan_id_config_still_excludes_annual(db_session, pro_user, monkeypatch):
+    """The fallback must not loosen the rules: a yearly-period plan is still
+    excluded, and the user is NOT permanently cached (config may be fixed)."""
+    api = FakeSubscriptionAPI(plan_id=ANNUAL_PRO_PLAN_ID)
+    monkeypatch.setattr(
+        billing, "_rzp_client",
+        lambda: FakeRzpClient(api, FakePlanAPI(period="yearly", amount=479900)),
+    )
+    monkeypatch.setattr(settings, "razorpay_pro_plan_id", "", raising=False)
+
+    assert await _apply_offer_if_eligible_existing(db_session, TEST_USER_ID) is False
+    assert api.pause_calls == []
+    assert TEST_USER_ID not in _offer_ineligible_cache
