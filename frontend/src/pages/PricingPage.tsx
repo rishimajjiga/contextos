@@ -394,6 +394,7 @@ const cardVariant = {
 
 export function PricingPage() {
   const { isSignedIn, getToken } = useAuth();
+  const { user } = useUser();
   const navigate = useNavigate();
 
   // Wire Clerk's getToken into the Axios interceptor so billing requests
@@ -450,6 +451,11 @@ export function PricingPage() {
           toast.error(err || "Payment failed. Please try again.", { id: "pay-verify", duration: 10000 });
         },
         () => toast.loading("Verifying payment…", { id: "pay-verify" }),
+        {
+          name: user?.fullName ?? undefined,
+          email: user?.primaryEmailAddress?.emailAddress ?? undefined,
+          contact: user?.primaryPhoneNumber?.phoneNumber ?? undefined,
+        },
       );
     } catch (err: any) {
       toast.error(err?.message ?? "Unable to open payment. Please refresh and try again.");

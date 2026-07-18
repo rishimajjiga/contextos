@@ -247,6 +247,10 @@ export async function openRazorpayCheckout(
   /** Optional: fired once the modal closes and we begin verifying/recovering,
    *  so callers can show a "Verifying payment…" state instead of a blank pause. */
   onVerifying?: () => void,
+  /** Optional prefill (name/email/contact). A prefilled contact number makes
+   *  Razorpay surface UPI — especially UPI Collect, which works inside an
+   *  Android WebView where UPI intent apps can't launch. */
+  prefill?: { name?: string; email?: string; contact?: string },
 ): Promise<void> {
   const { subscription_id, key_id } = await billingService.createSubscription(plan);
   await loadRazorpayScript();
@@ -266,6 +270,13 @@ export async function openRazorpayCheckout(
     description: PLAN_NAMES[plan] ?? plan,
     image: "/logo.png",
     theme: { color: "#6366F1" },
+    // Prefill surfaces UPI reliably on mobile (UPI Collect works even inside a
+    // WebView). Empty strings are fine — Razorpay just asks for what's missing.
+    prefill: {
+      name: prefill?.name || "",
+      email: prefill?.email || "",
+      contact: prefill?.contact || "",
+    },
     handler: async (response: {
       razorpay_payment_id: string;
       razorpay_subscription_id: string;
