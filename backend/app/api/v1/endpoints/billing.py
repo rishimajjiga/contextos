@@ -362,6 +362,145 @@ async def get_plans():
     return {plan: PLAN_LIMITS[plan] for plan in PUBLIC_PLANS}
 
 
+# ── New Member Offer: shared eligibility for EXISTING first-Pro users ────────
+# Per-process cache of users evaluated as permanently ineligible, so
+# GET /billing/plan doesn't hit Razorpay on every call (e.g. annual-Pro
+# users). Cleared on restart — harmless, they just get re-evaluated once.
+_offer_ineligible_cache: set[str] = set()
+
+
+async def _apply_offer_if_eligible_existing(db: AsyncSession, user_id: str) -> bool:
+    """Apply the one-time New Member Offer to a user who is CURRENTLY on their
+    FIRST active monthly-Pro subscription — including subscriptions created
+    before the offer shipped. Returns True if applied.
+
+    Guarantees:
+    - offer_used guards forever: never applied twice.
+    - Cancel-and-resubscribe users are excluded (a >45-day gap between
+      consecutive captured Pro payments means a previous Pro sub ended).
+    - Annual Pro / Student / Team excluded (Razorpay plan_id is checked —
+      Razorpay stays the source of truth).
+    - The offer is only recorded if the Razorpay pause succeeds, so the UI
+      can never promise free months that Razorpay would still charge.
+    """
+    if user_id in _offer_ineligible_cache:
+        return False
+
+    sub = await get_or_create_subscription(db, user_id)
+    now = datetime.now(timezone.utc)
+
+    if bool(getattr(sub, "offer_used", False)):
+        _offer_ineligible_cache.add(user_id)
+        return False
+    # Not cached negative: a free user may buy Pro later (verify path covers it)
+    if sub.plan != "pro" or sub.status != "active" or not sub.stripe_subscription_id:
+        return False
+
+    # First-subscription check via payment history
+    pays = (
+        await db.execute(
+            select(Payment)
+            .where(
+                Payment.user_id == user_id,
+                Payment.plan_name == "pro",
+                Payment.status == "captured",
+            )
+            .order_by(Payment.purchase_date)
+        )
+    ).scalars().all()
+    if not pays:
+        return False
+    for prev, nxt in zip(pays, pays[1:]):
+        if (nxt.purchase_date - prev.purchase_date).days > 45:
+            _offer_ineligible_cache.add(user_id)  # previously canceled → never eligible
+            return False
+
+    # Monthly Pro only — confirmed against Razorpay
+    client = _rzp_client()
+    try:
+        rzp_sub = client.subscription.fetch(sub.stripe_subscription_id)
+    except Exception as exc:
+        log.warning("offer_existing_rzp_fetch_failed", user_id=user_id, error=str(exc))
+        return False
+    if rzp_sub.get("plan_id") != settings.razorpay_pro_plan_id:
+        _offer_ineligible_cache.add(user_id)  # annual or non-Pro Razorpay plan
+        return False
+    if rzp_sub.get("status") not in ("active", "authenticated"):
+        return False
+
+    # Pause charges FIRST — only then record the offer
+    try:
+        client.subscription.pause(sub.stripe_subscription_id, {"pause_at": "now"})
+    except Exception as exc:
+        log.warning("offer_existing_pause_failed", user_id=user_id, error=str(exc))
+        return False
+
+    # 2 free months appended after the currently paid period
+    base = (
+        sub.current_period_end
+        if (sub.current_period_end and sub.current_period_end > now)
+        else now
+    )
+    offer_end = base + timedelta(days=60)
+    sub.offer_used = True
+    sub.offer_applied = True
+    sub.offer_started_at = pays[-1].purchase_date
+    sub.offer_end_date = offer_end
+    sub.offer_free_months = 2
+    sub.current_period_end = offer_end
+    await db.commit()
+    log.info(
+        "new_member_offer_applied_existing",
+        user_id=user_id,
+        offer_end=offer_end.isoformat(),
+        subscription_id=sub.stripe_subscription_id,
+    )
+    return True
+
+
+# ── POST /billing/offer-backfill — one-time migration (admin/cron only) ──────
+
+@router.post("/offer-backfill")
+async def offer_backfill(
+    actor: str = Depends(_require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """One-time migration: apply the New Member Offer to every user currently
+    on their FIRST active monthly-Pro subscription. Idempotent — offer_used
+    guards each user forever, so re-running can never apply the offer twice."""
+    from app.models.subscription import UserSubscription
+
+    result = await db.execute(
+        select(UserSubscription).where(
+            UserSubscription.plan == "pro",
+            UserSubscription.status == "active",
+            UserSubscription.offer_used.is_(False),
+        )
+    )
+    subs = result.scalars().all()
+    applied, skipped, errors = 0, 0, 0
+    for s in subs:
+        try:
+            if await _apply_offer_if_eligible_existing(db, s.user_id):
+                applied += 1
+            else:
+                skipped += 1
+        except Exception as exc:
+            errors += 1
+            log.warning("offer_backfill_user_failed", user_id=s.user_id, error=str(exc))
+    log.info(
+        "offer_backfill_done",
+        actor=actor, candidates=len(subs), applied=applied, skipped=skipped, errors=errors,
+    )
+    return {
+        "ok": True,
+        "candidates": len(subs),
+        "applied": applied,
+        "skipped": skipped,
+        "errors": errors,
+    }
+
+
 # ── GET /billing/plan ─────────────────────────────────────────────────────────
 
 @router.get("/plan")
@@ -371,6 +510,15 @@ async def get_plan(
 ):
     """Return the user's current plan, limits, and usage counts."""
     try:
+        # ── Lazy offer application for EXISTING first-Pro users ──────────────
+        # Users who subscribed to monthly Pro before the offer shipped receive
+        # it automatically the next time their plan is fetched. offer_used +
+        # the ineligible cache keep this a cheap no-op for everyone else.
+        try:
+            await _apply_offer_if_eligible_existing(db, user_id)
+        except Exception as exc:
+            log.warning("offer_existing_check_failed", user_id=user_id, error=str(exc))
+
         # ── Lazy offer-billing resume (same pattern as lazy deletion) ────────
         # When a New Member Offer's free months are ending, resume the paused
         # Razorpay subscription so recurring billing restarts on the original

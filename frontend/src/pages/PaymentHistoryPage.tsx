@@ -49,12 +49,6 @@ function formatDate(iso: string | null | undefined): string {
 }
 
 // ── New Member Offer timeline ("Your Pro Plan") ───────────────────────────────
-function addMonths(iso: string, months: number): Date {
-  const d = new Date(iso);
-  d.setMonth(d.getMonth() + months);
-  return d;
-}
-
 function fmt(d: Date): string {
   return d.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
 }
@@ -69,10 +63,16 @@ function ProOfferTimeline({ plan }: { plan: PlanInfo | null }) {
   const remaining = offer.free_months_remaining;
   const endingSoon = inOffer && end.getTime() - now.getTime() < 14 * 24 * 3600 * 1000;
 
+  // Free months are the two 30-day windows immediately before the offer end
+  // (this stays correct for both new subscribers and backfilled existing
+  // users, whose paid period may be longer than one month). Dates come from
+  // the backend — never computed from the frontend's idea of billing.
+  const free1 = new Date(end.getTime() - 60 * 24 * 3600 * 1000);
+  const free2 = new Date(end.getTime() - 30 * 24 * 3600 * 1000);
   const steps = [
     { date: new Date(offer.started_at), label: "₹499 Paid", sub: "Pro activated", done: true },
-    { date: addMonths(offer.started_at, 1), label: "Free month", sub: "No charge", done: now >= addMonths(offer.started_at, 1) },
-    { date: addMonths(offer.started_at, 2), label: "Free month", sub: "No charge", done: now >= addMonths(offer.started_at, 2) },
+    { date: free1, label: "Free month", sub: "No charge", done: now >= free1 },
+    { date: free2, label: "Free month", sub: "No charge", done: now >= free2 },
     { date: end, label: "₹499/month", sub: "Recurring billing resumes", done: now >= end },
   ];
 
@@ -92,21 +92,27 @@ function ProOfferTimeline({ plan }: { plan: PlanInfo | null }) {
         </div>
       </CardHeader>
       <CardContent className="pt-0">
+        <p className="mb-3 text-sm font-medium text-foreground">
+          You received 2 bonus months of Pro.
+        </p>
         <div className="mb-4 flex flex-wrap gap-x-6 gap-y-1.5 text-xs text-muted-foreground">
           <span>
             You paid: <span className="font-semibold text-foreground">₹499</span>
           </span>
           <span>
-            Pro access:{" "}
+            Access valid until: <span className="font-semibold text-foreground">✓ {fmt(end)}</span>
+          </span>
+          <span>
+            Next payment:{" "}
             <span className="font-semibold text-foreground">
-              ✓ {fmt(new Date(offer.started_at))} – {fmt(end)}
+              {fmt(new Date(plan.next_payment_date ?? offer.end_date))} · ₹499/month
             </span>
           </span>
-          <span className="font-semibold text-brand-600">
-            {inOffer && remaining > 0
-              ? `${remaining} free month${remaining === 1 ? "" : "s"} remaining`
-              : `Your next payment is on ${fmt(end > now ? end : new Date(plan.next_payment_date ?? end))}`}
-          </span>
+          {inOffer && remaining > 0 && (
+            <span className="font-semibold text-brand-600">
+              {remaining} free month{remaining === 1 ? "" : "s"} remaining
+            </span>
+          )}
         </div>
 
         {/* Payment timeline */}
