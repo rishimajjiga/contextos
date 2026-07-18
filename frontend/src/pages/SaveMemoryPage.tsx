@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
+import { FileExtractButton, FileExtractNote } from "@/components/common/FileExtractButton";
 
 const schema = z.object({
   title: z.string().min(1, "Title is required").max(500),
@@ -44,8 +45,13 @@ export function SaveMemoryPage() {
     register,
     handleSubmit,
     reset,
+    setValue,
+    getValues,
     formState: { errors },
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
+
+  // File → text extraction (no file is uploaded or stored; see extractText.ts)
+  const [extractedFrom, setExtractedFrom] = useState<string | null>(null);
 
   const memUsed = plan?.usage.memories ?? 0;
   const memLimit = plan?.limits.memories ?? -1;
@@ -64,6 +70,7 @@ export function SaveMemoryPage() {
     });
     if (result) {
       setSaved({ title: result.title });
+      setExtractedFrom(null);
       reset();
       // Keep the chosen destination (quick-save) — do not reset to personal.
       refetchPlan(); // update usage count
@@ -174,9 +181,27 @@ export function SaveMemoryPage() {
               </div>
 
               <div>
-                <Label htmlFor="content" className="mb-1.5 block font-medium">
-                  Content <span className="text-destructive">*</span>
-                </Label>
+                <div className="mb-1.5 flex items-center justify-between gap-3">
+                  <Label htmlFor="content" className="block font-medium">
+                    Content <span className="text-destructive">*</span>
+                  </Label>
+                  <FileExtractButton
+                    onExtracted={({ title, text, fileName }) => {
+                      // Raw text only — no rewriting, no formatting changes.
+                      setValue("content", text, { shouldValidate: true });
+                      if (!getValues("title")?.trim()) {
+                        setValue("title", title, { shouldValidate: true });
+                      }
+                      setExtractedFrom(fileName);
+                    }}
+                  />
+                </div>
+                {extractedFrom && (
+                  <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-brand-600">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Text extracted from {extractedFrom} — review below, then save it as a memory.
+                  </p>
+                )}
                 <Textarea
                   id="content"
                   rows={8}
@@ -187,6 +212,7 @@ export function SaveMemoryPage() {
                 {errors.content && (
                   <p className="mt-1 text-xs text-destructive">{errors.content.message}</p>
                 )}
+                <FileExtractNote />
               </div>
 
               <div>

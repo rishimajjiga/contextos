@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, FolderKanban, ArrowRight, Layers } from "lucide-react";
+import { toast } from "sonner";
+import { Plus, FolderKanban, ArrowRight, Layers, FileText, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -18,6 +19,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
+import { FileExtractButton, FileExtractNote } from "@/components/common/FileExtractButton";
+import { memoryService } from "@/services/memory.service";
+import type { ExtractedFile } from "@/lib/extractText";
 import { formatRelativeTime, truncate } from "@/lib/utils";
 
 const schema = z.object({
@@ -36,7 +40,7 @@ function CreateProjectDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  onCreate: (values: FormValues) => Promise<void>;
+  onCreate: (values: FormValues, extract: ExtractedFile | null) => Promise<void>;
 }) {
   const {
     register,
@@ -45,8 +49,13 @@ function CreateProjectDialog({
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
+  // Optional: text extracted from a file, saved as a memory in the new
+  // project after it's created. The file itself is never uploaded or stored.
+  const [pendingExtract, setPendingExtract] = useState<ExtractedFile | null>(null);
+
   const onSubmit = async (values: FormValues) => {
-    await onCreate(values);
+    await onCreate(values, pendingExtract);
+    setPendingExtract(null);
     reset();
     onClose();
   };
@@ -80,6 +89,33 @@ function CreateProjectDialog({
             <Label htmlFor="goals" className="mb-1.5 block">Current goal</Label>
             <Input id="goals" placeholder="What's the next milestone?" {...register("goals")} />
           </div>
+
+          {/* Attach file content — becomes a memory inside this project */}
+          <div className="rounded-lg border border-border bg-surface-1 px-3 py-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-medium text-foreground">Attach file content</span>
+              <FileExtractButton onExtracted={setPendingExtract} />
+            </div>
+            {pendingExtract && (
+              <div className="mt-2 flex items-center justify-between gap-2 rounded-md bg-brand-500/10 px-2.5 py-1.5">
+                <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-brand-600">
+                  <FileText className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{pendingExtract.fileName}</span>
+                  <span className="shrink-0 text-muted-foreground">→ saved as a memory in this project</span>
+                </span>
+                <button
+                  type="button"
+                  aria-label="Remove extracted file"
+                  onClick={() => setPendingExtract(null)}
+                  className="shrink-0 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+            <FileExtractNote />
+          </div>
+
           <DialogFooter className="pt-2">
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={isSubmitting}>
@@ -96,11 +132,11 @@ export function ProjectsPage() {
   const { projects, isLoading, createProject } = useProjects();
   const [showCreate, setShowCreate] = useState(false);
 
-  const handleCreate = async (values: FormValues) => {
+  const handleCreate = async (values: FormValues, extract: ExtractedFile | null) => {
     const stackArr = values.stack
       ? values.stack.split(",").map((s) => s.trim()).filter(Boolean)
       : [];
-    await createProject({
+    const project = await createProject({
       name: values.name,
       description: values.description,
       stack: stackArr,
@@ -110,6 +146,20 @@ export function ProjectsPage() {
       active_tasks: [],
       current_problems: [],
     });
+    // If file text was extracted, save it as a normal memory inside the new
+    // project — raw text only, no file stored.
+    if (extract && project?.id) {
+      try {
+        await memoryService.create({
+          title: extract.title,
+          content: extract.text,
+          project_id: project.id,
+        });
+        toast.success(`"${extract.fileName}" has been converted into a memory in ${values.name}.`);
+      } catch {
+        toast.error("Project created, but saving the extracted text as a memory failed. You can paste it manually.");
+      }
+    }
   };
 
   return (
