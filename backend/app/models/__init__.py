@@ -11,9 +11,15 @@ from .subscription import UserSubscription
 from .organization import Organization, OrganizationMember, OrganizationInvite
 from .thread_event import ThreadEvent
 from .payment import Payment
+from .founder import (
+    FounderActivityLog, ManualGrant, Notification, NotificationRead,
+    AnnouncementBanner, SupportTicket,
+)
 
 __all__ = [
     "User", "Profile", "Project", "Document", "AISession", "ApiKey",
     "UserSubscription", "Organization", "OrganizationMember", "OrganizationInvite",
     "ThreadEvent", "Payment",
+    "FounderActivityLog", "ManualGrant", "Notification", "NotificationRead",
+    "AnnouncementBanner", "SupportTicket",
 ]

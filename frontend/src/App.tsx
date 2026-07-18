@@ -37,6 +37,7 @@ const TeamPage             = lazy(() => import("@/pages/TeamPage").then(m => ({ 
 const JoinPage             = lazy(() => import("@/pages/JoinPage").then(m => ({ default: m.JoinPage })));
 const PrivacyPage          = lazy(() => import("@/pages/PrivacyPage").then(m => ({ default: m.PrivacyPage })));
 const PaymentHistoryPage   = lazy(() => import("@/pages/PaymentHistoryPage").then(m => ({ default: m.PaymentHistoryPage })));
+const FounderPanelPage     = lazy(() => import("@/pages/FounderPanelPage").then(m => ({ default: m.FounderPanelPage })));
 const PaymentSuccessPage   = lazy(() => import("@/pages/PaymentSuccessPage").then(m => ({ default: m.PaymentSuccessPage })));
 const PaymentFailurePage   = lazy(() => import("@/pages/PaymentFailurePage").then(m => ({ default: m.PaymentFailurePage })));
 const ContextHubPage       = lazy(() => import("@/pages/ContextHubPage").then(m => ({ default: m.ContextHubPage })));
@@ -160,6 +161,7 @@ export default function App() {
           <Route path="/settings"         element={<SettingsPage />} />
           <Route path="/team"             element={<TeamPage />} />
           <Route path="/payment-history"  element={<PaymentHistoryPage />} />
+          <Route path="/founder"          element={<FounderPanelPage />} />
         </Route>
 
         <Route path="/connect-extension"  element={<ConnectExtensionPage />} />

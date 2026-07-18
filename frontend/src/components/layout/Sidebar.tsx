@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, User, Brain, FolderKanban, Users, Zap, Key, Settings, X, Search, Receipt } from "lucide-react";
+import { LayoutDashboard, User, Brain, FolderKanban, Users, Zap, Key, Settings, X, Search, Receipt, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePlan } from "@/hooks/usePlan";
 
@@ -45,9 +45,15 @@ export function Sidebar({ mobileOpen, onMobileClose, onClose }: SidebarProps) {
 
 function SidebarContent({ pathname, onClose }: { pathname: string; onClose?: () => void }) {
   const { plan } = usePlan();
-  // Founder accounts already have everything — no upgrade path to show.
-  const items = plan?.plan === "founder"
-    ? navItems.filter((i) => i.href !== "/pricing")
+  // Founder accounts already have everything — no upgrade path to show, and
+  // they get the founder-only admin panel link. The panel + its APIs are still
+  // verified server-side, so this is purely a menu-visibility hint.
+  const isFounder = plan?.plan === "founder";
+  const items = isFounder
+    ? [
+        ...navItems.filter((i) => i.href !== "/pricing"),
+        { href: "/founder", label: "Founder Panel", icon: Shield },
+      ]
     : navItems;
   return (
     <>

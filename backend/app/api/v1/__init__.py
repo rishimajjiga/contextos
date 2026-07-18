@@ -16,8 +16,17 @@ from .endpoints.organizations import router as organizations_router
 from .endpoints.threads import router as threads_router
 from .endpoints.memories import router as memories_router
 from .endpoints.search import router as search_router
+from .endpoints.inbox import router as inbox_router
 
 log = structlog.get_logger()
+
+try:
+    from .endpoints.founder import router as founder_router
+    _has_founder = True
+except Exception as _founder_err:  # pragma: no cover
+    founder_router = None
+    _has_founder = False
+    log.warning("founder router disabled", error=str(_founder_err))
 
 try:
     from .endpoints.billing import router as billing_router
@@ -43,6 +52,10 @@ router.include_router(tools_router,         prefix="/tools",         tags=["tool
 router.include_router(organizations_router, prefix="/organizations", tags=["organizations"])
 router.include_router(memories_router,      prefix="/memories",      tags=["memories"])
 router.include_router(search_router,        prefix="/search",        tags=["search"])
+router.include_router(inbox_router,         prefix="/inbox",         tags=["inbox"])
+
+if _has_founder and founder_router is not None:
+    router.include_router(founder_router,   prefix="/founder",       tags=["founder"])
 
 if _has_billing and billing_router is not None:
     router.include_router(billing_router, prefix="/billing", tags=["billing"])
