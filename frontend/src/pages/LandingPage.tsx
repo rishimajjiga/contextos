@@ -788,14 +788,16 @@ export function LandingPage() {
             ))}
           </motion.div>
 
-          {/* Launch offer */}
+          {/* New member offer */}
           <motion.div
             initial="hidden" whileInView="show" viewport={inView} variants={fadeUp}
             className="mx-auto mb-10 flex max-w-3xl flex-col items-center justify-between gap-4 rounded-2xl border border-[#2F9E44]/30 bg-[#37B24D]/8 px-6 py-5 sm:flex-row"
           >
             <div className="text-center sm:text-left">
-              <p className="text-sm font-bold text-[#1E293B]">🎉 Launch Offer — first 3 months of Pro free</p>
-              <p className="mt-0.5 text-xs text-[#64748B]">₹499/month after. Claim it on the pricing page.</p>
+              <p className="text-sm font-bold text-[#1E293B]">🎁 Special Offer for New Members</p>
+              <p className="mt-0.5 text-xs text-[#64748B]">
+                Start with Pro today and enjoy 2 extra months free — pay ₹499 for your first month, months 2 and 3 are on us.
+              </p>
             </div>
             <Link to="/pricing" className="shrink-0">
               <Button className="gap-2">

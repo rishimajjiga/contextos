@@ -86,7 +86,7 @@ const PLANS = (billing: Billing, allLimits: AllPlanLimits) => [
     priceNote: "/ month",
     annualNote: billing === "annual" ? "billed ₹4,499 / year (~$47)" : "or ₹4,499 / year (save ₹1,500)",
     description: "Unlimited memories and projects. The full second brain experience.",
-    cta: billing === "annual" ? "Get Pro — Annual" : "Upgrade to Pro",
+    cta: billing === "annual" ? "Get Pro — Annual" : "Claim Pro Access",
     featured: true,
     badge: billing === "annual" ? "Save ₹1,500" : null,
     features: [...limitFeatures(allLimits.pro),     ...PLAN_EXTRA.pro.features],
@@ -640,6 +640,32 @@ export function PricingPage() {
         </motion.div>
 
 
+        {/* ── New member offer banner — presentation only ────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.4 }}
+          className="mx-auto mb-10 flex max-w-2xl flex-col items-center justify-between gap-4 rounded-2xl px-6 py-5 sm:flex-row"
+          style={{ background: "rgba(47,158,68,0.07)", border: "1px solid rgba(47,158,68,0.25)" }}
+        >
+          <div className="text-center sm:text-left">
+            <p className="text-sm font-bold text-foreground">🎁 Special Offer for New Members</p>
+            <p className="mt-0.5 text-xs" style={{ color: "rgba(30,41,59,0.65)" }}>
+              Start with Pro today and enjoy 2 extra months free.
+            </p>
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => handleCta("pro")}
+            disabled={loading === "pro" || currentPlan === "pro"}
+            className="shrink-0 rounded-xl px-5 py-2.5 text-sm font-bold text-white transition-all disabled:cursor-not-allowed disabled:opacity-60"
+            style={{ background: "linear-gradient(135deg, #2F9E44, #37B24D)", boxShadow: "0 4px 16px rgba(55,178,77,0.45)" }}
+          >
+            {currentPlan === "pro" ? "✓ You're on Pro" : "Claim Offer"}
+          </motion.button>
+        </motion.div>
+
         {/* ── Pricing cards ──────────────────────────────────────────────────── */}
         <motion.div
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-16"
@@ -694,6 +720,19 @@ export function PricingPage() {
                   <p className="text-foreground/45 text-xs">{plan.priceUSD}{plan.priceNote !== "forever" ? " / month" : ""}</p>
                   {plan.annualNote && <p className="text-foreground/55 text-xs mt-1">{plan.annualNote}</p>}
                   <p className="text-foreground/70 text-sm mt-3 leading-relaxed">{plan.description}</p>
+
+                  {/* New Member Offer — presentation only, same checkout flow */}
+                  {isPro && billing === "monthly" && (
+                    <div
+                      className="mt-3 rounded-xl px-3 py-2.5"
+                      style={{ background: "rgba(47,158,68,0.08)", border: "1px solid rgba(47,158,68,0.22)" }}
+                    >
+                      <p className="text-[11px] font-bold" style={{ color: "#1E7A34" }}>🎁 New Member Offer</p>
+                      <p className="text-xs mt-1 leading-relaxed" style={{ color: "rgba(30,41,59,0.72)" }}>
+                        Get 3 months of Pro access. Pay for your first month — enjoy the next 2 months free.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Divider */}
