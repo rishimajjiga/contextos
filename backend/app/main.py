@@ -153,6 +153,29 @@ async def lifespan(app: FastAPI):
                     "ALTER TABLE user_subscriptions "
                     "ADD COLUMN IF NOT EXISTS trial_used BOOLEAN NOT NULL DEFAULT FALSE"
                 ))
+                # New Member Offer columns (one-time first-Pro offer, migration 0007).
+                # Same rationale as trial_used: without the backfill, the new ORM
+                # columns would 500 every authenticated request on existing DBs.
+                await conn.execute(sa.text(
+                    "ALTER TABLE user_subscriptions "
+                    "ADD COLUMN IF NOT EXISTS offer_used BOOLEAN NOT NULL DEFAULT FALSE"
+                ))
+                await conn.execute(sa.text(
+                    "ALTER TABLE user_subscriptions "
+                    "ADD COLUMN IF NOT EXISTS offer_applied BOOLEAN NOT NULL DEFAULT FALSE"
+                ))
+                await conn.execute(sa.text(
+                    "ALTER TABLE user_subscriptions "
+                    "ADD COLUMN IF NOT EXISTS offer_started_at TIMESTAMPTZ"
+                ))
+                await conn.execute(sa.text(
+                    "ALTER TABLE user_subscriptions "
+                    "ADD COLUMN IF NOT EXISTS offer_end_date TIMESTAMPTZ"
+                ))
+                await conn.execute(sa.text(
+                    "ALTER TABLE user_subscriptions "
+                    "ADD COLUMN IF NOT EXISTS offer_free_months INTEGER NOT NULL DEFAULT 0"
+                ))
 
                 # payments table — individual Razorpay transaction records
                 await conn.execute(sa.text("""

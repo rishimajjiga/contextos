@@ -24,6 +24,17 @@ export interface PlanInfo {
   started_on: string | null;
   auto_renew: boolean;
   days_remaining: number | null;
+  /** One-time New Member Offer (first monthly Pro subscription). */
+  offer?: {
+    used: boolean;
+    active: boolean;
+    started_at: string | null;
+    end_date: string | null;
+    free_months: number;
+    free_months_remaining: number;
+  };
+  /** The user's next charge date (offer end while the offer is active). */
+  next_payment_date?: string | null;
 }
 
 /** Quota limits for a single plan. -1 means unlimited. Mirrors backend PLAN_LIMITS. */

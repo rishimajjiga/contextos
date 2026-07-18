@@ -5,7 +5,7 @@ One row per user — tracks their Stripe plan, subscription ID, and billing peri
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -56,6 +56,28 @@ class UserSubscription(Base, UUIDMixin, TimestampMixin):
     # Stays True forever (even after the trial expires and the plan reverts to
     # free) so the 30-day trial can never be re-claimed for unlimited free access.
     trial_used: Mapped[bool] = mapped_column(Boolean(), default=False, nullable=False)
+
+    # ── One-time "New Member Offer" (first monthly Pro subscription) ─────────
+    # offer_used: True once the user has EVER received the offer. Never reset —
+    # cancel-and-resubscribe or upgrade/downgrade can't re-claim it.
+    offer_used: Mapped[bool] = mapped_column(Boolean(), default=False, nullable=False)
+
+    # offer_applied: True while the offer's free months are in progress (i.e.
+    # Razorpay charges are paused). Cleared when recurring billing resumes.
+    offer_applied: Mapped[bool] = mapped_column(Boolean(), default=False, nullable=False)
+
+    # First payment date of the offer subscription (month 1 — paid).
+    offer_started_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    # End of the 3-month offer access period; recurring ₹499/month resumes here.
+    offer_end_date: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    # Number of free months granted by the offer (2).
+    offer_free_months: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Relationship back to User
     user: Mapped["User"] = relationship("User", back_populates="subscription")  # noqa: F821

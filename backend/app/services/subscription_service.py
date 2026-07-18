@@ -246,6 +246,29 @@ async def get_plan_info(db: AsyncSession, user_id: str) -> dict:
         delta = sub.current_period_end - now
         days_remaining = delta.days
 
+    # ── New Member Offer status (first monthly Pro subscription) ─────────────
+    offer_started = getattr(sub, "offer_started_at", None)
+    offer_end = getattr(sub, "offer_end_date", None)
+    offer_active = bool(
+        plan == "pro" and offer_end is not None and now < offer_end
+    )
+    # Whole free months still ahead of `now` inside the offer window (0-2)
+    offer_free_months_remaining = 0
+    if offer_active and offer_started is not None:
+        elapsed_days = (now - offer_started).days
+        offer_free_months_remaining = max(0, min(2, 2 - max(0, (elapsed_days - 30) // 30 + 1)))
+        if elapsed_days < 30:
+            offer_free_months_remaining = 2
+
+    # The user's next charge: end of the offer window while it's active,
+    # otherwise the normal period end (only when auto-renew is on).
+    if offer_active:
+        next_payment_date = offer_end
+    elif sub.auto_renew and plan not in ("free", "founder") and sub.status == "active":
+        next_payment_date = sub.current_period_end
+    else:
+        next_payment_date = None
+
     return {
         "plan": plan,
         "display_name": PLAN_DISPLAY.get(plan, plan.title()),
@@ -261,6 +284,16 @@ async def get_plan_info(db: AsyncSession, user_id: str) -> dict:
         "started_on": sub.started_at.isoformat() if sub.started_at else None,
         "auto_renew": bool(sub.auto_renew),
         "days_remaining": days_remaining,
+        # New Member Offer (first monthly Pro subscription — one-time)
+        "offer": {
+            "used": bool(getattr(sub, "offer_used", False)),
+            "active": offer_active,
+            "started_at": offer_started.isoformat() if offer_started else None,
+            "end_date": offer_end.isoformat() if offer_end else None,
+            "free_months": int(getattr(sub, "offer_free_months", 0) or 0),
+            "free_months_remaining": offer_free_months_remaining,
+        },
+        "next_payment_date": next_payment_date.isoformat() if next_payment_date else None,
     }
 
 

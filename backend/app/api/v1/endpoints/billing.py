@@ -17,7 +17,7 @@ Routes added:
 import hashlib
 import hmac
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import select, desc, func
 # Python 3.12+ compatibility shim: razorpay uses pkg_resources which is not
 # bundled with Python 3.12+. Inject a minimal stub before importing razorpay.
@@ -371,6 +371,40 @@ async def get_plan(
 ):
     """Return the user's current plan, limits, and usage counts."""
     try:
+        # ── Lazy offer-billing resume (same pattern as lazy deletion) ────────
+        # When a New Member Offer's free months are ending, resume the paused
+        # Razorpay subscription so recurring billing restarts on the original
+        # cycle date after month 3. Resuming any time within the last cycle of
+        # the offer window schedules the next charge at the correct boundary.
+        try:
+            sub = await get_or_create_subscription(db, user_id)
+            if (
+                bool(getattr(sub, "offer_applied", False))
+                and sub.offer_end_date is not None
+                and sub.stripe_subscription_id
+                and datetime.now(timezone.utc) >= sub.offer_end_date - timedelta(days=28)
+            ):
+                try:
+                    _rzp_client().subscription.resume(
+                        sub.stripe_subscription_id, {"resume_at": "now"}
+                    )
+                    log.info(
+                        "new_member_offer_billing_resumed",
+                        user_id=user_id,
+                        subscription_id=sub.stripe_subscription_id,
+                    )
+                except Exception as exc:
+                    # Not paused / already resumed — treat the offer as complete
+                    log.warning(
+                        "new_member_offer_resume_failed",
+                        user_id=user_id,
+                        error=str(exc),
+                    )
+                sub.offer_applied = False  # free period concluded either way
+                await db.commit()
+        except Exception as exc:
+            log.warning("new_member_offer_resume_check_failed", user_id=user_id, error=str(exc))
+
         return await get_plan_info(db, user_id)
     except HTTPException:
         raise
@@ -525,6 +559,69 @@ async def verify_payment(
         plan=resolved_plan,
         subscription_id=body.razorpay_subscription_id,
     )
+
+    # ── New Member Offer: first monthly Pro subscription only ────────────────
+    # Month 1 paid → months 2-3 free (Razorpay charges paused) → recurring
+    # billing resumes after the 3-month access period. Applies exactly once
+    # per user: never again after cancel/resubscribe, and never for existing
+    # Pro users (any prior captured Pro payment disqualifies). Annual plans
+    # and other plans are excluded by the monthly-Pro plan_id check.
+    try:
+        is_monthly_pro = (
+            resolved_plan == "pro" and plan_id == settings.razorpay_pro_plan_id
+        )
+        if is_monthly_pro and not bool(getattr(sub, "offer_used", False)):
+            prior_pro_payment = (
+                await db.execute(
+                    select(Payment)
+                    .where(
+                        Payment.user_id == user_id,
+                        Payment.plan_name == "pro",
+                        Payment.status == "captured",
+                        Payment.payment_id != body.razorpay_payment_id,
+                    )
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+
+            if prior_pro_payment is None:
+                # Pause Razorpay charges FIRST — the offer is only recorded if
+                # the pause succeeds, so we can never show "free months" while
+                # Razorpay keeps charging.
+                paused = False
+                try:
+                    client.subscription.pause(
+                        body.razorpay_subscription_id, {"pause_at": "now"}
+                    )
+                    paused = True
+                except Exception as exc:
+                    log.warning(
+                        "new_member_offer_pause_failed",
+                        user_id=user_id,
+                        subscription_id=body.razorpay_subscription_id,
+                        error=str(exc),
+                    )
+
+                if paused:
+                    offer_end = now + timedelta(days=90)  # 3-month access period
+                    sub.offer_used = True
+                    sub.offer_applied = True
+                    sub.offer_started_at = now
+                    sub.offer_end_date = offer_end
+                    sub.offer_free_months = 2
+                    # Access covers the full offer period
+                    if sub.current_period_end is None or sub.current_period_end < offer_end:
+                        sub.current_period_end = offer_end
+                    await db.commit()
+                    log.info(
+                        "new_member_offer_applied",
+                        user_id=user_id,
+                        offer_end=offer_end.isoformat(),
+                        subscription_id=body.razorpay_subscription_id,
+                    )
+    except Exception as exc:
+        # The offer must never break payment verification itself.
+        log.warning("new_member_offer_check_failed", user_id=user_id, error=str(exc))
 
     # Fetch payment details from Razorpay to record amount/currency
     try:

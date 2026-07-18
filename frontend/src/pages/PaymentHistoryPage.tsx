@@ -4,13 +4,13 @@
  * Data is fetched from GET /billing/payments.
  */
 import { useEffect, useState } from "react";
-import { Receipt, RefreshCw, AlertCircle, CalendarDays, RefreshCcw, Clock } from "lucide-react";
+import { Receipt, RefreshCw, AlertCircle, CalendarDays, RefreshCcw, Clock, Gift, CheckCircle2 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { billingService, type PaymentRecord } from "@/services/billing.service";
+import { billingService, type PaymentRecord, type PlanInfo } from "@/services/billing.service";
 
 // ── Status badge colour map ───────────────────────────────────────────────────
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -46,6 +46,100 @@ function formatDate(iso: string | null | undefined): string {
   } catch {
     return iso;
   }
+}
+
+// ── New Member Offer timeline ("Your Pro Plan") ───────────────────────────────
+function addMonths(iso: string, months: number): Date {
+  const d = new Date(iso);
+  d.setMonth(d.getMonth() + months);
+  return d;
+}
+
+function fmt(d: Date): string {
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+}
+
+function ProOfferTimeline({ plan }: { plan: PlanInfo | null }) {
+  const offer = plan?.offer;
+  if (!plan || plan.plan !== "pro" || !offer?.started_at || !offer.end_date) return null;
+
+  const now = new Date();
+  const end = new Date(offer.end_date);
+  const inOffer = now < end;
+  const remaining = offer.free_months_remaining;
+  const endingSoon = inOffer && end.getTime() - now.getTime() < 14 * 24 * 3600 * 1000;
+
+  const steps = [
+    { date: new Date(offer.started_at), label: "₹499 Paid", sub: "Pro activated", done: true },
+    { date: addMonths(offer.started_at, 1), label: "Free month", sub: "No charge", done: now >= addMonths(offer.started_at, 1) },
+    { date: addMonths(offer.started_at, 2), label: "Free month", sub: "No charge", done: now >= addMonths(offer.started_at, 2) },
+    { date: end, label: "₹499/month", sub: "Recurring billing resumes", done: now >= end },
+  ];
+
+  return (
+    <Card className="border-brand-500/25 bg-brand-500/5">
+      <CardHeader className="pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+            <Gift className="h-4 w-4 text-brand-500" /> Your Pro Plan
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Badge className="text-[10px]">Active</Badge>
+            <Badge variant="outline" className="border-brand-400/40 text-[10px] text-brand-600">
+              🎁 New Member Offer Applied
+            </Badge>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="mb-4 flex flex-wrap gap-x-6 gap-y-1.5 text-xs text-muted-foreground">
+          <span>
+            You paid: <span className="font-semibold text-foreground">₹499</span>
+          </span>
+          <span>
+            Pro access:{" "}
+            <span className="font-semibold text-foreground">
+              ✓ {fmt(new Date(offer.started_at))} – {fmt(end)}
+            </span>
+          </span>
+          <span className="font-semibold text-brand-600">
+            {inOffer && remaining > 0
+              ? `${remaining} free month${remaining === 1 ? "" : "s"} remaining`
+              : `Your next payment is on ${fmt(end > now ? end : new Date(plan.next_payment_date ?? end))}`}
+          </span>
+        </div>
+
+        {/* Payment timeline */}
+        <ol className="relative space-y-0">
+          {steps.map((s, i) => (
+            <li key={i} className="relative flex gap-3 pb-4 last:pb-0">
+              {i < steps.length - 1 && (
+                <span className="absolute left-[9px] top-5 h-full w-px bg-border" aria-hidden />
+              )}
+              <span
+                className={`relative z-10 mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full ${
+                  s.done ? "bg-brand-500 text-white" : "border-2 border-border bg-card"
+                }`}
+              >
+                {s.done && <CheckCircle2 className="h-3 w-3" />}
+              </span>
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                <span className="text-xs font-semibold text-foreground">{fmt(s.date)}</span>
+                <span className="text-xs font-medium text-brand-600">{s.label}</span>
+                <span className="text-[11px] text-muted-foreground">{s.sub}</span>
+              </div>
+            </li>
+          ))}
+        </ol>
+
+        {endingSoon && (
+          <p className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+            Your free Pro period ends on {fmt(end)}. Your next payment of ₹499 will be charged after that.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 // ── Subscription details pill row ─────────────────────────────────────────────
@@ -88,12 +182,16 @@ function SubscriptionDetailRow({ payment }: { payment: PaymentRecord }) {
 
 export function PaymentHistoryPage() {
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
+  const [plan, setPlan]       = useState<PlanInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
     setError(null);
+    // Plan (for the offer timeline) loads independently — a failure here
+    // should never block the payment list.
+    billingService.getPlan().then(setPlan).catch(() => {});
     try {
       const data = await billingService.getPaymentHistory();
       setPayments(data.payments);
@@ -118,6 +216,9 @@ export function PaymentHistoryPage() {
           </Button>
         }
       />
+
+      {/* New Member Offer timeline — only for Pro users with the offer */}
+      <ProOfferTimeline plan={plan} />
 
       {loading && (
         <div className="flex items-center justify-center py-20">
