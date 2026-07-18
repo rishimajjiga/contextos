@@ -10,12 +10,13 @@ import {
   ArrowRight, ArrowDown, Brain, FolderKanban, Users, Cpu, Zap, Key,
   MessageSquare, FileText, Globe, Code2, Chrome, Github, Search,
   MousePointerClick, Sparkles, FolderOpen, ChevronDown, Monitor,
-  Smartphone, Tag, User, Layers, BookOpen, Link2, StickyNote,
+  Smartphone, Tag, User, Layers, BookOpen, Link2, StickyNote, Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 
 const EXTENSION_URL = "https://chromewebstore.google.com/detail/lofknjnllpgmbhnipkcblgmeijmeobbl";
+const SUPPORT_EMAIL = "usecontextos@gmail.com";
 
 // ── Motion presets ───────────────────────────────────────────────────────────
 const fadeUp: Variants = {
@@ -855,9 +856,29 @@ export function LandingPage() {
         </motion.div>
       </section>
 
+      {/* ════ SUPPORT STRIP ══════════════════════════════════════════════ */}
+      <section className="border-t border-[#E5E7EB] bg-white px-6 py-12">
+        <motion.div
+          initial="hidden" whileInView="show" viewport={inView} variants={fadeUp}
+          className="mx-auto flex max-w-3xl flex-col items-center justify-between gap-4 rounded-2xl border border-[#E5E7EB] bg-[#FAFCFB] px-6 py-5 sm:flex-row"
+        >
+          <div className="text-center sm:text-left">
+            <p className="text-sm font-bold text-[#1E293B]">Need help?</p>
+            <p className="mt-0.5 text-xs text-[#64748B]">We're here to help you build your second brain.</p>
+          </div>
+          <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="shrink-0">
+            <a href={`mailto:${SUPPORT_EMAIL}`}>
+              <Button variant="outline" className="gap-2">
+                <Mail className="h-4 w-4" /> Contact Support
+              </Button>
+            </a>
+          </motion.div>
+        </motion.div>
+      </section>
+
       {/* ════ FOOTER ═════════════════════════════════════════════════════ */}
       <footer className="border-t border-[#E5E7EB] bg-[#FAFCFB] px-6 py-14">
-        <div className="mx-auto grid max-w-6xl gap-10 sm:grid-cols-[1.5fr_1fr_1fr]">
+        <div className="mx-auto grid max-w-6xl gap-10 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1.2fr]">
           <div>
             <div className="mb-3 flex items-center gap-2.5">
               <img src="/logo_mark.png" alt="ContextOS" className="h-9 w-9 rounded-lg" />
@@ -884,6 +905,23 @@ export function LandingPage() {
               <Link to="/sign-in" className="text-[#64748B] transition-colors hover:text-[#1E293B]">Sign in</Link>
               <Link to="/sign-up" className="text-[#64748B] transition-colors hover:text-[#1E293B]">Start Free</Link>
             </div>
+          </div>
+          <div>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#64748B]">Support</p>
+            <p className="mb-3 text-sm leading-relaxed text-[#64748B]">
+              Need help? Contact our team for questions, feedback, or assistance.
+            </p>
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="inline-block">
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Mail className="h-3.5 w-3.5" /> Contact Support
+              </Button>
+            </a>
+            <a
+              href={`mailto:${SUPPORT_EMAIL}`}
+              className="mt-2.5 block text-sm text-[#64748B] transition-colors hover:text-[#2F9E44]"
+            >
+              {SUPPORT_EMAIL}
+            </a>
           </div>
         </div>
         <div className="mx-auto mt-10 max-w-6xl border-t border-[#E5E7EB] pt-6 text-center text-xs text-[#64748B]">
