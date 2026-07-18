@@ -14,6 +14,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ProfileMemoryContent } from "@/pages/ProfileMemoryPage";
 import type { ProfileTone, ResponseStyle } from "@/types";
 
 const schema = z.object({
@@ -131,9 +133,22 @@ export function ProfilePage() {
     <div>
       <PageHeader
         title="Profile"
-        description="Your identity layer — shared with every AI tool that reads your context."
+        description="Who you are — your personal memory and your identity for AI tools, in one place."
       />
 
+      <Tabs defaultValue="memory">
+        <TabsList className="mb-6">
+          <TabsTrigger value="memory">Profile Memory</TabsTrigger>
+          <TabsTrigger value="identity">AI Identity</TabsTrigger>
+        </TabsList>
+
+        {/* ── Profile Memory — everything about you as ONE memory ─────────── */}
+        <TabsContent value="memory">
+          <ProfileMemoryContent />
+        </TabsContent>
+
+        {/* ── AI Identity — the original profile form, unchanged ──────────── */}
+        <TabsContent value="identity">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-2xl">
         {/* Identity */}
         <Card>
@@ -245,6 +260,8 @@ export function ProfilePage() {
           </Button>
         </div>
       </form>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

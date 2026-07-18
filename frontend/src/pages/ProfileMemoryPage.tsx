@@ -14,7 +14,6 @@ import {
   User, BookOpen, Wrench, Target, Contact, Users, Settings2, Plus, X,
   Search, CheckCircle2, Loader2, Sparkles, ListPlus,
 } from "lucide-react";
-import { PageHeader } from "@/components/common/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -187,10 +186,10 @@ function parse(content: string): { values: Values; custom: CustomField[] } {
   return { values, custom };
 }
 
-// ── Page ─────────────────────────────────────────────────────────────────────
+// ── Content (embeddable — used as a tab inside the unified Profile page) ────
 type SaveState = "idle" | "loading" | "dirty" | "saving" | "saved" | "error";
 
-export function ProfileMemoryPage() {
+export function ProfileMemoryContent() {
   const { user } = useUser();
   const [values, setValues] = useState<Values>({});
   const [custom, setCustom] = useState<CustomField[]>([]);
@@ -325,11 +324,6 @@ export function ProfileMemoryPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Profile Memory"
-        description="Everything about you, stored as one searchable memory."
-      />
-
       {/* ── Profile header card ─────────────────────────────────────────── */}
       <Card className="mb-6 overflow-hidden">
         <CardContent className="p-6">

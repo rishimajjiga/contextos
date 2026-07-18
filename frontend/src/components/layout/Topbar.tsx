@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 const ROUTE_LABELS: Record<string, string> = {
   "/dashboard":   "Dashboard",
   "/profile":     "Profile",
-  "/profile-memory": "Profile Memory",
   "/save-memory": "Save Memories",
   "/memories":    "Memories",
   "/search":      "Search",
