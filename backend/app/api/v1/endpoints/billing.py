@@ -842,10 +842,85 @@ async def offer_audit(
         except Exception as exc:
             users_report.append({"user_id": uid, "error": str(exc)})
 
+    # 3. Population scan (only when auditing everyone, not a single email).
+    # The backfill/candidate query keys on the CURRENT plan column, which is
+    # stale if /verify or the webhook never activated a paid subscription. The
+    # true signal of "purchased Pro" is a captured Pro PAYMENT. Scan by payment
+    # so users who paid but are stuck at plan!=pro become visible — that is the
+    # systematic reason eligible first-time Pro users can go uncounted.
+    population: dict = {}
+    if not email:
+        from app.models.subscription import UserSubscription as _Sub
+
+        total_subs = (
+            await db.execute(select(func.count()).select_from(_Sub))
+        ).scalar_one()
+        pro_active_subs = (
+            await db.execute(
+                select(func.count()).select_from(_Sub).where(
+                    _Sub.plan == "pro", _Sub.status == "active"
+                )
+            )
+        ).scalar_one()
+
+        # Distinct users with at least one captured Pro payment = everyone who
+        # has ever actually paid for Pro.
+        paid_pro_user_ids = list(
+            (
+                await db.execute(
+                    select(Payment.user_id)
+                    .where(Payment.plan_name == "pro", Payment.status == "captured")
+                    .group_by(Payment.user_id)
+                )
+            ).scalars().all()
+        )
+
+        # Of those, which are NOT currently counted as offer candidates, and why?
+        stuck = []
+        for uid in paid_pro_user_ids:
+            sub = (
+                await db.execute(select(_Sub).where(_Sub.user_id == uid))
+            ).scalar_one_or_none()
+            if sub is None:
+                stuck.append({"user_id": uid, "issue": "paid_pro_but_no_subscription_row"})
+                continue
+            is_candidate = (
+                sub.plan == "pro" and sub.status == "active"
+                and not bool(getattr(sub, "offer_used", False))
+            )
+            if is_candidate:
+                continue
+            # Explain why this paid-Pro user is invisible to the backfill.
+            if bool(getattr(sub, "offer_used", False)):
+                issue = "offer_already_used"
+            elif sub.plan != "pro":
+                issue = f"subscription_plan_is_{sub.plan}_not_pro"
+            elif sub.status != "active":
+                issue = f"subscription_status_is_{sub.status}_not_active"
+            else:
+                issue = "unknown"
+            stuck.append({
+                "user_id": uid,
+                "issue": issue,
+                "plan": sub.plan,
+                "status": sub.status,
+                "offer_used": bool(getattr(sub, "offer_used", False)),
+                "subscription_id": sub.stripe_subscription_id,
+            })
+
+        population = {
+            "total_subscriptions": total_subs,
+            "active_pro_subscriptions": pro_active_subs,
+            "users_who_paid_for_pro": len(paid_pro_user_ids),
+            "paid_pro_not_a_candidate": stuck,
+        }
+
     log.info(
         "offer_audit_run",
         actor=actor, checked=len(targets), eligible=eligible_count,
         already_granted=already_granted, revision=migration["alembic_revision"],
+        paid_pro=population.get("users_who_paid_for_pro"),
+        stuck=len(population.get("paid_pro_not_a_candidate", [])),
     )
     return {
         "ok": True,
@@ -854,6 +929,7 @@ async def offer_audit(
         "candidates_checked": len(targets),
         "eligible_now": eligible_count,
         "users": users_report,
+        "population": population,
     }
 
 
