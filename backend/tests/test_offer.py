@@ -22,6 +22,8 @@ from app.api.v1.endpoints.billing import (
     _apply_offer_if_eligible_existing,
     _offer_ineligible_cache,
     _resume_offer_billing_if_due,
+    admin_grant_offer,
+    GrantOfferRequest,
 )
 from app.services.subscription_service import handle_razorpay_subscription_charged
 from app.config import settings
@@ -364,3 +366,49 @@ async def test_empty_plan_id_config_still_excludes_annual(db_session, pro_user, 
     assert await _apply_offer_if_eligible_existing(db_session, TEST_USER_ID) is False
     assert api.pause_calls == []
     assert TEST_USER_ID not in _offer_ineligible_cache
+
+
+# ── 10. Manual grant for a cancelled-mandate first-time Pro buyer ─────────────
+
+@pytest.mark.asyncio
+async def test_manual_grant_access_only_for_cancelled_mandate(db_session, pro_user, monkeypatch):
+    """Razorpay auto-cancelled the mandate, so the sub can't be paused. The
+    manual admin grant extends access 2 months WITHOUT a Razorpay pause and
+    leaves offer_applied False (resume sweep must never touch it)."""
+    api = FakeSubscriptionAPI(status="cancelled")
+    _patch_rzp(monkeypatch, api)
+    pro_user.status = "active"
+    await db_session.commit()
+
+    res = await admin_grant_offer(
+        GrantOfferRequest(user_id=TEST_USER_ID), actor="test", db=db_session
+    )
+    assert res["action"] == "granted"
+    assert api.pause_calls == []             # cancelled sub never paused
+    await db_session.refresh(pro_user)
+    assert pro_user.offer_used is True
+    assert pro_user.offer_applied is False   # nothing to resume
+    assert pro_user.offer_free_months == 2
+    paid_end = NOW + timedelta(days=20)
+    expected_end = _add_months(paid_end, 2)
+    assert abs((_utc(pro_user.offer_end_date) - expected_end).total_seconds()) < 5
+    assert abs((_utc(pro_user.current_period_end) - expected_end).total_seconds()) < 5
+
+    # Resume sweep must skip an access-only grant (no paused Razorpay sub).
+    assert await _resume_offer_billing_if_due(db_session, pro_user) is False
+    assert api.resume_calls == []
+
+
+@pytest.mark.asyncio
+async def test_manual_grant_is_idempotent(db_session, pro_user, monkeypatch):
+    api = FakeSubscriptionAPI(status="cancelled")
+    _patch_rzp(monkeypatch, api)
+
+    first = await admin_grant_offer(
+        GrantOfferRequest(user_id=TEST_USER_ID), actor="test", db=db_session
+    )
+    assert first["action"] == "granted"
+    second = await admin_grant_offer(
+        GrantOfferRequest(user_id=TEST_USER_ID), actor="test", db=db_session
+    )
+    assert second["action"] == "already_granted"   # never double-granted

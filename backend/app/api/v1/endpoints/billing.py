@@ -756,6 +756,114 @@ async def offer_backfill(
     }
 
 
+# ── POST /billing/admin/grant-offer — manual remediation (admin/cron only) ───
+
+class GrantOfferRequest(BaseModel):
+    email: str | None = None
+    user_id: str | None = None
+
+
+@router.post("/admin/grant-offer")
+async def admin_grant_offer(
+    body: GrantOfferRequest,
+    actor: str = Depends(_require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Manually grant the 2-month bonus as an ACCESS EXTENSION for a genuine
+    first-time Pro buyer whose Razorpay subscription can't be paused/resumed
+    (e.g. the recurring mandate was auto-cancelled by Razorpay/autopay).
+
+    Uses the SAME offer fields as the automatic flow — this is not a new offer,
+    just the access half applied without the Razorpay pause:
+      - extends current_period_end by 2 calendar months
+      - sets offer_used/offer_started_at/offer_end_date/offer_free_months
+      - offer_applied stays FALSE (there is no paused subscription to resume,
+        so the resume sweep must never touch this account)
+
+    Guards (idempotent, safe to re-run):
+      - offer_used already True  → returns already_granted, changes nothing
+      - requires >=1 captured Pro payment → proof the user actually paid
+    Because the mandate is dead, ₹499/month will NOT auto-resume after the
+    bonus; the user re-subscribes normally when it ends. Founder/pricing/plan
+    rules are untouched.
+    """
+    from app.models.user import User
+    from app.models.subscription import UserSubscription
+
+    uid = body.user_id
+    if not uid and body.email:
+        uid = (
+            await db.execute(
+                select(User.id).where(func.lower(User.email) == body.email.strip().lower())
+            )
+        ).scalar_one_or_none()
+    if not uid:
+        raise HTTPException(status_code=400, detail="Provide user_id or a known email.")
+
+    sub = await get_or_create_subscription(db, uid)
+    now = datetime.now(timezone.utc)
+
+    if bool(getattr(sub, "offer_used", False)):
+        return {
+            "ok": True, "action": "already_granted", "user_id": uid,
+            "offer_end_date": sub.offer_end_date.isoformat() if sub.offer_end_date else None,
+        }
+
+    pays = (
+        await db.execute(
+            select(Payment)
+            .where(
+                Payment.user_id == uid,
+                Payment.plan_name == "pro",
+                Payment.status == "captured",
+            )
+            .order_by(Payment.purchase_date)
+        )
+    ).scalars().all()
+    if not pays:
+        raise HTTPException(
+            status_code=400,
+            detail="No captured Pro payment for this user — cannot grant the first-Pro bonus.",
+        )
+
+    base = (
+        sub.current_period_end
+        if (sub.current_period_end and sub.current_period_end > now)
+        else now
+    )
+    offer_end = _add_months(base, 2)
+
+    sub.plan = "pro"
+    sub.status = "active"
+    sub.offer_used = True
+    sub.offer_applied = False   # no Razorpay pause → resume sweep must skip it
+    sub.offer_started_at = pays[-1].purchase_date
+    sub.offer_end_date = offer_end
+    sub.offer_free_months = 2
+    sub.current_period_end = offer_end
+    if sub.started_at is None:
+        sub.started_at = pays[0].purchase_date
+    await db.commit()
+
+    log.warning(
+        "new_member_offer_granted_manually",
+        actor=actor, user_id=uid, offer_end=offer_end.isoformat(),
+        subscription_id=sub.stripe_subscription_id,
+        note="access-only grant; Razorpay not paused (mandate inactive)",
+    )
+    return {
+        "ok": True,
+        "action": "granted",
+        "user_id": uid,
+        "plan": sub.plan,
+        "offer_end_date": offer_end.isoformat(),
+        "current_period_end": sub.current_period_end.isoformat(),
+        "next_payment_date": offer_end.isoformat(),
+        "billing_note": "Access extended 2 months. Billing will NOT auto-resume "
+                        "(Razorpay mandate inactive) — user re-subscribes when it ends.",
+    }
+
+
 # ── GET /billing/admin/offer-audit — full offer-system debugging report ──────
 
 @router.get("/admin/offer-audit")
