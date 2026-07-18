@@ -384,6 +384,106 @@ async def get_plans():
 _offer_ineligible_cache: set[str] = set()
 
 
+async def _offer_eligibility_existing(db: AsyncSession, user_id: str) -> tuple[bool, str, dict]:
+    """Side-effect-free eligibility walk for the existing-user offer path.
+
+    Returns (eligible, failing_condition, details). `details` carries every
+    field needed for audit output and structured logs. Reads Razorpay but
+    never writes the DB or billing state — safe to call from audits. The
+    checks are EXACTLY the promotion rules; this only makes each failure
+    observable.
+    """
+    from app.models.user import User
+
+    sub = await get_or_create_subscription(db, user_id)
+    email = (
+        await db.execute(select(User.email).where(User.id == user_id))
+    ).scalar_one_or_none()
+    details: dict = {
+        "user_id": user_id,
+        "email": email,
+        "plan": sub.plan,
+        "sub_status": sub.status,
+        "subscription_id": sub.stripe_subscription_id,
+        "current_period_end": sub.current_period_end.isoformat() if sub.current_period_end else None,
+        "offer_used": bool(getattr(sub, "offer_used", False)),
+        "offer_applied": bool(getattr(sub, "offer_applied", False)),
+        "offer_end_date": (
+            sub.offer_end_date.isoformat() if getattr(sub, "offer_end_date", None) else None
+        ),
+    }
+
+    def fail(condition: str, expected, actual, reason: str):
+        return False, condition, {
+            **details, "expected": str(expected), "actual": str(actual), "reason": reason,
+        }
+
+    if details["offer_used"]:
+        return fail("offer_used", False, True,
+                    "bonus already granted once — one per account, never repeated")
+    if sub.plan != "pro":
+        return fail("plan_is_pro", "pro", sub.plan, "offer applies to the Pro plan only")
+    if sub.status != "active":
+        return fail("subscription_active", "active", sub.status,
+                    "subscription is not currently active")
+    if not sub.stripe_subscription_id:
+        return fail("razorpay_subscription_id_present", "sub_...", None,
+                    "no Razorpay subscription id stored on the account")
+
+    pays = (
+        await db.execute(
+            select(Payment)
+            .where(
+                Payment.user_id == user_id,
+                Payment.plan_name == "pro",
+                Payment.status == "captured",
+            )
+            .order_by(Payment.purchase_date)
+        )
+    ).scalars().all()
+    details["pro_payment_count"] = len(pays)
+    details["first_pro_purchase"] = pays[0].purchase_date.isoformat() if pays else None
+    if not pays:
+        return fail("captured_pro_payment_exists", ">=1", 0,
+                    "no captured Pro payment recorded — /verify or the webhook never stored it")
+
+    prior_sub_ids = {p.subscription_id for p in pays if p.subscription_id}
+    if any(sid != sub.stripe_subscription_id for sid in prior_sub_ids):
+        return fail("first_pro_subscription", True, False,
+                    f"payments exist under other Razorpay subscription ids "
+                    f"{sorted(prior_sub_ids)} — cancel-and-resubscribe")
+    for prev, nxt in zip(pays, pays[1:]):
+        gap = (nxt.purchase_date - prev.purchase_date).days
+        if gap > 45:
+            return fail("payment_gap", "<=45 days", f"{gap} days",
+                        ">45-day gap between Pro payments — a previous Pro subscription ended")
+
+    client = _rzp_client()
+    try:
+        rzp_sub = client.subscription.fetch(sub.stripe_subscription_id)
+    except Exception as exc:
+        return fail("razorpay_fetch", "subscription object", f"error: {exc}",
+                    "Razorpay fetch failed (transient — retried on next check)")
+    details["razorpay_plan_id"] = rzp_sub.get("plan_id")
+    details["razorpay_status"] = rzp_sub.get("status")
+    if not _is_monthly_pro_plan(client, rzp_sub.get("plan_id")):
+        return fail("monthly_pro_plan", settings.razorpay_pro_plan_id or "monthly ₹499 plan",
+                    rzp_sub.get("plan_id"),
+                    "Razorpay plan is not the monthly ₹499 Pro plan (annual/other plan)")
+    if rzp_sub.get("status") not in ("active", "authenticated"):
+        return fail("razorpay_status_active", "active|authenticated", rzp_sub.get("status"),
+                    "Razorpay subscription is not in a billable state")
+
+    return True, "", details
+
+
+# Failing conditions that can never change for this account → cache forever.
+# (monthly_pro_plan is only permanent when the configured plan id gave a
+# definitive answer; with an empty config a transient plan-fetch failure must
+# not brand the user ineligible for the process lifetime.)
+_OFFER_PERMANENT_FAILS = ("offer_used", "first_pro_subscription", "payment_gap")
+
+
 async def _apply_offer_if_eligible_existing(db: AsyncSession, user_id: str) -> bool:
     """Apply the one-time New Member Offer to a user who is CURRENTLY on their
     FIRST active monthly-Pro subscription — including subscriptions created
@@ -401,58 +501,19 @@ async def _apply_offer_if_eligible_existing(db: AsyncSession, user_id: str) -> b
     if user_id in _offer_ineligible_cache:
         return False
 
+    eligible, condition, details = await _offer_eligibility_existing(db, user_id)
+    if not eligible:
+        # Structured failure log: exact condition, expected vs actual, and why.
+        log.info("offer_eligibility_failed", condition=condition, **details)
+        if condition in _OFFER_PERMANENT_FAILS or (
+            condition == "monthly_pro_plan" and bool(settings.razorpay_pro_plan_id)
+        ):
+            _offer_ineligible_cache.add(user_id)
+        return False
+
     sub = await get_or_create_subscription(db, user_id)
     now = datetime.now(timezone.utc)
-
-    if bool(getattr(sub, "offer_used", False)):
-        _offer_ineligible_cache.add(user_id)
-        return False
-    # Not cached negative: a free user may buy Pro later (verify path covers it)
-    if sub.plan != "pro" or sub.status != "active" or not sub.stripe_subscription_id:
-        return False
-
-    # First-subscription check via payment history
-    pays = (
-        await db.execute(
-            select(Payment)
-            .where(
-                Payment.user_id == user_id,
-                Payment.plan_name == "pro",
-                Payment.status == "captured",
-            )
-            .order_by(Payment.purchase_date)
-        )
-    ).scalars().all()
-    if not pays:
-        return False
-    # A captured Pro payment under a DIFFERENT Razorpay subscription id means an
-    # earlier Pro subscription existed → cancel-and-resubscribe → never eligible.
-    # (Catches quick resubscribes the 45-day gap heuristic below would miss.)
-    prior_sub_ids = {p.subscription_id for p in pays if p.subscription_id}
-    if any(sid != sub.stripe_subscription_id for sid in prior_sub_ids):
-        _offer_ineligible_cache.add(user_id)
-        return False
-    for prev, nxt in zip(pays, pays[1:]):
-        if (nxt.purchase_date - prev.purchase_date).days > 45:
-            _offer_ineligible_cache.add(user_id)  # previously canceled → never eligible
-            return False
-
-    # Monthly Pro only — confirmed against Razorpay
     client = _rzp_client()
-    try:
-        rzp_sub = client.subscription.fetch(sub.stripe_subscription_id)
-    except Exception as exc:
-        log.warning("offer_existing_rzp_fetch_failed", user_id=user_id, error=str(exc))
-        return False
-    if not _is_monthly_pro_plan(client, rzp_sub.get("plan_id")):
-        # Only cache permanent ineligibility when the configured plan id gave a
-        # definitive answer — with an empty config a transient plan-fetch
-        # failure must NOT brand the user ineligible forever.
-        if settings.razorpay_pro_plan_id:
-            _offer_ineligible_cache.add(user_id)  # annual or non-Pro Razorpay plan
-        return False
-    if rzp_sub.get("status") not in ("active", "authenticated"):
-        return False
 
     # Pause charges FIRST — only then record the offer
     try:
@@ -470,9 +531,21 @@ async def _apply_offer_if_eligible_existing(db: AsyncSession, user_id: str) -> b
         else now
     )
     offer_end = _add_months(base, 2)
+    last_pay = (
+        await db.execute(
+            select(Payment)
+            .where(
+                Payment.user_id == user_id,
+                Payment.plan_name == "pro",
+                Payment.status == "captured",
+            )
+            .order_by(desc(Payment.purchase_date))
+            .limit(1)
+        )
+    ).scalar_one_or_none()
     sub.offer_used = True
     sub.offer_applied = True
-    sub.offer_started_at = pays[-1].purchase_date
+    sub.offer_started_at = last_pay.purchase_date if last_pay else now
     sub.offer_end_date = offer_end
     sub.offer_free_months = 2
     sub.current_period_end = offer_end
@@ -642,26 +715,145 @@ async def offer_backfill(
         )
     )
     subs = result.scalars().all()
+    log.info("offer_backfill_started", actor=actor, eligible_candidates_found=len(subs))
+
+    # Explicit reprocess: drop any stale in-process ineligibility verdicts
+    # (e.g. cached under a since-fixed configuration).
+    _offer_ineligible_cache.clear()
+
     applied, skipped, errors = 0, 0, 0
+    granted: list[str] = []
+    failure_reasons: dict[str, int] = {}
     for s in subs:
         try:
-            if await _apply_offer_if_eligible_existing(db, s.user_id):
+            eligible, condition, details = await _offer_eligibility_existing(db, s.user_id)
+            if eligible and await _apply_offer_if_eligible_existing(db, s.user_id):
                 applied += 1
+                granted.append(s.user_id)
             else:
                 skipped += 1
+                cond = condition or "razorpay_pause_failed"
+                failure_reasons[cond] = failure_reasons.get(cond, 0) + 1
+                log.info("offer_backfill_user_skipped", condition=cond, **details)
         except Exception as exc:
             errors += 1
+            failure_reasons["exception"] = failure_reasons.get("exception", 0) + 1
             log.warning("offer_backfill_user_failed", user_id=s.user_id, error=str(exc))
     log.info(
         "offer_backfill_done",
-        actor=actor, candidates=len(subs), applied=applied, skipped=skipped, errors=errors,
+        actor=actor, candidates=len(subs), processed=applied + skipped + errors,
+        granted=applied, skipped=skipped, failed=errors, failure_reasons=failure_reasons,
     )
     return {
         "ok": True,
         "candidates": len(subs),
+        "processed": applied + skipped + errors,
         "applied": applied,
         "skipped": skipped,
         "errors": errors,
+        "failure_reasons": failure_reasons,
+        "granted_user_ids": granted,
+    }
+
+
+# ── GET /billing/admin/offer-audit — full offer-system debugging report ──────
+
+@router.get("/admin/offer-audit")
+async def offer_audit(
+    email: str | None = None,
+    limit: int = 50,
+    actor: str = Depends(_require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Debugging report for the Pro Bonus offer system (founder or cron auth).
+
+    Checks, against the LIVE database this backend is connected to:
+      1. Migration state — current alembic revision + offer columns present.
+      2. Per-user eligibility walk — for one account (?email=) or every
+         active Pro subscription that hasn't received the offer (capped by
+         ?limit=). Each entry shows the exact failing condition,
+         expected vs actual, and the reason — or eligible=true.
+
+    Read-only: grants nothing. Run POST /billing/offer-backfill to grant.
+    """
+    from sqlalchemy import text
+    from app.models.user import User
+    from app.models.subscription import UserSubscription
+
+    # 1. Migration / columns
+    migration: dict = {"alembic_revision": None, "offer_columns_present": False}
+    try:
+        migration["alembic_revision"] = (
+            await db.execute(text("SELECT version_num FROM alembic_version"))
+        ).scalar()
+    except Exception as exc:
+        migration["alembic_error"] = str(exc)
+        await db.rollback()
+    try:
+        await db.execute(text(
+            "SELECT offer_used, offer_applied, offer_started_at, offer_end_date, "
+            "offer_free_months FROM user_subscriptions LIMIT 1"
+        ))
+        migration["offer_columns_present"] = True
+    except Exception as exc:
+        migration["columns_error"] = str(exc)
+        await db.rollback()
+
+    # 2. Targets
+    if email:
+        res = await db.execute(
+            select(User.id).where(func.lower(User.email) == email.strip().lower())
+        )
+        uid = res.scalar_one_or_none()
+        if uid is None:
+            raise HTTPException(status_code=404, detail=f"No user with email {email}.")
+        targets = [uid]
+    else:
+        res = await db.execute(
+            select(UserSubscription.user_id).where(
+                UserSubscription.plan == "pro",
+                UserSubscription.status == "active",
+                UserSubscription.offer_used.is_(False),
+            ).limit(min(limit, 200))
+        )
+        targets = list(res.scalars().all())
+
+    already_granted = None
+    if migration["offer_columns_present"]:
+        already_granted = (
+            await db.execute(
+                select(func.count()).select_from(UserSubscription)
+                .where(UserSubscription.offer_used.is_(True))
+            )
+        ).scalar_one()
+
+    users_report = []
+    eligible_count = 0
+    for uid in targets:
+        try:
+            eligible, condition, details = await _offer_eligibility_existing(db, uid)
+            if eligible:
+                eligible_count += 1
+            users_report.append({
+                **details,
+                "eligible": eligible,
+                "failure_condition": condition or None,
+            })
+        except Exception as exc:
+            users_report.append({"user_id": uid, "error": str(exc)})
+
+    log.info(
+        "offer_audit_run",
+        actor=actor, checked=len(targets), eligible=eligible_count,
+        already_granted=already_granted, revision=migration["alembic_revision"],
+    )
+    return {
+        "ok": True,
+        "migration": migration,
+        "bonuses_already_granted": already_granted,
+        "candidates_checked": len(targets),
+        "eligible_now": eligible_count,
+        "users": users_report,
     }
 
 
