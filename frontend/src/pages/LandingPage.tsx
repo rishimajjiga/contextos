@@ -154,11 +154,11 @@ const LIBRARY_ITEMS = [
   { icon: Sparkles, title: "Startup idea — voice journal", tags: ["ideas"] },
   { icon: StickyNote, title: "Meeting notes — Q3 roadmap", tags: ["work", "notes"] },
   { icon: MessageSquare, title: "ChatGPT prompt — code review", tags: ["prompts"] },
-  { icon: Code2, title: "API documentation — payments", tags: ["code", "docs"] },
+  { icon: Code2, title: "Payment API knowledge — extracted", tags: ["code", "docs"] },
   { icon: BookOpen, title: "Favorite recipe — dal makhani", tags: ["recipes"] },
   { icon: Globe, title: "Travel plan — Bali itinerary", tags: ["travel"] },
-  { icon: Link2, title: "Research article — sleep & focus", tags: ["research"] },
-  { icon: BookOpen, title: "Book summary — Deep Work", tags: ["learning"] },
+  { icon: Link2, title: "Sleep research notes — from article", tags: ["research"] },
+  { icon: BookOpen, title: "Deep Work notes", tags: ["learning"] },
   { icon: FileText, title: "Email template — client outreach", tags: ["templates"] },
 ];
 
@@ -246,7 +246,8 @@ function ProfileIdentityCard() {
 // ── FAQ ──────────────────────────────────────────────────────────────────────
 const FAQS = [
   { q: "What is ContextOS?", a: "ContextOS is your universal second brain — one place where everything important lives. Save anything from anywhere, and find it instantly whenever you need it." },
-  { q: "What can I save?", a: "Anything: ideas, notes, research, links, articles, prompts, AI conversations, code, documents, recipes, goals, templates, usernames — if you can select it or share it, you can save it." },
+  { q: "What can I save?", a: "Anything: ideas, notes, research, links, articles, prompts, AI conversations, code, recipes, goals, templates, usernames — and knowledge extracted from documents. If you can select it or share it, you can save it." },
+  { q: "Does ContextOS store my files?", a: "No. ContextOS does not store uploaded files. When you upload a document, ContextOS extracts the text and saves it as a searchable memory. The original file is not kept." },
   { q: "Where can I save information from?", a: "From any website with the browser extension, from your desktop, from your phone, and from AI tools like ChatGPT, Claude, Gemini, and Cursor. Everything lands in the same library." },
   { q: "How does saving work?", a: "On the web: select text → right-click → Save to ContextOS. On mobile: share to ContextOS. Either way, it's saved and searchable in seconds." },
   { q: "Why not just use bookmarks?", a: "Bookmarks save a link — not the actual content. ContextOS saves the exact text, idea, or snippet you cared about, keeps it organized, and makes every word searchable." },
@@ -362,16 +363,16 @@ const ECOSYSTEM: { group: string; items: { icon: React.ComponentType<{ className
       { icon: FileText, label: "Google Docs" },
       { icon: Github, label: "GitHub" },
       { icon: Code2, label: "Stack Overflow" },
-      { icon: FileText, label: "Documents & PDFs" },
+      { icon: FileText, label: "Docs & PDFs (extracted)" },
     ],
   },
 ];
 
 const BENEFITS = [
   { icon: User, title: "Personal Profile", desc: "Save your identity, skills, goals, and preferences once." },
-  { icon: FolderKanban, title: "Projects", desc: "Keep everything related to each project together." },
-  { icon: MousePointerClick, title: "Universal Save", desc: "Save anything from anywhere." },
-  { icon: Search, title: "Instant Search", desc: "Find anything in seconds." },
+  { icon: FolderKanban, title: "Projects", desc: "Keep project knowledge connected." },
+  { icon: MousePointerClick, title: "Universal Save", desc: "Save important information from anywhere." },
+  { icon: Search, title: "Instant Search", desc: "Find any memory instantly." },
   { icon: Layers, title: "Collections", desc: "Organize knowledge beautifully." },
   { icon: Sparkles, title: "AI Integration", desc: "Use your saved context inside AI tools." },
   { icon: Users, title: "Teams", desc: "Share knowledge with your team." },
@@ -434,9 +435,9 @@ export function LandingPage() {
             </motion.h1>
 
             <motion.p variants={fadeUp} className="mt-6 text-lg leading-relaxed text-[#64748B] sm:text-xl">
-              <span className="font-semibold text-[#1E293B]">Save anything from anywhere.</span> Ideas, notes, research,
-              AI chats, code, documents — across your browser, desktop, mobile, and AI tools. Find it instantly whenever
-              you need it.
+              <span className="font-semibold text-[#1E293B]">Save important information from anywhere.</span> Ideas,
+              notes, research, AI chats, and code — everything becomes a searchable memory across your browser,
+              desktop, mobile, and AI tools.
             </motion.p>
 
             <motion.div variants={fadeUp} className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
@@ -572,6 +573,52 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* ════ TURN FILES INTO MEMORIES ═══════════════════════════════════ */}
+      <section className="px-6 py-20 sm:py-28">
+        <div className="mx-auto max-w-5xl">
+          <SectionHeading
+            eyebrow="Knowledge, not files"
+            title="Turn Files Into Memories."
+            sub="Upload a document and ContextOS extracts the information inside it into a searchable memory. Your files are not stored — only the extracted knowledge becomes part of your second brain."
+          />
+          <motion.div
+            initial="hidden" whileInView="show" viewport={inView} variants={stagger}
+            className="mx-auto flex max-w-3xl flex-col items-center gap-2 sm:flex-row sm:justify-center sm:gap-0"
+          >
+            {[
+              { icon: FileText, label: "Upload file" },
+              { icon: Sparkles, label: "Extract text" },
+              { icon: Brain, label: "Create memory" },
+              { icon: Search, label: "Search anytime" },
+            ].map(({ icon: Icon, label }, i, arr) => (
+              <motion.div key={label} variants={fadeUp} className="flex items-center">
+                <div className="flex w-36 flex-col items-center gap-2.5 rounded-2xl border border-[#E5E7EB] bg-white px-4 py-5 text-center shadow-[0_1px_3px_rgba(30,41,59,0.05)]">
+                  <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${i === 2 ? "bg-[#2F9E44] text-white" : "bg-[#37B24D]/10 text-[#2F9E44]"}`}>
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <span className="text-xs font-semibold text-[#1E293B]">{label}</span>
+                </div>
+                {i < arr.length - 1 && (
+                  <>
+                    <ArrowRight className="mx-2 hidden h-4 w-4 shrink-0 text-[#37B24D] sm:block" />
+                    <ArrowDown className="my-1 h-4 w-4 shrink-0 text-[#37B24D] sm:hidden" />
+                  </>
+                )}
+              </motion.div>
+            ))}
+          </motion.div>
+          <motion.div
+            initial="hidden" whileInView="show" viewport={inView} variants={fadeUp}
+            className="mt-8 flex flex-wrap items-center justify-center gap-2"
+          >
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#64748B]">Works with</span>
+            {["PDF", "DOC / DOCX", "TXT", "Documents"].map((t) => (
+              <span key={t} className="rounded-full bg-[#FAFCFB] px-3 py-1.5 text-xs font-semibold text-[#64748B] ring-1 ring-[#E5E7EB]">{t}</span>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
       {/* ════ WORKS EVERYWHERE — ecosystem ═══════════════════════════════ */}
       <section className="px-6 py-20 sm:py-28">
         <div className="mx-auto max-w-5xl">
@@ -602,8 +649,8 @@ export function LandingPage() {
         <div className="mx-auto max-w-6xl">
           <SectionHeading
             eyebrow="Your library"
-            title="Everything You Save Lives Here."
-            sub="Folders, projects, collections, tags, and instant search — a knowledge library that stays beautiful as it grows."
+            title="Everything You Remember Lives Here."
+            sub="Your saved knowledge stays organized with folders, projects, collections, tags, and instant search."
           />
           <motion.div
             initial={{ opacity: 0, y: 28 }}
