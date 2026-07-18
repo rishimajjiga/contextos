@@ -28,6 +28,18 @@ class Settings(BaseSettings):
     # Database
     database_url: str = ""
 
+    @property
+    def sync_database_url(self) -> str:
+        """Synchronous-driver URL for Alembic migrations (psycopg2).
+        Strips any async driver suffix from DATABASE_URL, e.g.
+        postgresql+psycopg:// or postgresql+asyncpg:// → postgresql://."""
+        url = self.database_url
+        for driver in ("+psycopg", "+asyncpg", "+aiopg"):
+            url = url.replace(f"postgresql{driver}://", "postgresql://")
+        if url.startswith("postgres://"):   # legacy scheme some hosts emit
+            url = url.replace("postgres://", "postgresql://", 1)
+        return url
+
     # Clerk
     clerk_secret_key: str = ""
     clerk_publishable_key: str = ""
