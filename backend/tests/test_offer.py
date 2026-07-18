@@ -21,7 +21,9 @@ from app.api.v1.endpoints.billing import (
     _add_months,
     _apply_offer_if_eligible_existing,
     _offer_ineligible_cache,
+    _resume_offer_billing_if_due,
 )
+from app.services.subscription_service import handle_razorpay_subscription_charged
 from app.config import settings
 from app.models.payment import Payment
 from app.models.subscription import UserSubscription
@@ -220,3 +222,96 @@ async def test_pause_failure_records_nothing(db_session, pro_user, monkeypatch):
     assert pro_user.offer_used is False
     assert pro_user.offer_applied is False
     assert pro_user.offer_end_date is None
+
+
+# ── 6. Late webhooks must not shrink the offer window ─────────────────────────
+
+@pytest.mark.asyncio
+async def test_charged_webhook_preserves_offer_window(db_session, pro_user, monkeypatch):
+    """subscription.charged for month 1 can land AFTER the offer was applied —
+    its 1-month current_end must not clobber the 3-month access window."""
+    api = FakeSubscriptionAPI()
+    _patch_rzp(monkeypatch, api)
+    assert await _apply_offer_if_eligible_existing(db_session, TEST_USER_ID) is True
+    await db_session.refresh(pro_user)
+    offer_end = _utc(pro_user.offer_end_date)
+
+    one_month_end = int((NOW + timedelta(days=30)).timestamp())
+    payload = {"subscription": {"entity": {"id": RZP_SUB_ID, "current_end": one_month_end}}}
+    await handle_razorpay_subscription_charged(db_session, payload)
+
+    await db_session.refresh(pro_user)
+    assert _utc(pro_user.current_period_end) == offer_end   # window intact
+    assert pro_user.offer_applied is True
+
+
+@pytest.mark.asyncio
+async def test_charge_after_offer_end_clears_offer_applied(db_session, pro_user, monkeypatch):
+    """A real charge at/after the offer end means ₹499/month billing resumed —
+    the offer state must close out and the new period end must stick."""
+    api = FakeSubscriptionAPI()
+    _patch_rzp(monkeypatch, api)
+    assert await _apply_offer_if_eligible_existing(db_session, TEST_USER_ID) is True
+
+    pro_user.offer_end_date = NOW - timedelta(days=1)   # offer just ended
+    await db_session.commit()
+
+    new_end = int((NOW + timedelta(days=30)).timestamp())
+    payload = {"subscription": {"entity": {"id": RZP_SUB_ID, "current_end": new_end}}}
+    await handle_razorpay_subscription_charged(db_session, payload)
+
+    await db_session.refresh(pro_user)
+    assert pro_user.offer_applied is False
+    assert abs(_utc(pro_user.current_period_end).timestamp() - new_end) < 5
+    assert pro_user.offer_used is True                   # still never re-claimable
+
+
+# ── 7. Quick cancel-and-resubscribe (<45-day gap) is still excluded ───────────
+
+@pytest.mark.asyncio
+async def test_quick_resubscribe_excluded(db_session, pro_user, monkeypatch):
+    """A prior Pro payment under a DIFFERENT Razorpay subscription id proves an
+    earlier subscription existed — even with a small gap the 45-day heuristic
+    would miss."""
+    api = FakeSubscriptionAPI()
+    _patch_rzp(monkeypatch, api)
+
+    db_session.add(
+        Payment(
+            user_id=TEST_USER_ID,
+            payment_id="pay_prev",
+            subscription_id="sub_old",
+            amount=49900,
+            currency="INR",
+            status="captured",
+            plan_name="pro",
+            purchase_date=NOW - timedelta(days=20),   # only 10 days before pay_1
+        )
+    )
+    await db_session.commit()
+
+    assert await _apply_offer_if_eligible_existing(db_session, TEST_USER_ID) is False
+    assert api.pause_calls == []
+
+
+# ── 8. Billing actually resumes after the bonus months ────────────────────────
+
+@pytest.mark.asyncio
+async def test_offer_resume_when_due(db_session, pro_user, monkeypatch):
+    api = FakeSubscriptionAPI()
+    _patch_rzp(monkeypatch, api)
+    assert await _apply_offer_if_eligible_existing(db_session, TEST_USER_ID) is True
+
+    # Offer end is ~80 days out — resume must NOT fire early (it would
+    # schedule a charge one cycle too soon).
+    assert await _resume_offer_billing_if_due(db_session, pro_user) is False
+    assert api.resume_calls == []
+
+    # Inside the final 28-day window → resume fires and closes out the offer.
+    pro_user.offer_end_date = NOW + timedelta(days=10)
+    await db_session.commit()
+    assert await _resume_offer_billing_if_due(db_session, pro_user) is True
+    assert len(api.resume_calls) == 1
+    await db_session.refresh(pro_user)
+    assert pro_user.offer_applied is False
+    assert pro_user.offer_used is True

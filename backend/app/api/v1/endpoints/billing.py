@@ -64,6 +64,7 @@ from app.services.subscription_service import (
     handle_razorpay_subscription_activated,
     handle_razorpay_subscription_charged,
     handle_razorpay_subscription_cancelled,
+    preserve_offer_window,
 )
 
 log = structlog.get_logger()
@@ -175,6 +176,8 @@ def _apply_active_plan(sub, plan: str, *, current_end_ts=None,
         sub.started_at = started_at or now
     if current_end_ts:
         sub.current_period_end = datetime.fromtimestamp(current_end_ts, tz=timezone.utc)
+    # Recovery must never shrink an in-progress offer's 3-month access window.
+    preserve_offer_window(sub)
 
 
 async def _recover_from_razorpay(
@@ -422,6 +425,13 @@ async def _apply_offer_if_eligible_existing(db: AsyncSession, user_id: str) -> b
     ).scalars().all()
     if not pays:
         return False
+    # A captured Pro payment under a DIFFERENT Razorpay subscription id means an
+    # earlier Pro subscription existed → cancel-and-resubscribe → never eligible.
+    # (Catches quick resubscribes the 45-day gap heuristic below would miss.)
+    prior_sub_ids = {p.subscription_id for p in pays if p.subscription_id}
+    if any(sid != sub.stripe_subscription_id for sid in prior_sub_ids):
+        _offer_ineligible_cache.add(user_id)
+        return False
     for prev, nxt in zip(pays, pays[1:]):
         if (nxt.purchase_date - prev.purchase_date).days > 45:
             _offer_ineligible_cache.add(user_id)  # previously canceled → never eligible
@@ -470,6 +480,110 @@ async def _apply_offer_if_eligible_existing(db: AsyncSession, user_id: str) -> b
         subscription_id=sub.stripe_subscription_id,
     )
     return True
+
+
+def _as_utc(dt: datetime | None) -> datetime | None:
+    """Coerce a DB datetime to UTC-aware (SQLite test DB returns naive)."""
+    if dt is None:
+        return None
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
+
+async def _resume_offer_billing_if_due(db: AsyncSession, sub) -> bool:
+    """When a New Member Offer's free months are ending, resume the paused
+    Razorpay subscription so recurring ₹499/month billing restarts on the
+    original cycle date after month 3. Resuming any time within the last cycle
+    of the offer window schedules the next charge at the correct boundary
+    (Razorpay only supports resume_at="now"; the next charge lands on the next
+    scheduled cycle date, i.e. the offer end).
+
+    Returns True if the offer was closed out (resumed, or gave up).
+    Guarantees:
+    - offer_applied is cleared ONLY when Razorpay actually resumed — a
+      transient failure must never strand a paused subscription unbilled.
+    - Safety valve: 7 days past the offer end, stop retrying and flag loudly
+      for manual reconciliation.
+    """
+    now = datetime.now(timezone.utc)
+    offer_end = _as_utc(getattr(sub, "offer_end_date", None))
+    if not (
+        bool(getattr(sub, "offer_applied", False))
+        and offer_end is not None
+        and sub.stripe_subscription_id
+        and now >= offer_end - timedelta(days=28)
+    ):
+        return False
+
+    resumed = False
+    try:
+        _rzp_client().subscription.resume(
+            sub.stripe_subscription_id, {"resume_at": "now"}
+        )
+        resumed = True
+        log.info(
+            "new_member_offer_billing_resumed",
+            user_id=sub.user_id,
+            subscription_id=sub.stripe_subscription_id,
+        )
+    except Exception as exc:
+        log.warning(
+            "new_member_offer_resume_failed",
+            user_id=sub.user_id,
+            error=str(exc),
+        )
+
+    give_up = now > offer_end + timedelta(days=7)
+    if resumed or give_up:
+        if give_up and not resumed:
+            log.error(
+                "new_member_offer_resume_gave_up",
+                user_id=sub.user_id,
+                subscription_id=sub.stripe_subscription_id,
+            )
+        sub.offer_applied = False
+        await db.commit()
+        return True
+    return False
+
+
+# ── POST /billing/offer-resume-sweep — cron safety net ───────────────────────
+# The lazy resume in GET /billing/plan only runs when the user opens the app.
+# A user who pays month 1, gets 2 free months, and never opens the app again
+# would otherwise keep a paused (never-billed) Pro subscription forever. Run
+# this every few hours from the external scheduler (same X-Cron-Secret as
+# /recover-sweep) so billing ALWAYS resumes after the bonus months.
+
+@router.post("/offer-resume-sweep", include_in_schema=False)
+async def offer_resume_sweep(
+    _: bool = Depends(_require_cron),
+    db: AsyncSession = Depends(get_db),
+    limit: int = 200,
+):
+    from app.models.subscription import UserSubscription
+
+    cutoff = datetime.now(timezone.utc) + timedelta(days=28)
+    res = await db.execute(
+        select(UserSubscription)
+        .where(
+            UserSubscription.offer_applied.is_(True),
+            UserSubscription.offer_end_date.is_not(None),
+            UserSubscription.offer_end_date <= cutoff,
+            UserSubscription.stripe_subscription_id.is_not(None),
+        )
+        .limit(min(limit, 500))
+    )
+    subs = res.scalars().all()
+
+    resumed = 0
+    for s in subs:
+        try:
+            if await _resume_offer_billing_if_due(db, s):
+                resumed += 1
+        except Exception as e:
+            log.warning("offer_resume_sweep_item_failed", user_id=s.user_id, error=str(e))
+
+    log.info("offer_resume_sweep_complete", candidates=len(subs), resumed=resumed)
+    return {"ok": True, "candidates": len(subs), "resumed": resumed}
 
 
 # ── POST /billing/offer-backfill — one-time migration (admin/cron only) ──────
@@ -533,51 +647,10 @@ async def get_plan(
         except Exception as exc:
             log.warning("offer_existing_check_failed", user_id=user_id, error=str(exc))
 
-        # ── Lazy offer-billing resume (same pattern as lazy deletion) ────────
-        # When a New Member Offer's free months are ending, resume the paused
-        # Razorpay subscription so recurring billing restarts on the original
-        # cycle date after month 3. Resuming any time within the last cycle of
-        # the offer window schedules the next charge at the correct boundary.
+        # ── Lazy offer-billing resume (backed up by /offer-resume-sweep cron) ─
         try:
             sub = await get_or_create_subscription(db, user_id)
-            if (
-                bool(getattr(sub, "offer_applied", False))
-                and sub.offer_end_date is not None
-                and sub.stripe_subscription_id
-                and datetime.now(timezone.utc) >= sub.offer_end_date - timedelta(days=28)
-            ):
-                resumed = False
-                try:
-                    _rzp_client().subscription.resume(
-                        sub.stripe_subscription_id, {"resume_at": "now"}
-                    )
-                    resumed = True
-                    log.info(
-                        "new_member_offer_billing_resumed",
-                        user_id=user_id,
-                        subscription_id=sub.stripe_subscription_id,
-                    )
-                except Exception as exc:
-                    log.warning(
-                        "new_member_offer_resume_failed",
-                        user_id=user_id,
-                        error=str(exc),
-                    )
-                # Clear offer_applied only when Razorpay actually resumed —
-                # otherwise keep it set so the next plan fetch retries (a
-                # transient failure must never strand a paused subscription).
-                # Safety valve: 7 days past the offer end, stop retrying and
-                # flag loudly for manual reconciliation.
-                give_up = datetime.now(timezone.utc) > sub.offer_end_date + timedelta(days=7)
-                if resumed or give_up:
-                    if give_up and not resumed:
-                        log.error(
-                            "new_member_offer_resume_gave_up",
-                            user_id=user_id,
-                            subscription_id=sub.stripe_subscription_id,
-                        )
-                    sub.offer_applied = False
-                    await db.commit()
+            await _resume_offer_billing_if_due(db, sub)
         except Exception as exc:
             log.warning("new_member_offer_resume_check_failed", user_id=user_id, error=str(exc))
 
@@ -1402,6 +1475,24 @@ async def razorpay_webhook(
 
     elif event_type in ("subscription.cancelled", "subscription.completed", "subscription.expired"):
         await handle_razorpay_subscription_cancelled(db, event_payload)
+
+    elif event_type == "subscription.resumed":
+        # Razorpay confirms the offer's paused billing has resumed — close out
+        # the offer state so the UI stops showing the bonus as in-progress.
+        rzp_sub = event_payload.get("subscription", {}).get("entity", {})
+        sub_id = rzp_sub.get("id")
+        if sub_id:
+            from app.models.subscription import UserSubscription
+            result = await db.execute(
+                select(UserSubscription).where(
+                    UserSubscription.stripe_subscription_id == sub_id
+                )
+            )
+            sub_row = result.scalar_one_or_none()
+            if sub_row and bool(getattr(sub_row, "offer_applied", False)):
+                sub_row.offer_applied = False
+                await db.commit()
+                log.info("new_member_offer_resumed_via_webhook", user_id=sub_row.user_id)
 
     elif event_type == "payment.failed":
         # Record failed payment attempts so they show in history

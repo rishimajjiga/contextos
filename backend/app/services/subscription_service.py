@@ -39,6 +39,33 @@ PUBLIC_PLANS = ("free", "student", "pro", "team")
 GRACE_PERIOD_DAYS = 30
 
 
+def _aware(dt: Optional[datetime]) -> Optional[datetime]:
+    """Coerce a DB datetime to UTC-aware (SQLite test DB returns naive)."""
+    if dt is None:
+        return None
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
+
+def preserve_offer_window(sub) -> None:
+    """While the New Member Offer's free months are in progress, the access
+    window must end at offer_end_date — not at Razorpay's 1-month current_end.
+
+    Razorpay webhooks (subscription.activated / subscription.charged) and the
+    recovery paths all copy current_end onto current_period_end. They can land
+    AFTER /verify applied the offer, which would silently shrink the user's
+    3-month access window back to the paid month. Call this after any such
+    write to keep the offer window authoritative.
+    """
+    if not bool(getattr(sub, "offer_applied", False)):
+        return
+    offer_end = _aware(getattr(sub, "offer_end_date", None))
+    if offer_end is None:
+        return
+    cpe = _aware(sub.current_period_end)
+    if cpe is None or cpe < offer_end:
+        sub.current_period_end = offer_end
+
+
 async def get_or_create_subscription(db: AsyncSession, user_id: str) -> UserSubscription:
     """
     Returns the subscription row, creating a free-plan row on first call.
@@ -455,6 +482,9 @@ async def handle_razorpay_subscription_activated(db: AsyncSession, payload: dict
         sub.started_at = now
     if current_end_ts:
         sub.current_period_end = datetime.fromtimestamp(current_end_ts, tz=timezone.utc)
+    # Never let the webhook shrink an in-progress offer window (webhook can
+    # arrive after /verify already extended access by the 2 bonus months).
+    preserve_offer_window(sub)
     await db.commit()
 
 
@@ -474,6 +504,18 @@ async def handle_razorpay_subscription_charged(db: AsyncSession, payload: dict) 
     sub.auto_renew = True
     if current_end_ts:
         sub.current_period_end = datetime.fromtimestamp(current_end_ts, tz=timezone.utc)
+
+    now = datetime.now(timezone.utc)
+    offer_end = _aware(getattr(sub, "offer_end_date", None))
+    if bool(getattr(sub, "offer_applied", False)) and offer_end is not None:
+        if now >= offer_end:
+            # A real charge at/after the offer end means recurring ₹499/month
+            # billing has resumed — the free period is over.
+            sub.offer_applied = False
+        else:
+            # Charge webhook for month 1 racing with /verify — keep the
+            # 3-month offer access window intact.
+            preserve_offer_window(sub)
     await db.commit()
 
 
