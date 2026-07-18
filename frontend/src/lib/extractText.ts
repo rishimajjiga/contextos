@@ -41,6 +41,9 @@ declare global {
   }
 }
 
+// PDF extraction that preserves the original text flow: line breaks come from
+// pdf.js's own end-of-line markers plus vertical-position changes, and larger
+// vertical gaps become blank lines (paragraph/section breaks). No rewriting.
 async function extractPdf(buf: ArrayBuffer): Promise<string> {
   await loadScript(PDFJS_URL);
   const pdfjs = window.pdfjsLib;
@@ -51,18 +54,96 @@ async function extractPdf(buf: ArrayBuffer): Promise<string> {
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);
     const content = await page.getTextContent();
-    pages.push(content.items.map((it: any) => it.str ?? "").join(" "));
+    let text = "";
+    let lastY: number | null = null;
+    let lastHeight = 12;
+    for (const it of content.items as any[]) {
+      const str: string = it.str ?? "";
+      const y: number | null = Array.isArray(it.transform) ? it.transform[5] : null;
+      if (y !== null && lastY !== null) {
+        const gap = lastY - y; // PDF y-axis grows upward
+        if (gap > lastHeight * 1.8) {
+          text += "\n\n"; // big vertical gap → paragraph break
+        } else if (gap > lastHeight * 0.5 && !text.endsWith("\n")) {
+          text += "\n"; // normal line advance
+        }
+      }
+      text += str;
+      if (it.hasEOL && !text.endsWith("\n")) text += "\n";
+      if (y !== null) lastY = y;
+      if (typeof it.height === "number" && it.height > 0) lastHeight = it.height;
+    }
+    pages.push(text.replace(/[ \t]+\n/g, "\n").trim());
   }
   await doc.destroy?.();
   return pages.join("\n\n").trim();
 }
 
+// DOCX extraction that keeps structure: headings stay on their own lines with
+// a blank line after, bullet items keep "- " markers, numbered items keep
+// "1." numbering, paragraphs keep their gaps. Content itself is untouched.
 async function extractDocx(buf: ArrayBuffer): Promise<string> {
   await loadScript(MAMMOTH_URL);
   const mammoth = window.mammoth;
   if (!mammoth) throw new Error("Couldn't load the document reader. Please try again.");
-  const result = await mammoth.extractRawText({ arrayBuffer: buf });
-  return String(result?.value ?? "").trim();
+  const result = await mammoth.convertToHtml({ arrayBuffer: buf });
+  const html = String(result?.value ?? "");
+  if (!html.trim()) {
+    // Fallback for documents mammoth can't map to HTML
+    const raw = await mammoth.extractRawText({ arrayBuffer: buf });
+    return String(raw?.value ?? "").trim();
+  }
+  return htmlToPlainText(html);
+}
+
+// Minimal HTML → plain text preserving headings, paragraphs, lists, and line
+// breaks. No summarizing, no rewriting — tags are simply mapped to layout.
+function htmlToPlainText(html: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+
+  function walk(node: Node, listStack: { ordered: boolean; index: number }[]): string {
+    if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? "";
+    if (node.nodeType !== Node.ELEMENT_NODE) return "";
+    const el = node as Element;
+    const tag = el.tagName.toLowerCase();
+
+    const childrenOf = (n: Element, stack: typeof listStack) =>
+      Array.from(n.childNodes).map((c) => walk(c, stack)).join("");
+
+    switch (tag) {
+      case "h1": case "h2": case "h3": case "h4": case "h5": case "h6":
+      case "p":
+        return `${childrenOf(el, listStack).trim()}\n\n`;
+      case "br":
+        return "\n";
+      case "ul":
+      case "ol": {
+        const ordered = tag === "ol";
+        const stack = [...listStack, { ordered, index: 0 }];
+        const items = Array.from(el.children)
+          .filter((c) => c.tagName.toLowerCase() === "li")
+          .map((li) => {
+            stack[stack.length - 1].index += 1;
+            const indent = "  ".repeat(stack.length - 1);
+            const marker = ordered ? `${stack[stack.length - 1].index}.` : "-";
+            return `${indent}${marker} ${childrenOf(li as Element, stack).trim()}`;
+          })
+          .join("\n");
+        return `${items}\n\n`;
+      }
+      case "tr":
+        return `${Array.from(el.children).map((c) => walk(c, listStack).trim()).join("  ")}\n`;
+      case "table":
+        return `${childrenOf(el, listStack)}\n`;
+      default:
+        return childrenOf(el, listStack);
+    }
+  }
+
+  return walk(doc.body, [])
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 // Legacy binary .doc has no reliable browser parser — salvage readable runs
