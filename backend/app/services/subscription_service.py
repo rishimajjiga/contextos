@@ -287,10 +287,18 @@ async def get_plan_info(db: AsyncSession, user_id: str) -> dict:
         if elapsed_days < 30:
             offer_free_months_remaining = 2
 
-    # The user's next charge: end of the offer window while it's active,
-    # otherwise the normal period end (only when auto-renew is on).
-    if offer_active:
+    # Access-only bonus: offer window is live but no Razorpay subscription is
+    # paused to resume (offer_applied False) — e.g. a manual grant for a user
+    # whose mandate was cancelled. Billing will NOT auto-resume afterward.
+    offer_billing_resumes = bool(getattr(sub, "offer_applied", False))
+    offer_access_only = bool(offer_active and not offer_billing_resumes)
+
+    # The user's next charge: end of the offer window while it's active AND
+    # billing will resume; for an access-only grant there is no next charge.
+    if offer_active and offer_billing_resumes:
         next_payment_date = offer_end
+    elif offer_active:
+        next_payment_date = None   # access-only — user re-subscribes to continue
     elif sub.auto_renew and plan not in ("free", "founder") and sub.status == "active":
         next_payment_date = sub.current_period_end
     else:
@@ -298,7 +306,11 @@ async def get_plan_info(db: AsyncSession, user_id: str) -> dict:
 
     return {
         "plan": plan,
-        "display_name": PLAN_DISPLAY.get(plan, plan.title()),
+        # While in the free bonus window, surface "Pro (Free)" so billing reads
+        # clearly as a free period rather than a normal paid Pro month.
+        "display_name": (
+            "Pro (Free)" if offer_active else PLAN_DISPLAY.get(plan, plan.title())
+        ),
         "limits": limits,
         "status": sub.status,
         "current_period_end": sub.current_period_end.isoformat() if sub.current_period_end else None,
@@ -320,6 +332,13 @@ async def get_plan_info(db: AsyncSession, user_id: str) -> dict:
             "free_months": int(getattr(sub, "offer_free_months", 0) or 0),
             "bonus_months": int(getattr(sub, "offer_free_months", 0) or 0),
             "free_months_remaining": offer_free_months_remaining,
+            # True while the user is inside the free bonus window (drives the
+            # "Pro (Free)" badge on the billing page).
+            "is_free_period": offer_active,
+            # True when ₹499/month resumes after the bonus (normal offer);
+            # False for an access-only manual grant (mandate inactive).
+            "billing_resumes": offer_billing_resumes,
+            "access_only": offer_access_only,
         },
         "next_payment_date": next_payment_date.isoformat() if next_payment_date else None,
     }

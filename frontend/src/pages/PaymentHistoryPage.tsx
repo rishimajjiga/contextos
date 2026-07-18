@@ -62,6 +62,10 @@ function ProOfferTimeline({ plan }: { plan: PlanInfo | null }) {
   const inOffer = now < end;
   const remaining = offer.free_months_remaining;
   const endingSoon = inOffer && end.getTime() - now.getTime() < 14 * 24 * 3600 * 1000;
+  // Access-only grant (e.g. Razorpay mandate cancelled): billing does NOT
+  // auto-resume after the bonus, so the final step and next-payment line must
+  // not promise a ₹499/month charge.
+  const accessOnly = offer.access_only === true || offer.billing_resumes === false;
 
   // Free months are the two 30-day windows immediately before the offer end
   // (this stays correct for both new subscribers and backfilled existing
@@ -73,7 +77,9 @@ function ProOfferTimeline({ plan }: { plan: PlanInfo | null }) {
     { date: new Date(offer.started_at), label: "₹499 Paid", sub: "Pro activated", done: true },
     { date: free1, label: "Free month", sub: "No charge", done: now >= free1 },
     { date: free2, label: "Free month", sub: "No charge", done: now >= free2 },
-    { date: end, label: "₹499/month", sub: "Recurring billing resumes", done: now >= end },
+    accessOnly
+      ? { date: end, label: "Access ends", sub: "Re-subscribe to continue Pro", done: now >= end }
+      : { date: end, label: "₹499/month", sub: "Recurring billing resumes", done: now >= end },
   ];
 
   return (
@@ -84,7 +90,7 @@ function ProOfferTimeline({ plan }: { plan: PlanInfo | null }) {
             <Gift className="h-4 w-4 text-brand-500" /> Your Pro Plan
           </CardTitle>
           <div className="flex items-center gap-2">
-            <Badge className="text-[10px]">Active</Badge>
+            <Badge className="text-[10px]">{inOffer ? "Pro (Free)" : "Active"}</Badge>
             <Badge variant="outline" className="border-brand-400/40 text-[10px] text-brand-600">
               🎁 Pro Bonus Offer Applied
             </Badge>
@@ -102,12 +108,21 @@ function ProOfferTimeline({ plan }: { plan: PlanInfo | null }) {
           <span>
             Access valid until: <span className="font-semibold text-foreground">✓ {fmt(end)}</span>
           </span>
-          <span>
-            Next payment:{" "}
-            <span className="font-semibold text-foreground">
-              {fmt(new Date(plan.next_payment_date ?? offer.end_date))} · ₹499/month
+          {accessOnly ? (
+            <span>
+              After bonus:{" "}
+              <span className="font-semibold text-foreground">
+                Re-subscribe to continue Pro · {fmt(end)}
+              </span>
             </span>
-          </span>
+          ) : (
+            <span>
+              Next payment:{" "}
+              <span className="font-semibold text-foreground">
+                {fmt(new Date(plan.next_payment_date ?? offer.end_date))} · ₹499/month
+              </span>
+            </span>
+          )}
           {inOffer && remaining > 0 && (
             <span className="font-semibold text-brand-600">
               {remaining} free month{remaining === 1 ? "" : "s"} remaining

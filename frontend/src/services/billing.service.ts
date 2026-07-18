@@ -32,6 +32,12 @@ export interface PlanInfo {
     end_date: string | null;
     free_months: number;
     free_months_remaining: number;
+    /** True while inside the free bonus window — drives the "Pro (Free)" badge. */
+    is_free_period?: boolean;
+    /** True when ₹499/month resumes after the bonus; false for access-only grants. */
+    billing_resumes?: boolean;
+    /** True for a manual access-only grant (mandate inactive, no auto-resume). */
+    access_only?: boolean;
   };
   /** The user's next charge date (offer end while the offer is active). */
   next_payment_date?: string | null;
