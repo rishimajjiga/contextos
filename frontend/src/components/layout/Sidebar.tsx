@@ -1,11 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, User, Brain, FolderKanban, Users, Zap, Key, Settings, X, Search, Receipt } from "lucide-react";
+import { LayoutDashboard, User, Brain, FolderKanban, Users, Zap, Key, Settings, X, Search, Receipt, Contact } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePlan } from "@/hooks/usePlan";
 
 const navItems = [
   { href: "/dashboard",       label: "Dashboard",      icon: LayoutDashboard },
   { href: "/profile",         label: "Profile",        icon: User },
+  { href: "/profile-memory",  label: "Profile Memory", icon: Contact },
   { href: "/memories",        label: "Memories",       icon: Brain },
   { href: "/search",          label: "Search",         icon: Search },
   { href: "/projects",        label: "Projects",       icon: FolderKanban },

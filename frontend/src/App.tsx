@@ -18,6 +18,7 @@ const AppLayout            = lazy(() => import("@/layouts/AppLayout").then(m => 
 const AuthLayout           = lazy(() => import("@/layouts/AuthLayout").then(m => ({ default: m.AuthLayout })));
 const DashboardPage        = lazy(() => import("@/pages/DashboardPage").then(m => ({ default: m.DashboardPage })));
 const ProfilePage          = lazy(() => import("@/pages/ProfilePage").then(m => ({ default: m.ProfilePage })));
+const ProfileMemoryPage    = lazy(() => import("@/pages/ProfileMemoryPage").then(m => ({ default: m.ProfileMemoryPage })));
 const MemoriesPage         = lazy(() => import("@/pages/MemoriesPage").then(m => ({ default: m.MemoriesPage })));
 const SaveMemoryPage       = lazy(() => import("@/pages/SaveMemoryPage").then(m => ({ default: m.SaveMemoryPage })));
 const ProjectsPage         = lazy(() => import("@/pages/ProjectsPage").then(m => ({ default: m.ProjectsPage })));
@@ -150,6 +151,7 @@ export default function App() {
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
           <Route path="/dashboard"    element={<DashboardPage />} />
           <Route path="/profile"      element={<ProfilePage />} />
+          <Route path="/profile-memory" element={<ProfileMemoryPage />} />
           <Route path="/memories"     element={<MemoriesPage />} />
           <Route path="/memories/new" element={<SaveMemoryPage />} />
           <Route path="/search"       element={<SearchPage />} />
