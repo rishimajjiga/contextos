@@ -27,4 +27,9 @@ USER appuser
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --workers 1"]
+# Apply DB migrations, THEN start the app. Alembic is the single source of
+# truth for schema — the app process no longer creates tables. On a database
+# that predates Alembic tracking, run `alembic stamp head` once before the
+# first deploy of this image (see runbook) so `upgrade head` is a clean no-op
+# instead of colliding with existing tables.
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --workers 1"]

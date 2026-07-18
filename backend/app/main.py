@@ -17,7 +17,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
-from app.database import engine, Base
+from app.database import engine
 from app.api.v1 import router as v1_router
 from app.middleware.logging import LoggingMiddleware
 
@@ -49,166 +49,21 @@ async def lifespan(app: FastAPI):
     """Startup / shutdown lifecycle hook."""
     log.info("ContextOS starting", env=settings.app_env)
 
-    # Run the idempotent schema setup on every boot, including production.
-    # Alembic versions are gitignored, so they don't ship to Railway; these
-    # CREATE TABLE IF NOT EXISTS / ADD COLUMN IF NOT EXISTS statements are what
-    # keep the managed (Supabase) schema current. Skipping them in production
-    # left the prod DB missing newer columns (e.g. documents.doc_type,
-    # user_subscriptions.grace_period_end), causing 500s on /memories,
-    # /billing/plan, etc. Guard only on having a database configured.
+    # Schema is managed EXCLUSIVELY by Alembic migrations (run in the container
+    # entrypoint via `alembic upgrade head` before this app process starts —
+    # see Dockerfile). This app NEVER creates or alters tables: no
+    # Base.metadata.create_all, no CREATE TABLE / ADD COLUMN. Doing so from the
+    # ORM previously built the whole schema without ever stamping
+    # alembic_version, which made `alembic upgrade` collide with the existing
+    # `users` table (DuplicateTable). Startup here only verifies connectivity.
     if settings.database_url:
         try:
-            async with engine.begin() as conn:
-                # Create all ORM-mapped tables that don't exist yet
-                await conn.run_sync(Base.metadata.create_all)
-
-                # thread_events table (not in Base metadata — created manually)
-                await conn.execute(sa.text(
-                    "CREATE TABLE IF NOT EXISTS thread_events ("
-                    "    id VARCHAR(36) PRIMARY KEY,"
-                    "    project_id VARCHAR(36) NOT NULL REFERENCES projects(id) ON DELETE CASCADE,"
-                    "    user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,"
-                    "    event_type VARCHAR(64) NOT NULL,"
-                    "    title VARCHAR(255) NOT NULL,"
-                    "    detail TEXT NOT NULL DEFAULT '',"
-                    "    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),"
-                    "    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
-                    ")"
-                ))
-                await conn.execute(sa.text(
-                    "CREATE INDEX IF NOT EXISTS ix_thread_events_project_id "
-                    "ON thread_events (project_id)"
-                ))
-                await conn.execute(sa.text(
-                    "CREATE INDEX IF NOT EXISTS ix_thread_events_user_id "
-                    "ON thread_events (user_id)"
-                ))
-
-                # Backfill missing columns on the documents table.
-                await conn.execute(sa.text(
-                    "ALTER TABLE documents "
-                    "ADD COLUMN IF NOT EXISTS visibility VARCHAR(20) "
-                    "NOT NULL DEFAULT 'private'"
-                ))
-                await conn.execute(sa.text(
-                    "ALTER TABLE documents "
-                    "ADD COLUMN IF NOT EXISTS doc_type VARCHAR(50) "
-                    "NOT NULL DEFAULT 'note'"
-                ))
-                await conn.execute(sa.text(
-                    "ALTER TABLE documents "
-                    "ADD COLUMN IF NOT EXISTS org_id VARCHAR(36)"
-                ))
-                await conn.execute(sa.text(
-                    "CREATE INDEX IF NOT EXISTS ix_documents_org_id "
-                    "ON documents (org_id)"
-                ))
-
-                # user_subscriptions
-                await conn.execute(sa.text("""
-                    CREATE TABLE IF NOT EXISTS user_subscriptions (
-                        id VARCHAR(36) PRIMARY KEY,
-                        user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                        plan VARCHAR(32) NOT NULL DEFAULT 'free',
-                        stripe_customer_id VARCHAR(255),
-                        stripe_subscription_id VARCHAR(255),
-                        status VARCHAR(32) NOT NULL DEFAULT 'active',
-                        current_period_end TIMESTAMPTZ,
-                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                        CONSTRAINT uq_user_subscriptions_user_id UNIQUE (user_id)
-                    )
-                """))
-                await conn.execute(sa.text(
-                    "CREATE INDEX IF NOT EXISTS ix_user_subscriptions_user_id "
-                    "ON user_subscriptions (user_id)"
-                ))
-
-                # Backfill grace period columns (migration 0004)
-                await conn.execute(sa.text(
-                    "ALTER TABLE user_subscriptions "
-                    "ADD COLUMN IF NOT EXISTS grace_period_end TIMESTAMPTZ"
-                ))
-                await conn.execute(sa.text(
-                    "ALTER TABLE user_subscriptions "
-                    "ADD COLUMN IF NOT EXISTS backup_sent BOOLEAN NOT NULL DEFAULT FALSE"
-                ))
-
-                # Backfill subscription tracking columns. These were added to the
-                # ORM model later; existing prod tables lacked them, which made
-                # EVERY authenticated request 500 (get_user_id -> subscription
-                # lookup selects started_at/auto_renew).
-                await conn.execute(sa.text(
-                    "ALTER TABLE user_subscriptions "
-                    "ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ"
-                ))
-                await conn.execute(sa.text(
-                    "ALTER TABLE user_subscriptions "
-                    "ADD COLUMN IF NOT EXISTS auto_renew BOOLEAN NOT NULL DEFAULT TRUE"
-                ))
-                # trial_used (one-time Student trial guard). Without this backfill
-                # the new ORM column makes EVERY authenticated request 500, since
-                # get_user_id -> subscription lookup selects trial_used.
-                await conn.execute(sa.text(
-                    "ALTER TABLE user_subscriptions "
-                    "ADD COLUMN IF NOT EXISTS trial_used BOOLEAN NOT NULL DEFAULT FALSE"
-                ))
-                # New Member Offer columns (one-time first-Pro offer, migration 0007).
-                # Same rationale as trial_used: without the backfill, the new ORM
-                # columns would 500 every authenticated request on existing DBs.
-                await conn.execute(sa.text(
-                    "ALTER TABLE user_subscriptions "
-                    "ADD COLUMN IF NOT EXISTS offer_used BOOLEAN NOT NULL DEFAULT FALSE"
-                ))
-                await conn.execute(sa.text(
-                    "ALTER TABLE user_subscriptions "
-                    "ADD COLUMN IF NOT EXISTS offer_applied BOOLEAN NOT NULL DEFAULT FALSE"
-                ))
-                await conn.execute(sa.text(
-                    "ALTER TABLE user_subscriptions "
-                    "ADD COLUMN IF NOT EXISTS offer_started_at TIMESTAMPTZ"
-                ))
-                await conn.execute(sa.text(
-                    "ALTER TABLE user_subscriptions "
-                    "ADD COLUMN IF NOT EXISTS offer_end_date TIMESTAMPTZ"
-                ))
-                await conn.execute(sa.text(
-                    "ALTER TABLE user_subscriptions "
-                    "ADD COLUMN IF NOT EXISTS offer_free_months INTEGER NOT NULL DEFAULT 0"
-                ))
-
-                # payments table — individual Razorpay transaction records
-                await conn.execute(sa.text("""
-                    CREATE TABLE IF NOT EXISTS payments (
-                        id VARCHAR(36) PRIMARY KEY,
-                        user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                        payment_id VARCHAR(128) NOT NULL,
-                        order_id VARCHAR(128),
-                        subscription_id VARCHAR(128),
-                        amount INTEGER NOT NULL,
-                        currency VARCHAR(8) NOT NULL DEFAULT 'INR',
-                        status VARCHAR(32) NOT NULL DEFAULT 'captured',
-                        plan_name VARCHAR(32) NOT NULL DEFAULT 'pro',
-                        purchase_date TIMESTAMPTZ NOT NULL,
-                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                        CONSTRAINT uq_payments_payment_id UNIQUE (payment_id)
-                    )
-                """))
-                await conn.execute(sa.text(
-                    "CREATE INDEX IF NOT EXISTS ix_payments_user_id ON payments (user_id)"
-                ))
-                await conn.execute(sa.text(
-                    "CREATE INDEX IF NOT EXISTS ix_payments_payment_id ON payments (payment_id)"
-                ))
-                await conn.execute(sa.text(
-                    "CREATE INDEX IF NOT EXISTS ix_payments_subscription_id ON payments (subscription_id)"
-                ))
-
-            log.info("Database tables ready")
+            async with engine.connect() as conn:
+                await conn.execute(sa.text("SELECT 1"))
+            log.info("Database connection OK")
         except Exception as exc:
             log.warning(
-                "DB startup check failed — server will start anyway. "
+                "DB connectivity check failed — server will start anyway. "
                 "Check your DATABASE_URL and that Supabase is not paused.",
                 error=str(exc),
             )

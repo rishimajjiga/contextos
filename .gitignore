@@ -31,8 +31,7 @@ Thumbs.db
 htmlcov/
 .coverage
 
-# Alembic
-alembic/versions/*.py
+# Alembic — migration files ARE tracked (schema source of truth); do not ignore.
 
 *.bak
 vite.config.ts.timestamp-*.mjs
