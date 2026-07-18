@@ -90,7 +90,10 @@ class Settings(BaseSettings):
 
     # Founder accounts — comma-separated emails granted internal lifetime access.
     # Not exposed via any API; consumed only by server-side authorization.
-    founder_emails_raw: str = Field(default="majjigarishi291@gmail.com", alias="FOUNDER_EMAILS")
+    founder_emails_raw: str = Field(
+        default="majjigarishi291@gmail.com,rishimajjiga291@gmail.com",
+        alias="FOUNDER_EMAILS",
+    )
 
     @property
     def founder_emails(self) -> set[str]:
