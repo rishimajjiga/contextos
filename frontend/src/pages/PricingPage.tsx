@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth, useUser } from "@clerk/clerk-react";
 import { toast } from "sonner";
 import { usePlan } from "@/hooks/usePlan";
+import { formatLimit } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   billingService,
@@ -905,7 +906,7 @@ export function PricingPage() {
                   <p className="text-2xl font-bold text-foreground mb-2">
                     {planInfo.usage.memories.toLocaleString()}
                     <span className="text-foreground/45 text-sm font-normal ml-0.5">
-                      /{planInfo.limits.memories >= 10000 ? "∞" : planInfo.limits.memories}
+                      /{formatLimit(planInfo.limits.memories)}
                     </span>
                   </p>
                   <UsageBar used={planInfo.usage.memories} limit={planInfo.limits.memories} color="#2F9E44" />
@@ -920,7 +921,7 @@ export function PricingPage() {
                   <p className="text-2xl font-bold text-foreground mb-2">
                     {planInfo.usage.projects}
                     <span className="text-foreground/45 text-sm font-normal ml-0.5">
-                      /{planInfo.limits.projects >= 1000 ? "∞" : planInfo.limits.projects}
+                      /{formatLimit(planInfo.limits.projects)}
                     </span>
                   </p>
                   <UsageBar used={planInfo.usage.projects} limit={planInfo.limits.projects} color="#37B24D" />
@@ -933,7 +934,7 @@ export function PricingPage() {
                     <span className="text-[10px] text-foreground/50 font-semibold uppercase tracking-wide">Auto-inject</span>
                   </div>
                   <p className="text-2xl font-bold text-foreground mb-2">
-                    {planInfo.limits.daily_inject < 0 || planInfo.limits.daily_inject >= 10000 ? "∞" : planInfo.limits.daily_inject}
+                    {formatLimit(planInfo.limits.daily_inject)}
                     <span className="text-foreground/45 text-sm font-normal ml-1">/day</span>
                   </p>
                   <div className="h-1.5 rounded-full w-full" style={{ background: "linear-gradient(90deg, rgba(250,204,21,0.3), rgba(234,179,8,0.3))" }} />
