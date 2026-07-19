@@ -1,7 +1,8 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { UserButton } from "@clerk/clerk-react";
-import { Search, Bell, Menu } from "lucide-react";
+import { Search, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 
 const ROUTE_LABELS: Record<string, string> = {
   "/dashboard":   "Dashboard",
@@ -57,14 +58,9 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
           <Search className="h-4 w-4" />
         </Button>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-muted-foreground hover:text-foreground"
-          aria-label="Notifications"
-        >
-          <Bell className="h-4 w-4" />
-        </Button>
+        {/* Was an inert <Button> with a Bell icon and no handler; the bell now
+            owns its own dropdown state. Same trigger markup, same position. */}
+        <NotificationBell />
 
         <UserButton appearance={{ elements: { avatarBox: "h-7 w-7" } }} />
       </div>
