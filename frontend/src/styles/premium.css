@@ -667,3 +667,39 @@ table tbody td { color: #334155; }
 }
 
 label { color: #334155; font-weight: 500; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   MOBILE TEXT SCALE PASS (2026-07-19) — bigger, more legible type on phones.
+   Add-only, scoped to max-width: 640px (Tailwind's `sm` breakpoint) so
+   desktop/tablet are untouched. Targets the low-specificity Tailwind
+   utility classes directly, so it wins by source order alone (loaded
+   after globals.css) without !important. Bumping .text-sm to 16px also
+   fixes iOS Safari's auto-zoom-on-input-focus (triggers below 16px).
+   ════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  .text-xs {
+    font-size: 0.875rem;   /* 12px → 14px */
+    line-height: 1.25rem;  /* 20px */
+  }
+
+  .text-sm {
+    font-size: 1rem;       /* 14px → 16px — also stops iOS input zoom */
+    line-height: 1.5rem;   /* 24px */
+  }
+
+  .text-base {
+    font-size: 1.0625rem;  /* 16px → 17px */
+    line-height: 1.625rem; /* 26px */
+  }
+
+  /* Inputs/selects/textareas explicitly at 16px, belt-and-suspenders for
+     the iOS zoom fix even where a component doesn't carry .text-sm. */
+  input, textarea, select {
+    font-size: 1rem;
+  }
+
+  /* Buttons read small at 14px on a touch target — bump one step. */
+  button, a.rounded-full.whitespace-nowrap {
+    font-size: 1rem;
+  }
+}
