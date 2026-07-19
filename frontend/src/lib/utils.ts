@@ -57,3 +57,20 @@ export function getInitials(name: string): string {
     .join("")
     .toUpperCase();
 }
+
+/**
+ * Backend sentinel for "unlimited" is -1 (memories, projects, API keys,
+ * daily_inject, and any future quota field). The database/API always keep
+ * -1 — this only affects what we render. Never use this for arithmetic.
+ */
+export function formatLimit(value: number): string {
+  return value === -1 ? "∞" : String(value);
+}
+
+/**
+ * Formats a "used/limit" usage counter, converting -1 sentinels to ∞ on
+ * either side (e.g. 10/-1 → "10/∞", -1/-1 → "∞/∞").
+ */
+export function formatUsage(used: number, limit: number): string {
+  return `${formatLimit(used)}/${formatLimit(limit)}`;
+}

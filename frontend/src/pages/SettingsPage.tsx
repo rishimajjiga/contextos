@@ -10,6 +10,7 @@ import { useBubbleExtension } from "@/hooks/useBubbleExtension";
 import { billingService, openRazorpayCheckout, type PlanInfo } from "@/services/billing.service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { apiClient } from "@/services/api";
+import { formatUsage } from "@/lib/utils";
 
 function BubbleExtensionSettings() {
   const { isSupported, status, enable, disable } = useBubbleExtension();
@@ -252,7 +253,7 @@ export function SettingsPage() {
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-sm text-foreground font-medium">{label}</span>
                     <span className="text-xs text-muted-foreground">
-                      {used} / {unlimited ? "∞" : limit}
+                      {formatUsage(used, limit).replace("/", " / ")}
                     </span>
                   </div>
                   {!unlimited && (

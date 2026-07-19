@@ -7,7 +7,7 @@ import { useProjects } from "@/hooks/useProjects";
 import { useProfile } from "@/hooks/useProfile";
 import { usePlan } from "@/hooks/usePlan";
 import { useMemories } from "@/hooks/useMemories";
-import { formatRelativeTime, truncate } from "@/lib/utils";
+import { formatRelativeTime, truncate, formatLimit, formatUsage } from "@/lib/utils";
 import { apiKeyService } from "@/services/apikey.service";
 import { PageHeader } from "@/components/common/PageHeader";
 import { SkeletonCard } from "@/components/common/SkeletonCard";
@@ -81,7 +81,7 @@ function OnboardingChecklist({
               ? <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
               : <Circle className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />}
             <div className="min-w-0">
-              <p className={`text-sm font-medium ${done ? "text-muted-foreground line-through" : "text-foreground"}`}>{label}</p>
+              <p className={`text-sm font-medium ${done ? "text-muted-foreground" : "text-foreground"}`}>{label}</p>
               {!done && <p className="text-xs text-muted-foreground mt-0.5">{hint}</p>}
             </div>
             {!done && <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />}
@@ -208,11 +208,11 @@ export function DashboardPage() {
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
   // Plan-derived usage values. While the plan is still resolving (plan === null)
   // we pass "" so the UsageCard shows a skeleton instead of flashing Free limits.
-  const memValue   = plan ? `${plan.usage.memories}/${plan.limits.memories >= 10000 ? "∞" : plan.limits.memories}` : "";
-  const projValue  = plan ? `${plan.usage.projects}/${plan.limits.projects >= 1000 ? "∞" : plan.limits.projects}` : "";
-  const injectValue = plan
-    ? ((plan.limits.daily_inject < 0 || plan.limits.daily_inject >= 10000) ? "∞/day" : `${plan.limits.daily_inject}/day`)
-    : "";
+  // Backend sentinel for "unlimited" is exactly -1 — formatLimit/formatUsage
+  // render that as ∞ without touching the underlying -1 value.
+  const memValue    = plan ? formatUsage(plan.usage.memories, plan.limits.memories) : "";
+  const projValue   = plan ? formatUsage(plan.usage.projects, plan.limits.projects) : "";
+  const injectValue = plan ? `${formatLimit(plan.limits.daily_inject)}/day` : "";
 
   return (
     <div>

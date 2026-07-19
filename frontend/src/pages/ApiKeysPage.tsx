@@ -14,7 +14,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatLimit } from "@/lib/utils";
 import type { ApiKey } from "@/types";
 
 // ── Copy button with checkmark feedback ───────────────────────────────────────
@@ -256,7 +256,7 @@ export function ApiKeysPage() {
   const atLimit = keyLimit !== -1 && keys.length >= keyLimit;
   const limitMessage = plan?.plan === "student"
     ? "You have reached the API key limit for the Student Plan."
-    : `You've reached the ${keyLimit} API key limit on the ${plan?.display_name ?? "current"} plan.`;
+    : `You've reached the ${formatLimit(keyLimit)} API key limit on the ${plan?.display_name ?? "current"} plan.`;
 
   return (
     <div>

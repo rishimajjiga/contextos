@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { openRazorpayCheckout } from "@/services/billing.service";
+import { formatLimit } from "@/lib/utils";
 
 type Resource = "projects" | "memories" | "api_keys";
 
@@ -61,10 +62,10 @@ export function UpgradeModal({ resource, limit, plan, onClose }: Props) {
       <div className="bg-surface-1 border border-border rounded-2xl p-8 max-w-md w-full shadow-2xl">
         <div className="text-4xl mb-4 text-center">&#x1F9E0;</div>
         <h2 className="text-xl font-semibold text-text-primary text-center mb-2">
-          {limit}-{resourceLabel} limit reached
+          {formatLimit(limit)}-{resourceLabel} limit reached
         </h2>
         <p className="text-text-secondary text-sm text-center mb-8 leading-relaxed">
-          You have used all {limit} {resourceLabel} on the{" "}
+          You have used all {formatLimit(limit)} {resourceLabel} on the{" "}
           <span className="text-text-primary font-medium capitalize">{plan}</span> plan.{" "}
           {RESOURCE_UPGRADE_MSG[resource]}
         </p>
