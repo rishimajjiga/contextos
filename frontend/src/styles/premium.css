@@ -703,3 +703,245 @@ label { color: #334155; font-weight: 500; }
     font-size: 1rem;
   }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   MOTION PASS (2026-07-19, §§35-44) — premium animation layer.
+   Same add-only contract: no markup, color, layout, or copy changes. Every
+   rule here animates transform / opacity / box-shadow only, so the browser
+   composites on the GPU and stays at 60fps. All continuous motion sits
+   behind `prefers-reduced-motion: no-preference`, and §44 hard-stops
+   everything for users who ask for reduced motion.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── 35. Smooth scrolling + anchor offset under the fixed header ─────────── */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+html {
+  scroll-padding-top: 5.5rem; /* fixed header height + breathing room */
+}
+
+/* ── 36. Header — deeper frost + shadow once the page leaves the top ─────── */
+/* `data-scrolled` is set by useHideOnScroll in premium-motion.tsx. The
+   header itself is translated by Framer; only the visual weight is CSS. */
+.pm-header {
+  transition:
+    background-color 0.3s ease,
+    box-shadow 0.3s ease,
+    backdrop-filter 0.3s ease,
+    border-color 0.3s ease;
+  will-change: transform;
+}
+
+.pm-header[data-scrolled="true"] {
+  background-color: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: 0 1px 0 rgba(30, 41, 59, 0.04), 0 12px 32px -24px rgba(30, 41, 59, 0.35);
+}
+
+/* ── 37. Nav links — underline that grows from the centre ───────────────── */
+.pm-navlink {
+  position: relative;
+}
+
+.pm-navlink::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  height: 2px;
+  border-radius: 2px;
+  background: #2F9E44;
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pm-navlink:hover::after,
+.pm-navlink:focus-visible::after,
+.pm-navlink[aria-current="page"]::after {
+  transform: scaleX(1);
+}
+
+/* ── 38. Buttons — spring hover, real press, soft glow ──────────────────── */
+/* Overrides the flat 0.2s ease from button.tsx with a springy curve. Only
+   transform/box-shadow animate; the palette is untouched. */
+button.whitespace-nowrap,
+a.rounded-full.whitespace-nowrap {
+  transition:
+    transform 0.24s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.24s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  button.bg-brand-500:hover,
+  a.bg-brand-500:hover {
+    transform: translateY(-1px) scale(1.015);
+  }
+
+  button.whitespace-nowrap:active,
+  a.rounded-full.whitespace-nowrap:active {
+    transform: translateY(0) scale(0.97);
+    transition-duration: 0.08s;
+  }
+}
+
+/* ── 39. Ripple — pure CSS, no JS listeners, no extra DOM in components ─── */
+/* `.pm-ripple` is added to hero/CTA buttons. The pseudo-element expands from
+   the button centre on press, then resets instantly on release. */
+.pm-ripple {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.pm-ripple::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 220%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0) 62%);
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pm-ripple:active::after {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s ease;
+  }
+}
+
+/* Outline buttons ripple in brand green rather than white */
+.pm-ripple.border-border::after {
+  background: radial-gradient(circle, rgba(55, 178, 77, 0.28), rgba(55, 178, 77, 0) 62%);
+}
+
+/* ── 40. Cards — border glow that fades in with the hover lift ──────────── */
+/* The lift/tilt itself is handled by <TiltCard>; this adds the light. */
+.pm-glow-card {
+  position: relative;
+  transition:
+    box-shadow 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.32s ease;
+  will-change: transform;
+}
+
+.pm-glow-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.32s ease;
+  box-shadow:
+    inset 0 0 0 1px rgba(55, 178, 77, 0.30),
+    0 0 26px -6px rgba(55, 178, 77, 0.32);
+}
+
+.pm-glow-card:hover::before {
+  opacity: 1;
+}
+
+.pm-glow-card:hover {
+  box-shadow:
+    0 2px 6px rgba(30, 41, 59, 0.06),
+    0 18px 44px -18px rgba(30, 41, 59, 0.22);
+}
+
+/* ── 41. Icon tiles — subtle pop as the parent card is hovered ──────────── */
+.pm-icon-pop {
+  transition:
+    transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1),
+    background-color 0.25s ease;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .group:hover .pm-icon-pop {
+    transform: translateY(-2px) scale(1.06);
+  }
+}
+
+/* ── 42. Ambient background — slow gradient drift behind hero & final CTA ─ */
+@keyframes pm-glow-drift {
+  0%, 100% { transform: translate(-50%, 0) scale(1); opacity: 0.95; }
+  50%      { transform: translate(-50%, 14px) scale(1.06); opacity: 1; }
+}
+
+@keyframes pm-glow-drift-centered {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
+  50%      { transform: translate(-50%, -50%) scale(1.07); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pm-hero-glow {
+    animation: pm-glow-drift 16s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+
+  /* The final-CTA glow is centered on both axes — keep its translate intact */
+  .pm-hero-glow.-translate-y-1\/2 {
+    animation-name: pm-glow-drift-centered;
+    animation-duration: 18s;
+  }
+}
+
+/* ── 43. Library mockup — one slow ambient sheen, never a distraction ───── */
+@keyframes pm-scan {
+  0%   { transform: translateY(-100%); opacity: 0; }
+  25%  { opacity: 1; }
+  75%  { opacity: 1; }
+  100% { transform: translateY(220%); opacity: 0; }
+}
+
+.pm-scan {
+  position: relative;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pm-scan::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 34%;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(55, 178, 77, 0), rgba(55, 178, 77, 0.09), rgba(55, 178, 77, 0));
+    animation: pm-scan 7s ease-in-out infinite;
+  }
+}
+
+/* ── 44. Reduced motion — one authoritative stop switch ─────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .pm-ripple::after,
+  .pm-scan::after {
+    display: none;
+  }
+}

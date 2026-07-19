@@ -15,12 +15,14 @@ import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useHideOnScroll, EASE_OUT } from "@/components/motion/premium-motion";
 
 const MENU_ID = "site-header-mobile-menu";
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
+  const { hidden, scrolled } = useHideOnScroll();
 
   // Close the menu on route change.
   useEffect(() => {
@@ -45,22 +47,32 @@ export function SiteHeader() {
   // iOS PWA). The blurred backdrop extends under the status bar; content
   // starts below it.
   return (
-    <header className="fixed top-0 inset-x-0 z-50 border-b border-border/50 bg-surface-0/70 backdrop-blur-xl pt-safe px-safe">
+    <motion.header
+      // Hide on scroll-down, reveal on scroll-up; blur/shadow deepen once
+      // the page has left the top. Transform-only → composited, 60fps.
+      animate={{ y: hidden && !open ? "-100%" : "0%" }}
+      transition={{ duration: 0.32, ease: EASE_OUT }}
+      data-scrolled={scrolled ? "true" : "false"}
+      className="pm-header fixed top-0 inset-x-0 z-50 border-b border-border/50 bg-surface-0/70 backdrop-blur-xl pt-safe px-safe"
+    >
       <nav
         aria-label="Main"
         className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6"
       >
         {/* Logo — min-w-0 + truncate so it can never push the nav wider */}
-        <Link to="/" className="flex min-w-0 shrink items-center gap-2">
-          <img src="/logo_mark.png" alt="ContextOS" className="h-7 w-7 shrink-0 rounded-md" />
-          <span className="truncate whitespace-nowrap text-sm font-semibold">ContextOS</span>
-        </Link>
+        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={{ type: "spring", stiffness: 320, damping: 22 }}>
+          <Link to="/" className="flex min-w-0 shrink items-center gap-2">
+            <img src="/logo_mark.png" alt="ContextOS" className="h-7 w-7 shrink-0 rounded-md" />
+            <span className="truncate whitespace-nowrap text-sm font-semibold">ContextOS</span>
+          </Link>
+        </motion.div>
 
         {/* Desktop nav — unchanged from the original */}
         <div className="hidden items-center gap-4 md:flex">
           <Link
             to="/pricing"
-            className="whitespace-nowrap text-sm text-muted-foreground transition-colors hover:text-foreground"
+            aria-current={location.pathname === "/pricing" ? "page" : undefined}
+            className="pm-navlink whitespace-nowrap text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             Pricing
           </Link>
@@ -116,7 +128,10 @@ export function SiteHeader() {
             {/* Backdrop: tap outside to close */}
             <motion.div
               key="backdrop"
-              className="fixed inset-0 -z-10 bg-foreground/20 md:hidden"
+              // h/w-screen instead of inset-0: the header now carries a
+              // transform (hide-on-scroll), which makes it the containing
+              // block for fixed children. Viewport-sized units are immune.
+              className="fixed left-0 top-0 -z-10 h-screen w-screen bg-foreground/20 md:hidden"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -172,6 +187,6 @@ export function SiteHeader() {
           </>
         )}
       </AnimatePresence>
-    </header>
+    </motion.header>
   );
 }

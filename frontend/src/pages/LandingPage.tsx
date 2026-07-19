@@ -14,18 +14,18 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SiteHeader } from "@/components/layout/SiteHeader";
+import {
+  EASE_OUT, SPRING_SOFT, fadeUp, stagger, wordUp,
+  TiltCard, MouseParallax, FloatingOrbs, ScrollIndicator,
+} from "@/components/motion/premium-motion";
 
 const EXTENSION_URL = "https://chromewebstore.google.com/detail/lofknjnllpgmbhnipkcblgmeijmeobbl";
 const SUPPORT_EMAIL = "usecontextos@gmail.com";
 
-// ── Motion presets ───────────────────────────────────────────────────────────
-const fadeUp: Variants = {
-  hidden: { opacity: 0, y: 24 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } },
-};
-const stagger: Variants = {
+// ── Motion presets (shared vocabulary lives in premium-motion) ──────────────
+const headlineStagger: Variants = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.07 } },
+  show: { transition: { staggerChildren: 0.09 } },
 };
 const inView = { once: true, margin: "-70px" } as const;
 
@@ -199,8 +199,16 @@ function MemoryLibrary() {
         </div>
 
         <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
-          {LIBRARY_ITEMS.map(({ icon: Icon, title, tags }) => (
-            <div key={title} className="rounded-xl border border-[#E5E7EB] bg-white p-3 shadow-[0_1px_3px_rgba(30,41,59,0.05)] transition-shadow hover:shadow-[0_8px_20px_-8px_rgba(30,41,59,0.18)]">
+          {LIBRARY_ITEMS.map(({ icon: Icon, title, tags }, i) => (
+            <motion.div
+              key={title}
+              initial={{ opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-40px" }}
+              transition={{ duration: 0.45, delay: 0.05 * i, ease: EASE_OUT }}
+              whileHover={{ y: -3 }}
+              className="pm-glow-card rounded-xl border border-[#E5E7EB] bg-white p-3 shadow-[0_1px_3px_rgba(30,41,59,0.05)] transition-shadow hover:shadow-[0_8px_20px_-8px_rgba(30,41,59,0.18)]"
+            >
               <Icon className="mb-2 h-4 w-4 text-[#2F9E44]" />
               <p className="mb-2 text-xs font-semibold leading-snug text-[#1E293B]">{title}</p>
               <div className="flex flex-wrap gap-1">
@@ -208,7 +216,7 @@ function MemoryLibrary() {
                   <span key={t} className="rounded-full bg-[#37B24D]/10 px-2 py-0.5 text-[10px] font-medium text-[#2F9E44]">{t}</span>
                 ))}
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
@@ -407,9 +415,10 @@ export function LandingPage() {
       {/* ════ HERO ═══════════════════════════════════════════════════════ */}
       <section className="relative overflow-hidden px-6 pt-[calc(7rem+env(safe-area-inset-top,0px))] pb-20 sm:pb-28">
         <div
-          className="pointer-events-none absolute left-1/2 top-0 h-[560px] w-[900px] -translate-x-1/2 rounded-full"
+          className="pm-hero-glow pointer-events-none absolute left-1/2 top-0 h-[560px] w-[900px] -translate-x-1/2 rounded-full"
           style={{ background: "radial-gradient(closest-side, rgba(55,178,77,0.14), transparent 70%)" }}
         />
+        <FloatingOrbs />
 
         <div className="relative mx-auto grid w-full max-w-6xl items-center gap-14 lg:grid-cols-[1.1fr_0.9fr] lg:gap-12">
           <motion.div className="mx-auto max-w-2xl text-center lg:mx-0 lg:text-left" initial="hidden" animate="show" variants={stagger}>
@@ -422,17 +431,26 @@ export function LandingPage() {
             </motion.div>
 
             <motion.h1
-              variants={fadeUp}
+              variants={headlineStagger}
               className="text-balance text-[44px] font-bold leading-[1.05] tracking-tight text-[#1E293B] sm:text-[68px]"
             >
-              Your Universal{" "}
-              <span className="relative whitespace-nowrap text-[#2F9E44]">
+              <motion.span variants={wordUp} className="inline-block">Your</motion.span>{" "}
+              <motion.span variants={wordUp} className="inline-block">Universal</motion.span>{" "}
+              <motion.span variants={wordUp} className="relative inline-block whitespace-nowrap text-[#2F9E44]">
                 Second Brain
                 <svg className="absolute -bottom-1.5 left-0 w-full" viewBox="0 0 120 8" fill="none" preserveAspectRatio="none">
-                  <path d="M2 6 C30 2, 60 2, 118 5" stroke="#69DB7C" strokeWidth="3" strokeLinecap="round" />
+                  <motion.path
+                    d="M2 6 C30 2, 60 2, 118 5"
+                    stroke="#69DB7C"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    initial={{ pathLength: 0, opacity: 0 }}
+                    animate={{ pathLength: 1, opacity: 1 }}
+                    transition={{ delay: 0.85, duration: 0.7, ease: EASE_OUT }}
+                  />
                 </svg>
-              </span>
-              .
+              </motion.span>
+              <motion.span variants={wordUp} className="inline-block">.</motion.span>
             </motion.h1>
 
             <motion.p variants={fadeUp} className="mt-6 text-lg leading-relaxed text-[#64748B] sm:text-xl">
@@ -442,16 +460,16 @@ export function LandingPage() {
             </motion.p>
 
             <motion.div variants={fadeUp} className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
-              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={SPRING_SOFT}>
                 <Link to="/sign-up">
-                  <Button size="lg" className="h-12 gap-2 px-8 text-base shadow-lg shadow-brand-500/20">
+                  <Button size="lg" className="pm-ripple h-12 gap-2 px-8 text-base shadow-lg shadow-brand-500/20">
                     Start Free <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
               </motion.div>
-              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={SPRING_SOFT}>
                 <a href={EXTENSION_URL} target="_blank" rel="noopener noreferrer">
-                  <Button variant="outline" size="lg" className="h-12 gap-2 px-6 text-base">
+                  <Button variant="outline" size="lg" className="pm-ripple h-12 gap-2 px-6 text-base">
                     <Chrome className="h-4 w-4" /> Add Chrome Extension
                   </Button>
                 </a>
@@ -469,11 +487,15 @@ export function LandingPage() {
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
+            transition={{ duration: 0.7, delay: 0.1, ease: EASE_OUT }}
           >
-            <HeroFlow />
+            <MouseParallax strength={10}>
+              <HeroFlow />
+            </MouseParallax>
           </motion.div>
         </div>
+
+        <ScrollIndicator className="relative mt-14 hidden sm:flex" />
       </section>
 
       {/* ════ FIRST IMPRESSION — the pain ════════════════════════════════ */}
@@ -518,10 +540,14 @@ export function LandingPage() {
               { icon: MousePointerClick, title: "Save it to ContextOS", desc: "One click. From browser, desktop, or phone." },
               { icon: Search, title: "Find and reuse it anytime", desc: "Search once — it's there, on every device." },
             ].map(({ icon: Icon, title, desc }, i) => (
-              <motion.div key={title} variants={fadeUp} className="relative text-center">
-                <div className="relative z-10 mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#2F9E44] text-white shadow-[0_10px_26px_-8px_rgba(47,158,68,0.5)]">
+              <motion.div key={title} variants={fadeUp} className="group relative text-center">
+                <motion.div
+                  whileHover={{ scale: 1.06, rotate: -3 }}
+                  transition={SPRING_SOFT}
+                  className="relative z-10 mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#2F9E44] text-white shadow-[0_10px_26px_-8px_rgba(47,158,68,0.5)]"
+                >
                   <Icon className="h-6 w-6" />
-                </div>
+                </motion.div>
                 <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#2F9E44]">Step {i + 1}</p>
                 <h3 className="mb-2 text-2xl font-semibold text-[#1E293B]">{title}</h3>
                 <p className="mx-auto max-w-xs text-base leading-relaxed text-[#64748B]">{desc}</p>
@@ -541,12 +567,10 @@ export function LandingPage() {
           />
           <motion.div initial="hidden" whileInView="show" viewport={inView} variants={stagger} className="grid gap-5 md:grid-cols-3">
             {SAVE_METHODS.map(({ icon: Icon, title, desc, flow, examples }) => (
-              <motion.div
+              <TiltCard
                 key={title}
                 variants={fadeUp}
-                whileHover={{ y: -4 }}
-                transition={{ type: "spring", stiffness: 300, damping: 22 }}
-                className="flex flex-col rounded-2xl border border-[#E5E7EB] bg-white p-7 shadow-[0_1px_3px_rgba(30,41,59,0.05),0_12px_32px_-16px_rgba(30,41,59,0.12)]"
+                className="pm-glow-card flex flex-col rounded-2xl border border-[#E5E7EB] bg-white p-7 shadow-[0_1px_3px_rgba(30,41,59,0.05),0_12px_32px_-16px_rgba(30,41,59,0.12)]"
               >
                 <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-[#37B24D]/10">
                   <Icon className="h-5 w-5 text-[#2F9E44]" />
@@ -568,7 +592,7 @@ export function LandingPage() {
                     <span key={e} className="rounded-full bg-[#FAFCFB] px-2.5 py-1 text-[11px] font-medium text-[#64748B] ring-1 ring-[#E5E7EB]">{e}</span>
                   ))}
                 </div>
-              </motion.div>
+              </TiltCard>
             ))}
           </motion.div>
         </div>
@@ -654,10 +678,10 @@ export function LandingPage() {
             sub="Your saved knowledge stays organized with folders, projects, collections, tags, and instant search."
           />
           <motion.div
-            initial={{ opacity: 0, y: 28 }}
-            whileInView={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 28, scale: 0.985 }}
+            whileInView={{ opacity: 1, y: 0, scale: 1 }}
             viewport={inView}
-            transition={{ duration: 0.6, ease: "easeOut" }}
+            transition={{ duration: 0.7, ease: EASE_OUT }}
           >
             <MemoryLibrary />
           </motion.div>
@@ -686,10 +710,10 @@ export function LandingPage() {
               </motion.div>
             </motion.div>
             <motion.div
-              initial={{ opacity: 0, y: 28 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, y: 28, scale: 0.985 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
               viewport={inView}
-              transition={{ duration: 0.6, ease: "easeOut" }}
+              transition={{ duration: 0.7, ease: EASE_OUT }}
             >
               <ProfileIdentityCard />
             </motion.div>
@@ -703,19 +727,18 @@ export function LandingPage() {
           <SectionHeading eyebrow="What you get" title="Simple on the surface. Powerful underneath." />
           <motion.div initial="hidden" whileInView="show" viewport={inView} variants={stagger} className="grid grid-cols-2 gap-4 md:grid-cols-3">
             {BENEFITS.map(({ icon: Icon, title, desc }) => (
-              <motion.div
+              <TiltCard
                 key={title}
                 variants={fadeUp}
-                whileHover={{ y: -4 }}
-                transition={{ type: "spring", stiffness: 300, damping: 22 }}
-                className="group rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-[0_1px_3px_rgba(30,41,59,0.05)] transition-colors hover:border-[#2F9E44]/35"
+                maxTilt={3}
+                className="group pm-glow-card rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-[0_1px_3px_rgba(30,41,59,0.05)] transition-colors hover:border-[#2F9E44]/35"
               >
-                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-[#37B24D]/10 transition-colors group-hover:bg-[#37B24D]/16">
+                <div className="pm-icon-pop mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-[#37B24D]/10 transition-colors group-hover:bg-[#37B24D]/16">
                   <Icon className="h-5 w-5 text-[#2F9E44]" />
                 </div>
                 <h3 className="mb-1 text-base font-semibold text-[#1E293B]">{title}</h3>
                 <p className="text-sm leading-relaxed text-[#64748B]">{desc}</p>
-              </motion.div>
+              </TiltCard>
             ))}
           </motion.div>
         </div>
@@ -764,12 +787,12 @@ export function LandingPage() {
 
           <motion.div initial="hidden" whileInView="show" viewport={inView} variants={stagger} className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {PLANS.map(({ name, price, note, highlight, tagline }) => (
-              <motion.div
+              <TiltCard
                 key={name}
                 variants={fadeUp}
-                whileHover={{ y: -5 }}
-                transition={{ type: "spring", stiffness: 300, damping: 22 }}
-                className={`relative rounded-2xl border p-7 text-center ${
+                lift={-5}
+                maxTilt={3}
+                className={`pm-glow-card relative rounded-2xl border p-7 text-center ${
                   highlight
                     ? "border-[#2F9E44] bg-white shadow-[0_0_0_4px_rgba(55,178,77,0.15),0_20px_50px_-16px_rgba(47,158,68,0.30)]"
                     : "border-[#E5E7EB] bg-[#FAFCFB] shadow-[0_1px_3px_rgba(30,41,59,0.05)]"
@@ -784,7 +807,7 @@ export function LandingPage() {
                 <p className="mb-4 text-xs text-[#64748B]">{tagline}</p>
                 <p className="text-4xl font-bold tracking-tight text-[#1E293B]">{price}</p>
                 <p className="mt-1 text-sm text-[#64748B]">{note}</p>
-              </motion.div>
+              </TiltCard>
             ))}
           </motion.div>
 
@@ -827,7 +850,7 @@ export function LandingPage() {
       {/* ════ FINAL CTA ══════════════════════════════════════════════════ */}
       <section className="relative overflow-hidden px-6 py-20 text-center sm:py-28">
         <div
-          className="pointer-events-none absolute left-1/2 top-1/2 h-[340px] w-[680px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+          className="pm-hero-glow pointer-events-none absolute left-1/2 top-1/2 h-[340px] w-[680px] -translate-x-1/2 -translate-y-1/2 rounded-full"
           style={{ background: "radial-gradient(closest-side, rgba(55,178,77,0.15), transparent 70%)" }}
         />
         <motion.div className="relative mx-auto max-w-2xl" initial="hidden" whileInView="show" viewport={inView} variants={stagger}>
@@ -840,16 +863,16 @@ export function LandingPage() {
             Available across browsers, desktop, mobile, and AI tools.
           </motion.p>
           <motion.div variants={fadeUp} className="flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={SPRING_SOFT}>
               <Link to="/sign-up">
-                <Button size="lg" className="h-12 gap-2 px-8 text-base shadow-lg shadow-brand-500/20">
+                <Button size="lg" className="pm-ripple h-12 gap-2 px-8 text-base shadow-lg shadow-brand-500/20">
                   Start Free <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
             </motion.div>
-            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={SPRING_SOFT}>
               <a href={EXTENSION_URL} target="_blank" rel="noopener noreferrer">
-                <Button variant="outline" size="lg" className="h-12 gap-2 px-6 text-base">
+                <Button variant="outline" size="lg" className="pm-ripple h-12 gap-2 px-6 text-base">
                   <Chrome className="h-4 w-4" /> Add Chrome Extension
                 </Button>
               </a>
