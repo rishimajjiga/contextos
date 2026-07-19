@@ -557,3 +557,113 @@ select:focus-visible {
   background: rgba(55, 178, 77, 0.22);
   color: var(--premium-ink);
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   TYPOGRAPHY CONTRAST PASS (2026-07-19) — global readability upgrade.
+   Same add-only contract. Spec: headings #0F172A/700, primary text
+   #334155/500, secondary #64748B/500, placeholders #94A3B8, buttons 600,
+   table headers & card titles #0F172A/600. WCAG: #334155 = 9.7:1,
+   #64748B = 4.8:1 on white — both AA+.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── 27. Token upgrades — darker ink everywhere via shared variables ────── */
+:root {
+  --foreground: 215 25% 27%;        /* #334155 primary text */
+  --card-foreground: 215 25% 27%;
+  --popover-foreground: 215 25% 27%;
+  --muted-foreground: 215 16% 47%;  /* #64748B secondary */
+  --premium-ink: #0F172A;           /* headings / titles pick this up */
+}
+
+/* Primary text: #334155 at weight 500 (explicit font-weight utilities on
+   individual elements still win via specificity below). */
+body {
+  color: #334155;
+  font-weight: 500;
+}
+
+/* ── 28. Headings — #0F172A, decisive weights ───────────────────────────── */
+h1, h2, h3, .font-display {
+  color: #0F172A;
+  font-weight: 700;
+}
+
+h4, h5, h6 {
+  color: #0F172A;
+  font-weight: 600;
+}
+
+/* Card titles (shadcn CardTitle renders h3): 600, not 700 — keeps cards
+   light while headers stay dominant. */
+.bg-card.text-card-foreground h3,
+.glass-card h3,
+[role="dialog"] h3 {
+  font-weight: 600;
+  color: #0F172A;
+}
+
+/* ── 29. Secondary text / descriptions — #64748B at 500 ─────────────────── */
+.text-muted-foreground {
+  color: #64748B;
+}
+
+/* Bump thin secondary text to 500 without undoing intentional bolding */
+.text-muted-foreground:not(.font-semibold):not(.font-bold) {
+  font-weight: 500;
+}
+
+/* Opacity-faded foreground text → solid slate steps (no washed-out grays) */
+.text-foreground\/40, .text-foreground\/45, .text-foreground\/50,
+.text-foreground\/55, .text-foreground\/60 { color: #64748B; }
+.text-foreground\/65, .text-foreground\/70 { color: #475569; }
+.text-foreground\/80 { color: #334155; }
+
+/* ── 30. Placeholders — #94A3B8, clearly lighter than real input text ───── */
+::placeholder { color: #94A3B8; opacity: 1; }
+.placeholder\:text-muted-foreground::placeholder { color: #94A3B8; }
+input, textarea, select { color: #334155; }
+
+/* ── 31. Navigation — readable labels, confident active state ───────────── */
+.nav-item {
+  color: #334155;
+  font-weight: 500;
+}
+
+.nav-item:hover { color: #0F172A; }
+
+/* Active: keep the green tint + accent bar from §6, weight 600 */
+.nav-item.active {
+  color: #0F172A;
+  font-weight: 600;
+}
+
+/* Marketing header nav links */
+header a.text-muted-foreground,
+header .text-muted-foreground a {
+  color: #334155;
+  font-weight: 500;
+}
+
+/* ── 32. Buttons — weight 600 across variants ───────────────────────────── */
+button.font-medium, a.font-medium,
+button.whitespace-nowrap, a.rounded-full.whitespace-nowrap {
+  font-weight: 600;
+}
+
+/* ── 33. Tables — headers #0F172A/600 even where shadcn mutes them ──────── */
+table thead th,
+thead th.text-muted-foreground,
+table thead th.text-muted-foreground:not(.font-semibold):not(.font-bold) {
+  color: #0F172A;
+  font-weight: 600;
+}
+
+table tbody td { color: #334155; }
+
+/* ── 34. Overlays & forms inherit the same scale ────────────────────────── */
+[role="dialog"] p.text-muted-foreground,
+.bg-popover .text-muted-foreground {
+  color: #64748B;
+}
+
+label { color: #334155; font-weight: 500; }
