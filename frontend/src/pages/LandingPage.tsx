@@ -16,8 +16,10 @@ import { Button } from "@/components/ui/button";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import {
   EASE_OUT, SPRING_SOFT, fadeUp, stagger, wordUp,
-  TiltCard, MouseParallax, FloatingOrbs, ScrollIndicator,
+  TiltCard, MouseParallax, ScrollIndicator,
 } from "@/components/motion/premium-motion";
+import { GlassBrain } from "@/components/motion/GlassBrain";
+import { KnowledgeNetwork } from "@/components/motion/KnowledgeNetwork";
 
 const EXTENSION_URL = "https://chromewebstore.google.com/detail/lofknjnllpgmbhnipkcblgmeijmeobbl";
 const SUPPORT_EMAIL = "usecontextos@gmail.com";
@@ -418,7 +420,8 @@ export function LandingPage() {
           className="pm-hero-glow pointer-events-none absolute left-1/2 top-0 h-[560px] w-[900px] -translate-x-1/2 rounded-full"
           style={{ background: "radial-gradient(closest-side, rgba(55,178,77,0.14), transparent 70%)" }}
         />
-        <FloatingOrbs />
+        {/* Ambient knowledge network — desktop only, behind everything */}
+        <KnowledgeNetwork />
 
         <div className="relative mx-auto grid w-full max-w-6xl items-center gap-14 lg:grid-cols-[1.1fr_0.9fr] lg:gap-12">
           <motion.div className="mx-auto max-w-2xl text-center lg:mx-0 lg:text-left" initial="hidden" animate="show" variants={stagger}>
@@ -489,9 +492,15 @@ export function LandingPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1, ease: EASE_OUT }}
           >
-            <MouseParallax strength={10}>
-              <HeroFlow />
-            </MouseParallax>
+            {/* The glass brain is a decorative layer *behind* the flow card:
+                absolutely positioned + pointer-events-none, so the hero's
+                grid, spacing, and tab order are exactly as before. */}
+            <div className="relative">
+              <GlassBrain className="absolute left-1/2 top-1/2 -z-10 hidden -translate-x-1/2 -translate-y-1/2 opacity-[0.55] lg:block" />
+              <MouseParallax strength={10}>
+                <HeroFlow />
+              </MouseParallax>
+            </div>
           </motion.div>
         </div>
 
@@ -853,6 +862,7 @@ export function LandingPage() {
           className="pm-hero-glow pointer-events-none absolute left-1/2 top-1/2 h-[340px] w-[680px] -translate-x-1/2 -translate-y-1/2 rounded-full"
           style={{ background: "radial-gradient(closest-side, rgba(55,178,77,0.15), transparent 70%)" }}
         />
+        <KnowledgeNetwork nodeCount={18} opacity={0.4} />
         <motion.div className="relative mx-auto max-w-2xl" initial="hidden" whileInView="show" viewport={inView} variants={stagger}>
           <motion.h2 variants={fadeUp} className="mb-4 text-balance text-3xl font-bold tracking-tight text-[#1E293B] sm:text-[44px] sm:leading-[1.1]">
             Start Building Your Universal Second Brain Today.

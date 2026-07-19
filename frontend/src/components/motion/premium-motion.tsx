@@ -20,7 +20,9 @@ import {
 
 // ── Shared motion vocabulary ─────────────────────────────────────────────────
 export const EASE_OUT = [0.22, 1, 0.36, 1] as const; // premium decel curve
-export const SPRING_SOFT = { type: "spring", stiffness: 300, damping: 24, mass: 0.8 } as const;
+// Critically-damped: settles fast with no overshoot. Springs that bounce read
+// as "playful"; this brief calls for calm, so damping is tuned to kill wobble.
+export const SPRING_SOFT = { type: "spring", stiffness: 260, damping: 30, mass: 0.9 } as const;
 
 export const fadeUp: Variants = {
   hidden: { opacity: 0, y: 24 },
@@ -81,15 +83,15 @@ export function useHideOnScroll(threshold = 8) {
 // ── TiltCard — hover lift + slight 3D tilt, spring-smoothed ─────────────────
 type TiltCardProps = HTMLMotionProps<"div"> & { maxTilt?: number; lift?: number; children?: ReactNode };
 
-export function TiltCard({ maxTilt = 4, lift = -4, children, style, ...rest }: TiltCardProps) {
+export function TiltCard({ maxTilt = 3, lift = -5, children, style, ...rest }: TiltCardProps) {
   const reduce = useReducedMotion();
   const fine = useFinePointer();
   const enabled = fine && !reduce;
 
   const rx = useMotionValue(0);
   const ry = useMotionValue(0);
-  const srx = useSpring(rx, { stiffness: 260, damping: 20, mass: 0.6 });
-  const sry = useSpring(ry, { stiffness: 260, damping: 20, mass: 0.6 });
+  const srx = useSpring(rx, { stiffness: 220, damping: 26, mass: 0.7 });
+  const sry = useSpring(ry, { stiffness: 220, damping: 26, mass: 0.7 });
   const ref = useRef<HTMLDivElement>(null);
 
   const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -168,43 +170,8 @@ export function MouseParallax({
   );
 }
 
-// ── FloatingOrbs — ambient decorative particles (pure transform loops) ──────
-const ORBS = [
-  { size: 10, top: "14%", left: "6%", dur: 9, delay: 0, drift: 18 },
-  { size: 6, top: "26%", left: "88%", dur: 11, delay: 1.2, drift: 14 },
-  { size: 8, top: "62%", left: "10%", dur: 10, delay: 0.6, drift: 20 },
-  { size: 5, top: "74%", left: "82%", dur: 12, delay: 2, drift: 12 },
-  { size: 7, top: "8%", left: "56%", dur: 13, delay: 0.9, drift: 16 },
-  { size: 4, top: "48%", left: "94%", dur: 9.5, delay: 1.6, drift: 10 },
-];
-
-export function FloatingOrbs({ className }: { className?: string }) {
-  const reduce = useReducedMotion();
-  return (
-    <div aria-hidden="true" className={`pointer-events-none absolute inset-0 overflow-hidden ${className ?? ""}`}>
-      {ORBS.map(({ size, top, left, dur, delay, drift }, i) => (
-        <motion.span
-          key={i}
-          className="absolute rounded-full"
-          style={{
-            width: size,
-            height: size,
-            top,
-            left,
-            background: "radial-gradient(circle, rgba(55,178,77,0.35), rgba(55,178,77,0.08))",
-            filter: "blur(0.5px)",
-          }}
-          animate={
-            reduce
-              ? undefined
-              : { y: [0, -drift, 0], x: [0, drift * 0.4, 0], opacity: [0.35, 0.7, 0.35] }
-          }
-          transition={{ duration: dur, delay, repeat: Infinity, ease: "easeInOut" }}
-        />
-      ))}
-    </div>
-  );
-}
+// (FloatingOrbs was removed in the 3D pass — the canvas KnowledgeNetwork now
+//  owns ambient background depth, and running both read as visual noise.)
 
 // ── ScrollIndicator — gentle chevron pulse, fades once the user scrolls ─────
 export function ScrollIndicator({ className }: { className?: string }) {
