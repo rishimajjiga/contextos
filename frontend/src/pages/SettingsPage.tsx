@@ -46,15 +46,24 @@ function BubbleExtensionSettings() {
               A floating brain icon lets you save to and access ContextOS instantly from any app.
             </p>
           </div>
+          {/* Background is an inline style, NOT the bg-brand-500 class, on purpose: premium.css
+              targets `button.bg-brand-500` with a 2px border + heavy green glow meant for real
+              buttons, which turned this switch into a glowing blob. Inline color dodges that. */}
           <button
             type="button"
             role="switch"
             aria-checked={enabled}
             onClick={handleToggle}
-            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${enabled ? "bg-brand-500" : "bg-surface-3"}`}
+            style={{
+              backgroundColor: enabled ? "#22c55e" : "rgba(120,135,120,0.30)",
+              boxShadow: enabled
+                ? "0 1px 3px rgba(34,197,94,0.35), inset 0 1px 1px rgba(255,255,255,0.25)"
+                : "inset 0 1px 2px rgba(0,0,0,0.15)",
+            }}
+            className="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-0 p-0 transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
           >
             <span
-              className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-soft transition-transform ${enabled ? "translate-x-[22px]" : "translate-x-0.5"}`}
+              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200 ${enabled ? "translate-x-[22px]" : "translate-x-0.5"}`}
             />
           </button>
         </div>
