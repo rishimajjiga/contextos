@@ -46,24 +46,46 @@ function BubbleExtensionSettings() {
               A floating brain icon lets you save to and access ContextOS instantly from any app.
             </p>
           </div>
-          {/* Background is an inline style, NOT the bg-brand-500 class, on purpose: premium.css
-              targets `button.bg-brand-500` with a 2px border + heavy green glow meant for real
-              buttons, which turned this switch into a glowing blob. Inline color dodges that. */}
+          {/* FULLY inline-styled switch — zero Tailwind utility classes, so no premium.css rule
+              (which targets classes like button.bg-brand-500 with borders/glows meant for real
+              buttons) can ever touch it. This is what turned the toggle into a glowing green blob
+              before; an all-inline switch is immune. Clean iOS-style track + sliding thumb. */}
           <button
             type="button"
             role="switch"
             aria-checked={enabled}
+            aria-label="Toggle Floating Brain Extension"
             onClick={handleToggle}
             style={{
-              backgroundColor: enabled ? "#22c55e" : "rgba(120,135,120,0.30)",
-              boxShadow: enabled
-                ? "0 1px 3px rgba(34,197,94,0.35), inset 0 1px 1px rgba(255,255,255,0.25)"
-                : "inset 0 1px 2px rgba(0,0,0,0.15)",
+              position: "relative",
+              width: 46,
+              height: 28,
+              flexShrink: 0,
+              borderRadius: 9999,
+              border: "none",
+              padding: 0,
+              margin: 0,
+              cursor: "pointer",
+              backgroundColor: enabled ? "#22c55e" : "rgba(120,135,120,0.35)",
+              boxShadow: "inset 0 1px 2px rgba(0,0,0,0.18)",
+              transition: "background-color 0.2s ease",
+              outline: "none",
+              WebkitAppearance: "none",
+              appearance: "none",
             }}
-            className="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-0 p-0 transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
           >
             <span
-              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200 ${enabled ? "translate-x-[22px]" : "translate-x-0.5"}`}
+              style={{
+                position: "absolute",
+                top: 3,
+                left: enabled ? 21 : 3,
+                width: 22,
+                height: 22,
+                borderRadius: "50%",
+                backgroundColor: "#ffffff",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                transition: "left 0.2s ease",
+              }}
             />
           </button>
         </div>
