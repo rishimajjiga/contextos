@@ -124,10 +124,10 @@ Correction
 You can edit or update your memories and profile information directly within the Service.
 
 Deletion
-You can delete individual memories, projects, and API keys at any time. To delete your entire account and all associated data, go to Settings → Delete Account, or contact us at support@usecontextos.com.
+You can delete individual memories, projects, and API keys at any time. To delete your entire account and all associated data, go to Settings → Delete Account and confirm, or visit https://www.usecontextos.com/delete-account for instructions. Deletion is immediate; payment records are retained only where required for legal, tax, and accounting purposes. If you can no longer sign in, contact us at support@usecontextos.com.
 
 Data Export
-You can download a backup of your data from Settings → Download Backup at any time.
+You can download a copy of your data anytime from Settings → Data & Privacy → Download Your Data.
 
 Portability
 Your data export is provided in a standard format you can take with you.

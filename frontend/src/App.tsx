@@ -36,6 +36,7 @@ const PricingPage          = lazy(() => import("@/pages/PricingPage").then(m => 
 const TeamPage             = lazy(() => import("@/pages/TeamPage").then(m => ({ default: m.TeamPage })));
 const JoinPage             = lazy(() => import("@/pages/JoinPage").then(m => ({ default: m.JoinPage })));
 const PrivacyPage          = lazy(() => import("@/pages/PrivacyPage").then(m => ({ default: m.PrivacyPage })));
+const DeleteAccountPage    = lazy(() => import("@/pages/DeleteAccountPage").then(m => ({ default: m.DeleteAccountPage })));
 const PaymentHistoryPage   = lazy(() => import("@/pages/PaymentHistoryPage").then(m => ({ default: m.PaymentHistoryPage })));
 const FounderPanelPage     = lazy(() => import("@/pages/FounderPanelPage").then(m => ({ default: m.FounderPanelPage })));
 const PaymentSuccessPage   = lazy(() => import("@/pages/PaymentSuccessPage").then(m => ({ default: m.PaymentSuccessPage })));
@@ -172,6 +173,8 @@ export default function App() {
         <Route path="/plans"              element={<PricingPage />} />
         <Route path="/join/:token"        element={<JoinPage />} />
         <Route path="/privacy"            element={<PrivacyPage />} />
+        {/* Public by requirement: this URL goes in the Play Console Data Safety form */}
+        <Route path="/delete-account"     element={<DeleteAccountPage />} />
         <Route path="/context-hub"        element={<ContextHubPage />} />
         {/* Payment result pages — public so Razorpay callback_url works without auth */}
         <Route path="/payment/success"    element={<PaymentSuccessPage />} />

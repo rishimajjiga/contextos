@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { useUser } from "@clerk/clerk-react";
+import { useClerk, useUser } from "@clerk/clerk-react";
 import { toast } from "sonner";
 import { Download } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -11,6 +11,94 @@ import { billingService, openRazorpayCheckout, type PlanInfo } from "@/services/
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { apiClient } from "@/services/api";
 import { formatUsage } from "@/lib/utils";
+
+// Google Play account-deletion compliance: permanent, user-initiated, confirmed by typing
+// DELETE. Calls POST /users/me/delete (which wipes all personal data server-side and removes
+// the Clerk identity), then clears every local trace and signs out.
+function DeleteAccountSection() {
+  const { signOut } = useClerk();
+  const [expanded, setExpanded] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleDelete() {
+    if (confirmText !== "DELETE" || loading) return;
+    setLoading(true);
+    try {
+      await apiClient.post("/users/me/delete", { confirm: "DELETE" });
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch {
+        // Storage can be blocked (private mode) — sign-out below still ends the session.
+      }
+      toast.success("Your account has been permanently deleted.");
+      try {
+        await signOut();
+      } catch {
+        // The Clerk identity was just deleted server-side, so signOut can reject —
+        // the session is already dead either way.
+      }
+      window.location.href = "/";
+    } catch {
+      toast.error("Couldn't delete your account. Try again, or email support@usecontextos.com.");
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-red-600">Delete Account</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          Permanently delete your ContextOS account. All of your memories, projects, profile,
+          API keys, and connected devices are erased immediately and cannot be recovered.
+          Billing records are retained where the law requires it. Consider using
+          &ldquo;Download Your Data&rdquo; above first.
+        </p>
+        {!expanded ? (
+          <button
+            onClick={() => setExpanded(true)}
+            className="px-4 py-2 rounded-lg border border-red-500/40 text-red-600 hover:bg-red-500/10 text-sm font-medium transition-colors"
+          >
+            Delete my account…
+          </button>
+        ) : (
+          <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-4 space-y-3">
+            <p className="text-sm font-medium text-red-600">
+              This cannot be undone. Type <span className="font-mono">DELETE</span> to confirm.
+            </p>
+            <input
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder="Type DELETE"
+              autoComplete="off"
+              className="w-full max-w-xs px-3 py-2 rounded-lg border border-border bg-transparent text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-red-500/40"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={handleDelete}
+                disabled={confirmText !== "DELETE" || loading}
+                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? "Deleting…" : "Permanently delete account"}
+              </button>
+              <button
+                onClick={() => { setExpanded(false); setConfirmText(""); }}
+                disabled={loading}
+                className="px-4 py-2 rounded-lg border border-border hover:bg-surface-2 text-sm font-medium text-muted-foreground transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 function BubbleExtensionSettings() {
   const { isSupported, status, enable, disable } = useBubbleExtension();
@@ -393,6 +481,7 @@ export function SettingsPage() {
           </button>
         </CardContent>
       </Card>
+      <DeleteAccountSection />
     </div>
   );
 }
