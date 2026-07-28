@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Core -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Removed for Play readiness: CAMERA, RECORD_AUDIO, ACCESS_FINE/COARSE_LOCATION, and
+         READ/WRITE_EXTERNAL_STORAGE. None are used — the web app has no camera/mic/geolocation
+         features (verified: no getUserMedia/WebRTC/geolocation anywhere), and file upload uses
+         the document picker (no storage permission needed). Declaring these "high-risk" sensitive
+         permissions with no user-facing purpose is a Play rejection risk and forces needless Data
+         Safety disclosures, so they're gone. The WebView still gracefully DENIES any such request
+         from a page (see AppWebChromeClient). -->
+
+    <!-- Haptic feedback for the site's ContextOSNative.vibrate() bridge call. Normal
+         (install-time) permission — without it Vibrator.vibrate throws SecurityException
+         the first time a page asks for a buzz. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Push notifications -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE" />
+
+    <!-- Floating Brain overlay — special permission, granted via Settings, not a runtime dialog.
+         See WebAppBridge.isBubbleEnabled()/enableBubble(). Must be declared here or
+         Settings.canDrawOverlays() returns false even after the user grants it in Settings. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <!-- Background / foreground services.
+         DATA_SYNC   → KeepAliveService, which keeps a Live Session's realtime data connection
+                       alive while it's actively being presented.
+         SPECIAL_USE → FloatingBubbleService (the persistent overlay "brain" bubble). There is no
+                       FGS type that describes a floating assistant overlay, so per Google's Android
+                       14 guidance it uses SPECIAL_USE with a declared subtype (see the service's
+                       <property> below) — the same category chat-head style overlays fall under.
+                       This must be justified in the Play Console's Foreground Service declaration. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <application
+        android:name=".ContextOSApp"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:hardwareAccelerated="true"
+        android:usesCleartextTraffic="false"
+        android:theme="@style/Theme.ContextOS"
+        tools:targetApi="35">
+
+        <!-- Enables Google Safe Browsing for the WebView -->
+        <meta-data
+            android:name="android.webkit.WebView.EnableSafeBrowsing"
+            android:value="true" />
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:value="false" />
+
+        <activity
+            android:name=".SplashActivity"
+            android:exported="true"
+            android:theme="@style/Theme.ContextOS.Splash">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Must live on the MAIN/LAUNCHER activity, not MainActivity, per Android docs -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity>
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|uiMode"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.ContextOS">
+
+            <!-- Custom-scheme deep link: contextos://... -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="contextos" />
+            </intent-filter>
+
+            <!-- HTTPS App Links: https://www.usecontextos.com/...
+                 autoVerify deliberately OFF: with it on, Android/Chrome silently hijacks ANY
+                 navigation to this domain into the app — including mid-flight inside the Custom
+                 Tab that Google sign-in runs in. Google's OAuth screen can't render in a WebView,
+                 so it opens in a Custom Tab (its own, separate cookie jar from this app's
+                 WebView); when Clerk's post-auth redirect chain lands back on
+                 www.usecontextos.com before the handshake finishes, autoVerify grabbed that
+                 navigation into the WebView, which has none of the session cookies Clerk had
+                 just set in the Custom Tab — producing a raw "Unauthorized request" JSON screen.
+                 Without autoVerify, Chrome doesn't auto-hand-off mid-navigation, so the whole
+                 OAuth + Clerk handshake completes inside the Custom Tab undisturbed. The
+                 intent-filter itself stays so contextos://... links and explicit "Open with"
+                 choices still work — see android/README.md for the assetlinks.json context. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="www.usecontextos.com" />
+                <data android:scheme="https" android:host="usecontextos.com" />
+            </intent-filter>
+
+            <!-- Receive shared content (text/files) into ContextOS as a new document. Files
+                 (PDF/DOCX/PPTX/TXT/image) get their raw text extracted natively and saved via
+                 the existing saveMemory — see MainActivity.handleSharedContent. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+                <data android:mimeType="application/vnd.openxmlformats-officedocument.presentationml.presentation" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity>
+
+        <!-- In-app "Upload file" entry point — opens the document picker, extracts raw text,
+             saves via the existing saveMemory. No UI of its own. See FilePickerActivity. -->
+        <activity
+            android:name=".capture.file.FilePickerActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:taskAffinity="" />
+
+        <!-- Three-step Floating Brain permission onboarding — see BubbleSetupActivity -->
+        <activity
+            android:name=".bubble.BubbleSetupActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ContextOS" />
+
+        <!-- System-wide overlay bubble (SYSTEM_ALERT_WINDOW), started only from
+             WebAppBridge.enableBubble()/BubbleSetupActivity (user opt-in) or BootReceiver
+             (restoring that same opt-in after reboot) -->
+        <service
+            android:name=".bubble.FloatingBubbleService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <!-- Required for the SPECIAL_USE FGS type on Android 14+. The value is the human
+                 justification Google's review reads; it also goes in the Play Console FGS form. -->
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Persistent floating overlay (the ContextOS brain bubble) the user explicitly enables to save/recall memories over other apps." />
+        </service>
+
+        <!-- "Save to ContextOS" in the system text-selection menu of any app (ACTION_PROCESS_TEXT).
+             android:process isn't set, so it shares the main process and its EncryptedSharedPreferences. -->
+        <activity
+            android:name=".bubble.ProcessTextActivity"
+            android:exported="true"
+            android:label="Save to ContextOS"
+            android:theme="@android:style/Theme.NoDisplay"
+            android:excludeFromRecents="true"
+            android:taskAffinity="">
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <!-- "Save to Team" — the same activity via an alias, so the selection menu can show a
+             second, separate entry. Disabled by default (enabled=false); FloatingBubbleService
+             flips it on via PackageManager once the user's team plan is confirmed, since the
+             selection menu itself can't be filtered by plan. targetActivity's className ending in
+             "ProcessTextTeam" is how ProcessTextActivity tells the two entries apart. -->
+        <activity-alias
+            android:name=".bubble.ProcessTextTeam"
+            android:targetActivity=".bubble.ProcessTextActivity"
+            android:exported="true"
+            android:enabled="false"
+            android:label="Save to Team">
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- (An AccessibilityService for typing suggestions was removed before release: Google
+             Play restricts AccessibilityService to genuine accessibility use, and reading typed
+             text to surface memory suggestions is a non-accessibility use that risks rejection.
+             Text SELECTION saving stays — it uses ACTION_PROCESS_TEXT above, which has no such
+             restriction.) -->
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- Foreground service, scoped to an actively-presented Live Session (see KeepAliveService) -->
+        <service
+            android:name=".service.KeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <receiver
+            android:name=".connectivity.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+            <!-- App-update recovery: restore the bubble after a Play Store / sideload update.
+                 MY_PACKAGE_REPLACED is delivered only to this app about its own replacement, so
+                 no data scheme is needed. -->
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".fcm.ContextOSFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/brand_green" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="@string/default_notification_channel_id" />
+
+        <!-- Quick Settings tile: "Quick Open ContextOS" -->
+        <service
+            android:name=".tile.QuickOpenTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_notification"
+            android:label="@string/tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+    </application>
+</manifest>

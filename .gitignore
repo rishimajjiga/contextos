@@ -43,6 +43,5 @@ vite.config.ts.timestamp-*.mjs
 # Chrome extension build artifact
 extension.zip
 
-# Android app — not yet reviewed for what should be tracked (build/, .gradle/,
-# local.properties, debug APKs need proper exclusion first). Local-only for now.
-/android/
+# Android app is tracked; android/.gitignore excludes build outputs, keystores,
+# signing credentials, local.properties, and google-services.json.

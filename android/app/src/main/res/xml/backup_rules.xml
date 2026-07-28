@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Security: never put bearer credentials in a cloud backup.
+         - contextos_bubble_secure: the EncryptedSharedPreferences key file. Its encryption key
+           lives in the device Keystore (not backed up), so a restored copy is undecryptable
+           anyway — excluding it avoids both the leak surface and a useless restore.
+         - contextos_prefs: mirrors the ctxos_ API key in plaintext (for the extension shim).
+         On a new device the app silently re-mints the key from the Clerk session, so excluding
+         these costs nothing. WebView cookies/localStorage still back up, keeping the login
+         session across a device migration. -->
+    <exclude domain="sharedpref" path="contextos_bubble_secure.xml" />
+    <exclude domain="sharedpref" path="contextos_prefs.xml" />
+</full-backup-content>

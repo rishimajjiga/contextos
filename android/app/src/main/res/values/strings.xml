@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ContextOS</string>
+    <string name="default_notification_channel_id">contextos_default</string>
+    <string name="default_notification_channel_name">General</string>
+    <string name="live_session_channel_id">contextos_live_session</string>
+    <string name="live_session_channel_name">Live Session</string>
+    <string name="tile_label">ContextOS</string>
+    <string name="offline_title">You\'re offline</string>
+    <string name="offline_message">Check your connection. ContextOS will reconnect automatically.</string>
+    <string name="offline_retry">Retry</string>
+    <string name="offline_retrying">Retrying…</string>
+    <string name="page_error_title">Something went wrong</string>
+    <string name="page_error_message">The page didn\'t load correctly. Tap retry to try again.</string>
+    <string name="press_back_again">Press back again to exit</string>
+    <string name="permission_denied_message">Permission was denied. Some features of this page may not work.</string>
+    <string name="download_started">Download started</string>
+    <string name="download_unsupported">This download isn\'t supported. Try it from a browser.</string>
+    <string name="live_session_notification_title">Live Session is active</string>
+    <string name="live_session_notification_text">Presenting to your audience. Tap to return to ContextOS.</string>
+    <string name="action_stop">Stop</string>
+    <string name="action_open">Open</string>
+    <string name="shortcut_new_memory_short">New memory</string>
+    <string name="shortcut_new_memory_long">Save a new memory to ContextOS</string>
+    <string name="shortcut_upload_file_short">Upload file</string>
+    <string name="shortcut_upload_file_long">Extract text from a file and save it</string>
+    <string name="bubble_channel_id">contextos_bubble</string>
+    <string name="bubble_channel_name">Floating Brain</string>
+    <string name="bubble_notification_title">ContextOS is running</string>
+    <string name="bubble_notification_text">Your floating brain is ready.</string>
+    <string name="bubble_action_disable">Disable</string>
+    <!-- Reliability: battery optimization + manufacturer auto-start guidance -->
+    <string name="bubble_battery_title">Keep the floating brain always available</string>
+    <string name="bubble_battery_body">To keep your floating brain available at all times, please allow ContextOS to run without battery restrictions.</string>
+    <string name="bubble_battery_button">Allow unrestricted battery</string>
+    <string name="bubble_oem_title">One more step on this phone</string>
+    <string name="bubble_oem_button">Open app settings</string>
+    <string name="bubble_restored">Floating brain restored.</string>
+    <string name="bubble_setup_step1_title">Enable Floating Brain</string>
+    <string name="bubble_setup_step1_body">Keep ContextOS one tap away, anywhere on your phone — Chrome, YouTube, Telegram, and more.</string>
+    <string name="bubble_setup_step2_title">Allow display over other apps</string>
+    <string name="bubble_setup_step2_body">Android requires this permission for the bubble to float above other apps. You\'ll be taken to Settings — turn it on, then come back.</string>
+    <string name="bubble_setup_step3_title">You\'re all set</string>
+    <string name="bubble_setup_step3_body">The Floating Brain is ready. Drag it anywhere, and tap it to save or search your memories.</string>
+    <string name="bubble_setup_continue">Continue</string>
+    <string name="bubble_setup_open_settings">Allow permission</string>
+    <string name="bubble_setup_finish">Done</string>
+    <string name="bubble_setup_skip">Not now</string>
+</resources>

@@ -1,0 +1,26 @@
+*.iml
+.gradle/
+/local.properties
+.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+*.apk
+*.aab
+/app/release
+/app/debug
+local.keystore.jks
+# Real signing credentials — keystore.properties.example is the committed template.
+keystore.properties
+# Any release keystore, whatever it's named. Losing this file = never updating the app;
+# committing it to a public repo = anyone can sign as you. Keep it backed up PRIVATELY.
+*.keystore
+*.jks
+# Module build outputs (the bare /build above only matches the root project's).
+build/
+# Firebase config: contains the project's Android API key. Not a classic secret, but this
+# repo is public and the key is unrestricted — each developer drops in their own copy from
+# the Firebase console (Project settings > Your apps > google-services.json).
+google-services.json

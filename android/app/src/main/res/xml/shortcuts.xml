@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="new_memory"
+        android:enabled="true"
+        android:icon="@drawable/ic_notification"
+        android:shortcutShortLabel="@string/shortcut_new_memory_short"
+        android:shortcutLongLabel="@string/shortcut_new_memory_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.usecontextos.app"
+            android:targetClass="com.usecontextos.app.MainActivity"
+            android:data="contextos://open/memories/new" />
+    </shortcut>
+
+    <!-- Long-press the app icon -> "Upload file": opens the document picker, extracts raw text,
+         saves via the existing saveMemory. See FilePickerActivity. -->
+    <shortcut
+        android:shortcutId="upload_file"
+        android:enabled="true"
+        android:icon="@drawable/ic_notification"
+        android:shortcutShortLabel="@string/shortcut_upload_file_short"
+        android:shortcutLongLabel="@string/shortcut_upload_file_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.usecontextos.app"
+            android:targetClass="com.usecontextos.app.capture.file.FilePickerActivity" />
+    </shortcut>
+</shortcuts>

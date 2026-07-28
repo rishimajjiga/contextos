@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder monogram ("C") in a rounded square. Replace via
+     Android Studio > New > Image Asset once you have real brand art. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M66,34 C58,29 47,29 39,35 C29,42 26,56 33,67 C40,78 55,81 66,74 C70,71.5 73,68 75,64 L66,58 C64.5,60.5 62.5,62.5 60,64 C54,67.5 46,66 42,60 C38,54 40,46 46,42 C51,38.7 57,39 62,42 L66,34 Z" />
+</vector>

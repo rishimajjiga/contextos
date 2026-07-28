@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches the site's brand palette (frontend SignInPage Clerk theme) -->
+    <color name="brand_green">#4F9437</color>
+    <color name="brand_green_dark">#3D7529</color>
+    <color name="background_light">#FCFEFB</color>
+    <color name="surface_light">#F6FAF5</color>
+    <color name="on_background_light">#182A1B</color>
+    <color name="background_dark">#0F1610</color>
+    <color name="surface_dark">#182A1B</color>
+    <color name="on_background_dark">#E7F0E3</color>
+    <color name="status_bar_light">#FCFEFB</color>
+    <color name="status_bar_dark">#0F1610</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+</resources>
