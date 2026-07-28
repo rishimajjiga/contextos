@@ -3,6 +3,10 @@
 .env.local
 .env.*.local
 
+# Firebase Admin SDK service-account keys — real private keys, never commit.
+firebase-service-account*
+*firebase-adminsdk*.json
+
 # Python
 __pycache__/
 *.py[cod]

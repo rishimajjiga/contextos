@@ -9,11 +9,13 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import structlog
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.device_token import DeviceToken
 from app.models.founder import FounderActivityLog, ManualGrant
 from app.models.payment import Payment
+from app.models.session import AISession
 from app.models.subscription import UserSubscription
 from app.models.user import User
 from app.services.subscription_service import (
@@ -196,6 +198,13 @@ async def dashboard_stats(db: AsyncSession) -> dict:
             )
         )
     ).scalar_one()
+    trial_users = (
+        await db.execute(
+            select(func.count()).select_from(UserSubscription).where(
+                UserSubscription.status == "trialing"
+            )
+        )
+    ).scalar_one()
 
     todays_signups = (
         await db.execute(
@@ -238,8 +247,149 @@ async def dashboard_stats(db: AsyncSession) -> dict:
         "founder_users": by_plan["founder"],
         "active_subscriptions": active_subs,
         "expired_subscriptions": expired_subs,
+        "trial_users": trial_users,
         "todays_signups": todays_signups,
         "monthly_revenue": monthly_revenue_paise,
         "monthly_revenue_display": f"₹{monthly_revenue_paise / 100:,.0f}",
         "recent_payments": recent_payments,
+    }
+
+
+# ── Category user lists (clickable dashboard cards) ──────────────────────────
+
+# Category keys the dashboard cards drill into. Definitions mirror the
+# aggregate counts in dashboard_stats() EXACTLY so a card's number always
+# equals the row count of the list it opens.
+USER_CATEGORIES = (
+    "total", "free", "student", "pro", "team", "founder",
+    "active", "expired", "trial", "today",
+)
+
+USER_SORT_KEYS = ("signup_date", "last_active", "plan", "email")
+
+
+def _apply_category(stmt, category: str):
+    """Add the WHERE clauses for one dashboard category. `stmt` must already
+    have User outer-joined to UserSubscription."""
+    now = datetime.now(timezone.utc)
+    if category == "total":
+        return stmt
+    if category == "free":
+        # No subscription row counts as free — same as dashboard_stats.
+        return stmt.where(or_(
+            UserSubscription.id.is_(None), UserSubscription.plan == "free",
+        ))
+    if category in ("student", "pro", "team", "founder"):
+        return stmt.where(UserSubscription.plan == category)
+    if category == "active":
+        return stmt.where(
+            UserSubscription.plan != "free", UserSubscription.status == "active",
+        )
+    if category == "expired":
+        return stmt.where(
+            UserSubscription.status.in_(("expired", "canceled", "past_due"))
+        )
+    if category == "trial":
+        return stmt.where(UserSubscription.status == "trialing")
+    if category == "today":
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        return stmt.where(User.created_at >= today_start)
+    raise ValueError(f"Unknown user category '{category}'.")
+
+
+async def list_users_by_category(
+    db: AsyncSession, *, category: str = "total", q: str = "",
+    sort_by: str = "signup_date", sort_dir: str = "desc",
+    limit: int = 50, offset: int = 0,
+) -> dict:
+    """Users matching one dashboard category, searchable / sortable / paged.
+
+    last_active = most recent AI-tool session (sessions.last_used), falling
+    back to the user row's updated_at — the best activity signals currently
+    stored. Platforms come from active device_tokens rows for the returned
+    page only, so the main query stays a single indexed join.
+    """
+    if category not in USER_CATEGORIES:
+        raise ValueError(f"Unknown user category '{category}'.")
+    if sort_by not in USER_SORT_KEYS:
+        raise ValueError(f"Unsupported sort key '{sort_by}'.")
+
+    # Per-user last tool activity, joined as an aggregate subquery (one scan
+    # of sessions instead of a correlated subquery per row).
+    last_seen = (
+        select(AISession.user_id, func.max(AISession.last_used).label("last_used"))
+        .group_by(AISession.user_id)
+        .subquery()
+    )
+
+    plan_expr = func.coalesce(UserSubscription.plan, "free")
+    last_active_expr = func.coalesce(last_seen.c.last_used, User.updated_at)
+
+    base = (
+        select(User, UserSubscription, last_seen.c.last_used)
+        .join(UserSubscription, UserSubscription.user_id == User.id, isouter=True)
+        .join(last_seen, last_seen.c.user_id == User.id, isouter=True)
+    )
+    base = _apply_category(base, category)
+
+    term = (q or "").strip()
+    if term:
+        like = f"%{term.lower()}%"
+        base = base.where(or_(
+            func.lower(User.email).like(like),
+            func.lower(User.name).like(like),
+            User.id == term,
+        ))
+
+    count_stmt = select(func.count()).select_from(base.subquery())
+    total = (await db.execute(count_stmt)).scalar_one()
+
+    order_col = {
+        "signup_date": User.created_at,
+        "last_active": last_active_expr,
+        "plan": plan_expr,
+        "email": func.lower(User.email),
+    }[sort_by]
+    ordered = base.order_by(
+        order_col.asc() if sort_dir == "asc" else order_col.desc(),
+        User.created_at.desc(),  # stable tie-break so pagination never skips rows
+    )
+
+    limit = max(1, min(limit, 200))
+    offset = max(0, offset)
+    rows = (await db.execute(ordered.limit(limit).offset(offset))).all()
+
+    # Platforms for just this page of users — one IN query, merged in Python.
+    user_ids = [u.id for u, _s, _la in rows]
+    platforms: dict[str, list[str]] = {}
+    if user_ids:
+        tok_rows = (
+            await db.execute(
+                select(DeviceToken.user_id, DeviceToken.platform)
+                .where(DeviceToken.user_id.in_(user_ids), DeviceToken.active.is_(True))
+                .distinct()
+            )
+        ).all()
+        for uid, platform in tok_rows:
+            platforms.setdefault(uid, []).append(platform)
+
+    users = []
+    for u, s, last_used in rows:
+        last_active = _aware(last_used) or _aware(u.updated_at)
+        users.append({
+            "user_id": u.id,
+            "email": u.email,
+            "name": u.name,
+            "plan": (s.plan if s else "free"),
+            "status": (s.status if s else "active"),
+            "signup_date": u.created_at.isoformat(),
+            "last_active": last_active.isoformat() if last_active else None,
+            "expiry": (s.current_period_end.isoformat() if s and s.current_period_end else None),
+            "platforms": sorted(platforms.get(u.id, [])),
+        })
+
+    return {
+        "category": category, "q": term, "sort_by": sort_by,
+        "sort_dir": "asc" if sort_dir == "asc" else "desc",
+        "total": total, "limit": limit, "offset": offset, "users": users,
     }

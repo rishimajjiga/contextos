@@ -17,6 +17,7 @@ from .endpoints.threads import router as threads_router
 from .endpoints.memories import router as memories_router
 from .endpoints.search import router as search_router
 from .endpoints.inbox import router as inbox_router
+from .endpoints.devices import router as devices_router
 
 log = structlog.get_logger()
 
@@ -53,6 +54,7 @@ router.include_router(organizations_router, prefix="/organizations", tags=["orga
 router.include_router(memories_router,      prefix="/memories",      tags=["memories"])
 router.include_router(search_router,        prefix="/search",        tags=["search"])
 router.include_router(inbox_router,         prefix="/inbox",         tags=["inbox"])
+router.include_router(devices_router,       prefix="/devices",       tags=["devices"])
 
 if _has_founder and founder_router is not None:
     router.include_router(founder_router,   prefix="/founder",       tags=["founder"])

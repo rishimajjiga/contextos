@@ -3,12 +3,15 @@ app/api/v1/endpoints/founder.py
 Founder Panel API. EVERY route depends on require_founder → 403 for non-founders.
 Reuses subscription/billing/founder services; no pricing or rule changes.
 """
+import csv
+import io
 import json
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import AsyncIterator, Optional
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -72,6 +75,87 @@ async def search_users(
             for u, s in rows
         ]
     }
+
+
+@router.get("/users/list")
+async def list_users(
+    category: str = "total",
+    q: str = "",
+    sort_by: str = "signup_date",
+    sort_dir: str = "desc",
+    limit: int = 50,
+    offset: int = 0,
+    founder_id: str = Depends(require_founder),
+    db: AsyncSession = Depends(get_db),
+):
+    """All users behind one dashboard card (total|free|student|pro|team|founder|
+    active|expired|trial|today), searchable by email/name, sortable, paginated.
+    Founder-only, like every route in this module."""
+    try:
+        return await fs.list_users_by_category(
+            db, category=category, q=q, sort_by=sort_by, sort_dir=sort_dir,
+            limit=limit, offset=offset,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+def _csv_cell(value) -> str:
+    """Neutralize spreadsheet formula injection in untrusted text cells."""
+    s = "" if value is None else str(value)
+    return f"'{s}" if s[:1] in ("=", "+", "-", "@") else s
+
+
+@router.get("/users/export")
+async def export_users(
+    category: str = "total",
+    q: str = "",
+    sort_by: str = "signup_date",
+    sort_dir: str = "desc",
+    founder_id: str = Depends(require_founder),
+    db: AsyncSession = Depends(get_db),
+):
+    """Stream ALL users matching the current category + search as CSV.
+    Pages through the same query as /users/list (200 rows at a time) so a
+    large export never loads the whole table into memory."""
+    if category not in fs.USER_CATEGORIES:
+        raise HTTPException(status_code=400, detail=f"Unknown user category '{category}'.")
+    if sort_by not in fs.USER_SORT_KEYS:
+        raise HTTPException(status_code=400, detail=f"Unsupported sort key '{sort_by}'.")
+
+    async def rows() -> AsyncIterator[str]:
+        buf = io.StringIO()
+        writer = csv.writer(buf, lineterminator="\r\n")
+        writer.writerow([
+            "User ID", "Email", "Full Name", "Plan", "Status",
+            "Signup Date", "Last Active", "Subscription Expiry", "Platforms",
+        ])
+        offset = 0
+        while True:
+            page = await fs.list_users_by_category(
+                db, category=category, q=q, sort_by=sort_by, sort_dir=sort_dir,
+                limit=200, offset=offset,
+            )
+            for u in page["users"]:
+                writer.writerow([
+                    u["user_id"], _csv_cell(u["email"]), _csv_cell(u["name"]),
+                    u["plan"], u["status"], u["signup_date"],
+                    u["last_active"] or "", u["expiry"] or "",
+                    "/".join(u["platforms"]),
+                ])
+            yield buf.getvalue()
+            buf.seek(0)
+            buf.truncate(0)
+            offset += 200
+            if offset >= page["total"] or not page["users"]:
+                break
+
+    filename = f"users_{category}_{datetime.now(timezone.utc):%Y-%m-%d}.csv"
+    log.info("founder_export_users", founder=founder_id, category=category, q=q)
+    return StreamingResponse(
+        rows(), media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/users/{user_id}")
@@ -236,6 +320,7 @@ class NotificationRequest(BaseModel):
 @router.post("/notifications")
 async def create_notification(
     body: NotificationRequest,
+    background: BackgroundTasks,
     founder_id: str = Depends(require_founder),
     db: AsyncSession = Depends(get_db),
 ):
@@ -255,15 +340,33 @@ async def create_notification(
     )
     db.add(n)
     await db.flush()
+    notification_id = n.id
     email = await founder_email(db, founder_id)
     await fs.log_action(
         db, actor_user_id=founder_id, actor_email=email, action="send_notification",
-        reason=body.type, details={"notification_id": n.id, "audience": body.audience,
+        reason=body.type, details={"notification_id": notification_id, "audience": body.audience,
                                    "delivery": body.delivery, "title": body.title},
         commit=False,
     )
     await db.commit()
-    return {"ok": True, "notification_id": n.id, "status": status}
+
+    # Mobile push: fan a "sent now" notification out to matching devices AFTER the
+    # response returns (its own DB session, best-effort — see push_service). Scheduled
+    # and draft notifications aren't pushed here; they surface via the in-app inbox and
+    # can be pushed when actually sent. Push is a no-op if FCM isn't configured.
+    if status == "sent":
+        from app.services import push_service
+        background.add_task(
+            push_service.send_notification_push,
+            title=body.title,
+            message=body.message,
+            ntype=body.type,
+            audience=body.audience,
+            target_user_ids=list(body.target_user_ids or []),
+            notification_id=notification_id,
+        )
+
+    return {"ok": True, "notification_id": notification_id, "status": status}
 
 
 @router.get("/notifications")

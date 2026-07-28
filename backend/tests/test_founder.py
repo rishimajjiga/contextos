@@ -134,4 +134,125 @@ async def test_dashboard_counts(db_session, founder, normal_user):
     stats = await fs.dashboard_stats(db_session)
     assert stats["total_users"] >= 2
     assert stats["free_users"] >= 1
+    assert "trial_users" in stats
     assert "monthly_revenue" in stats and "recent_payments" in stats
+
+
+# ── Category user lists (clickable dashboard cards) ───────────────────────────
+
+@pytest_asyncio.fixture
+async def seeded_users(db_session, founder):
+    """Founder (no sub row → free) + five users across every plan/status the
+    dashboard cards drill into."""
+    def mk(uid, email, name, plan=None, status="active", period_end=None):
+        db_session.add(User(id=uid, clerk_id=f"ck_{uid}", email=email, name=name))
+        if plan is not None:
+            db_session.add(UserSubscription(
+                user_id=uid, plan=plan, status=status, current_period_end=period_end,
+            ))
+
+    mk("u-alice", "alice@example.com", "Alice Free", plan="free")
+    mk("u-bob", "bob@example.com", "Bob Student", plan="student", status="trialing",
+       period_end=NOW + timedelta(days=20))
+    mk("u-carol", "carol@example.com", "Carol Pro", plan="pro",
+       period_end=NOW + timedelta(days=30))
+    mk("u-dave", "dave@example.com", "Dave Team", plan="team",
+       period_end=NOW + timedelta(days=300))
+    mk("u-eve", "eve@example.com", "Eve Expired", plan="pro", status="expired",
+       period_end=NOW - timedelta(days=5))
+    await db_session.commit()
+
+
+@pytest.mark.asyncio
+async def test_list_users_category_counts_match_dashboard(db_session, seeded_users):
+    stats = await fs.dashboard_stats(db_session)
+    for category, stat_key in (
+        ("total", "total_users"), ("free", "free_users"),
+        ("student", "student_users"), ("pro", "pro_users"),
+        ("team", "team_users"), ("active", "active_subscriptions"),
+        ("expired", "expired_subscriptions"), ("trial", "trial_users"),
+        ("today", "todays_signups"),
+    ):
+        out = await fs.list_users_by_category(db_session, category=category)
+        assert out["total"] == stats[stat_key], (
+            f"card '{category}' shows {stats[stat_key]} but its list has {out['total']}"
+        )
+    # Sanity on the seeded shape itself.
+    assert (await fs.list_users_by_category(db_session, category="total"))["total"] == 6
+    assert (await fs.list_users_by_category(db_session, category="free"))["total"] == 2
+    trial = await fs.list_users_by_category(db_session, category="trial")
+    assert [u["email"] for u in trial["users"]] == ["bob@example.com"]
+
+
+@pytest.mark.asyncio
+async def test_list_users_search_and_pagination(db_session, seeded_users):
+    out = await fs.list_users_by_category(db_session, category="total", q="alice")
+    assert out["total"] == 1 and out["users"][0]["name"] == "Alice Free"
+
+    # Search matches name too, and stays inside the category.
+    out = await fs.list_users_by_category(db_session, category="pro", q="expired")
+    assert out["total"] == 1 and out["users"][0]["email"] == "eve@example.com"
+
+    page1 = await fs.list_users_by_category(db_session, category="total", limit=4, offset=0)
+    page2 = await fs.list_users_by_category(db_session, category="total", limit=4, offset=4)
+    assert page1["total"] == page2["total"] == 6
+    assert len(page1["users"]) == 4 and len(page2["users"]) == 2
+    ids = {u["user_id"] for u in page1["users"]} | {u["user_id"] for u in page2["users"]}
+    assert len(ids) == 6  # no row skipped or duplicated across pages
+
+
+@pytest.mark.asyncio
+async def test_list_users_sorting(db_session, seeded_users):
+    by_plan = await fs.list_users_by_category(db_session, category="total",
+                                              sort_by="plan", sort_dir="asc")
+    plans = [u["plan"] for u in by_plan["users"]]
+    assert plans == sorted(plans)
+    assert plans[0] == "free"   # users without a sub row sort as 'free'
+
+    by_email = await fs.list_users_by_category(db_session, category="total",
+                                               sort_by="email", sort_dir="asc")
+    assert by_email["users"][0]["email"] == "alice@example.com"
+
+    by_last_active = await fs.list_users_by_category(db_session, category="total",
+                                                     sort_by="last_active", sort_dir="desc")
+    assert by_last_active["total"] == 6
+    assert all(u["last_active"] for u in by_last_active["users"])
+
+
+@pytest.mark.asyncio
+async def test_list_users_rejects_bad_input(db_session, seeded_users):
+    with pytest.raises(ValueError):
+        await fs.list_users_by_category(db_session, category="hackers")
+    with pytest.raises(ValueError):
+        await fs.list_users_by_category(db_session, sort_by="email; DROP TABLE users")
+
+
+@pytest.mark.asyncio
+async def test_list_endpoint_founder_only(client, db_session, monkeypatch):
+    """The signed-in user is NOT a founder → list and export must both 403."""
+    monkeypatch.setattr(settings, "founder_emails_raw", FOUNDER_EMAIL, raising=False)
+    db_session.add(User(id=TEST_USER_ID, clerk_id="ck_x", email=NORMAL_EMAIL, name="Norm"))
+    await db_session.commit()
+    assert (await client.get("/api/v1/founder/users/list")).status_code == 403
+    assert (await client.get("/api/v1/founder/users/export")).status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_list_and_export_endpoints_for_founder(client, seeded_users):
+    resp = await client.get("/api/v1/founder/users/list", params={"category": "trial"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 1 and body["users"][0]["email"] == "bob@example.com"
+    assert {"user_id", "email", "name", "plan", "status", "signup_date",
+            "last_active", "expiry", "platforms"} <= set(body["users"][0])
+
+    resp = await client.get("/api/v1/founder/users/list", params={"category": "nope"})
+    assert resp.status_code == 400
+
+    resp = await client.get("/api/v1/founder/users/export", params={"category": "total"})
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/csv")
+    text = resp.text
+    assert "Email" in text.splitlines()[0]
+    assert "alice@example.com" in text
+    assert len([l for l in text.splitlines() if l.strip()]) == 7  # header + 6 users

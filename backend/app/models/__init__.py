@@ -15,6 +15,7 @@ from .founder import (
     FounderActivityLog, ManualGrant, Notification, NotificationRead,
     AnnouncementBanner, SupportTicket,
 )
+from .device_token import DeviceToken
 
 __all__ = [
     "User", "Profile", "Project", "Document", "AISession", "ApiKey",
@@ -22,4 +23,5 @@ __all__ = [
     "ThreadEvent", "Payment",
     "FounderActivityLog", "ManualGrant", "Notification", "NotificationRead",
     "AnnouncementBanner", "SupportTicket",
+    "DeviceToken",
 ]

@@ -21,14 +21,16 @@ class UserSubscription(Base, UUIDMixin, TimestampMixin):
     )
 
     # Plan: "free" | "pro" | "team" | "student" | "founder"
-    plan: Mapped[str] = mapped_column(String(32), nullable=False, default="free")
+    # Indexed — the founder dashboard filters/counts thousands of users by plan.
+    plan: Mapped[str] = mapped_column(String(32), nullable=False, default="free", index=True)
 
     # Stripe IDs — null until the user subscribes
     stripe_customer_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
     stripe_subscription_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
 
     # "active" | "canceled" | "past_due" | "trialing" | "expired"
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    # Indexed — expired/trial/active dashboard drill-downs filter on status.
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active", index=True)
 
     # When the current billing period ends (null for free forever)
     current_period_end: Mapped[Optional[datetime]] = mapped_column(

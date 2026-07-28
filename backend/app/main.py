@@ -68,6 +68,11 @@ async def lifespan(app: FastAPI):
                 error=str(exc),
             )
 
+    # Push (FCM): report configuration state in every deploy's logs — logs one
+    # of fcm_initialized / fcm_init_failed / fcm_not_configured.
+    from app.services import push_service
+    await push_service.startup_report()
+
     yield
 
     log.info("ContextOS shutting down")

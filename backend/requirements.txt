@@ -34,6 +34,11 @@ structlog==24.2.0
 # PDF generation (Download Your Data export)
 reportlab==4.2.2
 
+# Push notifications (Firebase Cloud Messaging)
+# <7: firebase-admin 7.x requires httpx>=0.28, which conflicts with the
+# supabase 2.5.x stack (httpx<0.28). 6.x has no httpx dependency at all.
+firebase-admin>=6.5.0,<7
+
 # Testing
 pytest==8.2.2
 pytest-asyncio==0.23.7

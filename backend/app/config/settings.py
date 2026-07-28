@@ -97,6 +97,12 @@ class Settings(BaseSettings):
     # Cron
     cron_secret: str = ""
 
+    # Firebase Cloud Messaging (push notifications)
+    # Either provide a path to the service-account JSON file …
+    firebase_service_account_path: str = ""
+    # … or paste the entire JSON as a single-line env var (Railway / Render / Fly).
+    firebase_service_account_json: str = ""
+
     # Rate limiting
     rate_limit_per_minute: int = 60
 
