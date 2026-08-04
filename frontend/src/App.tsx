@@ -1,6 +1,6 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Routes, Route, Navigate, useSearchParams } from "react-router-dom";
-import { useAuth } from "@clerk/clerk-react";
+import { useAuth, useClerk } from "@clerk/clerk-react";
 
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { ErrorAlert } from "@/components/common/ErrorAlert";
@@ -97,10 +97,79 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Set by the Android app on the sign-in URL it opens in a Custom Tab (see
+// AppWebViewClient.openInCustomTab). Means: "do not resolve this sign-in against
+// whatever session this browser already has — make the user choose an account."
+const FORCE_REAUTH_PARAM = "force_reauth";
+
+// Timestamp of the last force-reauth sign-out attempt in this tab. sessionStorage,
+// not a ref: signOut() navigates, so the component remounts and any in-memory guard
+// is lost exactly when it is needed.
+const FORCE_REAUTH_ATTEMPTED_KEY = "ctxos_force_reauth_attempted_at";
+
+// A timestamp rather than a boolean so the guard expires on its own. The two failure
+// modes it sits between are both real:
+//  - Clearing the mark as soon as the session looks gone re-arms the sign-out, so a
+//    Clerk session that re-hydrates (revoke request dropped, local state cleared
+//    anyway) would sign out -> redirect -> re-hydrate -> sign out… forever, in a
+//    Custom Tab the user can only escape by killing Chrome.
+//  - Never clearing it means the SECOND sign-out/sign-in cycle in a reused Chrome tab
+//    silently skips the sign-out and the stale-session bug comes back.
+// A cooldown fixes both: a loop retriggers within milliseconds and is blocked, while a
+// genuine new sign-in is always far later — the user has to complete Google in between.
+const FORCE_REAUTH_COOLDOWN_MS = 15_000;
+
+function forceReauthAttemptedRecently(): boolean {
+  try {
+    const at = Number(sessionStorage.getItem(FORCE_REAUTH_ATTEMPTED_KEY)) || 0;
+    return at > 0 && Date.now() - at < FORCE_REAUTH_COOLDOWN_MS;
+  } catch {
+    // Storage blocked (private mode) — report "not attempted" so the sign-out still
+    // runs. The render guard below is what actually prevents a loop in that case.
+    return false;
+  }
+}
+
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { isLoaded, isSignedIn } = useAuth();
+  const { signOut } = useClerk();
   const timedOut = useAuthLoadTimedOut(isLoaded);
   const [params] = useSearchParams();
+
+  const forceReauth = params.get(FORCE_REAUTH_PARAM) === "1";
+  const signingOut = useRef(false);
+
+  // Read once at mount, BEFORE the effect below can write it, so the render pass
+  // can distinguish "sign-out about to run" from "sign-out already ran and the
+  // session outlived it".
+  const [reauthAlreadyAttempted] = useState(forceReauthAttemptedRecently);
+
+  // The app's WebView and the Custom Tab are separate browsers with separate cookie
+  // jars, so signing out inside the app cannot clear the ContextOS session cookie
+  // Chrome kept from the previous sign-in. Without this, that stale session made the
+  // isSignedIn branch below fire, SignInPage never rendered, and useNativeHandoff
+  // handed the OLD account back to the app without Google ever being contacted.
+  //
+  // signOut() ends only THIS site's session in this browser. Google's own cookies on
+  // accounts.google.com are untouched — the user stays signed into Google in Chrome,
+  // and the chooser appears because SignInPage passes oidcPrompt: "select_account".
+  useEffect(() => {
+    if (!forceReauth || !isLoaded || !isSignedIn) return;
+    if (signingOut.current || reauthAlreadyAttempted) return;
+    signingOut.current = true;
+    try {
+      sessionStorage.setItem(FORCE_REAUTH_ATTEMPTED_KEY, String(Date.now()));
+    } catch {
+      // Storage blocked (private mode). The render guard below still prevents a loop,
+      // because a signOut that leaves the session live lands on the same URL with
+      // isSignedIn true and falls through to the sign-in UI rather than redirecting.
+    }
+    // redirectUrl overrides <ClerkProvider afterSignOutUrl="/">, which would otherwise
+    // strand the Custom Tab on the landing page and silently abandon the sign-in the
+    // app asked for. Coming back to this same URL re-enters this component with no
+    // session, which is the state that renders the account picker.
+    void signOut({ redirectUrl: window.location.pathname + window.location.search });
+  }, [forceReauth, isLoaded, isSignedIn, signOut, reauthAlreadyAttempted]);
 
   // Must run unconditionally, before the isSignedIn branch below can bail out
   // to <Navigate> — if the Custom Tab this loaded in already has a valid Clerk
@@ -108,17 +177,36 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   // unlike the app's own WebView), SignInPage's body never renders at all, so
   // marking the handoff there (its previous location) silently never ran.
   useEffect(() => {
+    if (!isLoaded) return;
+    // Under force_reauth, hold this back until the stale session is actually gone.
+    // useNativeHandoff (mounted at the app root) fires the instant this flag is set
+    // while ANY session exists — setting it early is precisely how the signed-out
+    // account got minted into a ticket and handed back to the app.
+    if (forceReauth && isSignedIn) return;
     const raw = params.get("redirect_url") || "";
     if (raw === "/native-callback") markNativeHandoffPending();
-  }, [params]);
+  }, [params, forceReauth, isLoaded, isSignedIn]);
 
   if (!isLoaded) return timedOut ? <AuthLoadTimeoutScreen /> : <FullScreenLoader />;
   if (isSignedIn) {
-    // Honour ?redirect_url= so invite links (/join/:token) resume after auth
-    // instead of always bouncing to the dashboard.
-    const raw = params.get("redirect_url") || "";
-    const dest = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/dashboard";
-    return <Navigate to={dest} replace />;
+    if (forceReauth) {
+      // The app explicitly asked for a fresh account choice, so never resolve this
+      // against the session already in this browser.
+      // - Sign-out pending/in flight: show the loader rather than flashing a sign-in
+      //   form that is about to be replaced by the redirect.
+      // - Sign-out already attempted and the session survived (revoke request dropped):
+      //   fall through to the sign-in UI. Redirecting here instead would reload into
+      //   this same branch forever — an unbreakable loop in a Custom Tab the user can
+      //   only escape by killing Chrome. Letting them pick an account is both safe and
+      //   correct; Clerk swaps the active session when they do.
+      if (!reauthAlreadyAttempted) return <FullScreenLoader />;
+    } else {
+      // Honour ?redirect_url= so invite links (/join/:token) resume after auth
+      // instead of always bouncing to the dashboard.
+      const raw = params.get("redirect_url") || "";
+      const dest = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/dashboard";
+      return <Navigate to={dest} replace />;
+    }
   }
   return <>{children}</>;
 }

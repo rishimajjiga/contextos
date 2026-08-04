@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { SignIn, useSignIn } from "@clerk/clerk-react";
 import { useSearchParams } from "react-router-dom";
+import { markNativeHandoffPending } from "@/hooks/useNativeHandoff";
 
 // The prebuilt <SignIn/> component's social buttons don't expose Google's
 // "prompt" parameter, so they can't force the account chooser to appear —
@@ -21,6 +22,14 @@ function NativeGoogleSignInButton({ redirectUrlComplete }: { redirectUrlComplete
     if (!isLoaded || starting) return;
     setStarting(true);
     try {
+      // Belt-and-braces alongside PublicRoute's own marking (see App.tsx). PublicRoute
+      // deliberately withholds the flag while a session is still present under
+      // force_reauth, so that a stale browser session can't be minted into a ticket and
+      // handed back to the app. If its sign-out ever fails, that leaves the flag unset —
+      // and this tap is the unambiguous signal that the user is signing in FROM the app,
+      // at which point the flag is safe to set: authenticateWithRedirect is about to
+      // replace whatever session existed. Idempotent, so the normal path is unaffected.
+      markNativeHandoffPending();
       await signIn.authenticateWithRedirect({
         strategy: "oauth_google",
         redirectUrl: "/native-oauth-callback",
